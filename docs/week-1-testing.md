@@ -7,7 +7,7 @@ These checks remain open unless explicitly marked with an observation. They are 
 ## Already observed
 
 - Josh reported successfully submitting a lineup and seeing Week 1 projections.
-- Build 16 was installed/launched on Josh's phone. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse.
+- Build 0.4.0 (17) is installed/launched on Josh's phone. Josh reported the My Team screen looked good; its detailed update timer was then simplified. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse. Full schedule comparison remains unchecked below.
 - Core, app-model and native UI checks passed as described in [current status](current-status.md). Four synthetic managers completed two accelerated weeks; those are not actual Week 1 results.
 
 ## Before kickoff
@@ -77,7 +77,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 Do not invite the league until P0 [release gates](roadmap.md) are complete: live Week 1 evidence, intended-write verification, regression/manual usability checks, production MFL registration/exact User-Agent, Apple signing/TestFlight/privacy/review setup, safe support/security reporting and Josh's go-ahead. Unsupported formats must be clearly excluded from the release scope with a usable MFL fallback.
 
-My Team, initial read-only player detail and fantasy schedules are included in the 0.4.0 candidate and need the live comparisons above. Full player history, native FCFS/IR/taxi management, notifications, widgets and Live Activities remain unavailable and must not be advertised as implemented.
+My Team, initial read-only player detail and fantasy schedules are included in the 0.4.0 private build and need the live comparisons above. Full player history, native FCFS/IR/taxi management, notifications, widgets and Live Activities remain unavailable and must not be advertised as implemented.
 
 ## Record findings safely
 
