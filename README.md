@@ -16,6 +16,7 @@ The current build includes:
 - a tap- and swipe-accessible lineup editor with same-position replacement pickers, lock, injury, deadline, projection, validation, review, and receipt states;
 - an ordered conditional-FAAB queue with search, useful sorting, bid/drop editing, budget checks, reordering, and explicit full-queue confirmation;
 - division and overall standings that preserve MFL's official ordering;
+- league team artwork in scores, matchup details, and standings, with initials as an offline/missing-image fallback;
 - the existing MFL message board presented as readable native threads, with compose and reply flows;
 - a no-account interactive preview for Champion Hall;
 - one foreground-only scoreboard/detail poller, foreground refresh, and official completed-week result reconciliation;

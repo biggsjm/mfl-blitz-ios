@@ -84,6 +84,14 @@ These values explain the app's conditional queue and flexible position-count val
 11. Redact passwords, cookies, bid amounts, and message bodies from logs and diagnostics.
 12. Keep unsupported league configurations read-only with an explicit handoff to the MFL web report.
 
+## Franchise artwork
+
+Version 0.2.5 uses the league export's `icon` and `logo` URLs in score cards, matchup headers, and standings. Prefer the compact icon, then try the logo, then retain the team's initials. Preserve returned paths exactly: this league still references artwork stored under older seasons and league IDs. Only credential-free HTTPS URLs on the default HTTPS port are eligible; HTTP images are skipped without an ATS exception.
+
+Artwork loads independently from league data through an ephemeral, cookieless, credential-free session. Redirects and authentication challenges (other than normal TLS trust validation) are rejected. Responses must be successful images and are capped at 2 MiB while streaming. ImageIO creates a maximum-256-pixel thumbnail; GIFs use a still first frame. Concurrent marks share requests, decoded artwork is reused from a bounded memory cache for up to 15 minutes, and failures have a 60-second retry cooldown. No image failure blocks account restoration, scores, or lineup editing. The offline preview retains local initials and makes no artwork requests.
+
+Read-only verification against the public league export successfully downloaded and decoded artwork for all 12 franchises with this native loader. Regression tests cover JPEG/PNG/GIF decoding, downsampling, safe URL selection, cookie isolation, caching, failed-image fallback, and artwork mapping into live/completed matchups and official standings.
+
 ## Platform constraints
 
 MFL expressly forbids browser JavaScript from outside its domains and does not provide permissive CORS. Native `URLSession` is unaffected, which is another reason to remain a genuine native client.

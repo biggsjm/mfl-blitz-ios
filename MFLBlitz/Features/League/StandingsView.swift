@@ -142,7 +142,7 @@ private struct StandingTeamRow: View {
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .frame(width: 20, alignment: .trailing)
-            TeamMark(abbreviation: row.abbreviation, seed: row.accentSeed, size: 36)
+            TeamMark(abbreviation: row.abbreviation, seed: row.accentSeed, size: 36, artworkURLs: row.artworkURLs)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {
                     Text(row.name)

@@ -795,7 +795,8 @@ actor LiveMFLRepository: LeagueRepository {
                 pointsAgainst: item.pointsAgainst?.doubleValue ?? 0,
                 streak: item.streak ?? "—",
                 isUser: item.id == workspace.franchiseID,
-                accentSeed: Int(item.id) ?? index
+                accentSeed: Int(item.id) ?? index,
+                artworkURLs: TeamArtworkURLPolicy.candidates(icon: franchise?.iconURL, logo: franchise?.logoURL)
             )
         }
     }
@@ -963,7 +964,8 @@ actor LiveMFLRepository: LeagueRepository {
             accentSeed: Int(value.franchiseID) ?? 0,
             starters: players.filter { $0.lineupStatus == .starter },
             bench: players.filter { $0.lineupStatus == .bench },
-            unclassifiedPlayers: players.filter { $0.lineupStatus == .unknown }
+            unclassifiedPlayers: players.filter { $0.lineupStatus == .unknown },
+            artworkURLs: TeamArtworkURLPolicy.candidates(icon: franchise?.iconURL, logo: franchise?.logoURL)
         )
     }
 

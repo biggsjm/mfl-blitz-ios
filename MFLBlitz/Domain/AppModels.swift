@@ -55,6 +55,7 @@ struct MatchupTeam: Identifiable, Equatable, Sendable {
     var starters: [MatchupPlayer] = []
     var bench: [MatchupPlayer] = []
     var unclassifiedPlayers: [MatchupPlayer] = []
+    var artworkURLs: [URL] = []
 
     var players: [MatchupPlayer] { starters + bench + unclassifiedPlayers }
 }
@@ -277,6 +278,7 @@ struct StandingRow: Identifiable, Equatable, Sendable {
     var streak: String
     var isUser: Bool
     var accentSeed: Int
+    var artworkURLs: [URL] = []
 }
 
 struct BoardThread: Identifiable, Equatable, Sendable {

@@ -54,6 +54,9 @@ struct TeamMark: View {
     let abbreviation: String
     let seed: Int
     var size: CGFloat = 44
+    var artworkURLs: [URL] = []
+    @State private var artwork: CGImage?
+    @State private var loadedURLs: [URL] = []
 
     private var color: Color {
         let colors: [Color] = [.blitzSky, .purple, .orange, .teal, .indigo, .pink, .mint]
@@ -62,17 +65,31 @@ struct TeamMark: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: size * 0.31, style: .continuous)
-                .fill(color.gradient)
-            Text(abbreviation.prefix(3).uppercased())
-                .font(.system(size: size * 0.28, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
-                .minimumScaleFactor(0.65)
-                .lineLimit(1)
-                .padding(4)
+            if let artwork, loadedURLs == artworkURLs {
+                Color.white
+                Image(decorative: artwork, scale: 1, orientation: .up)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Rectangle().fill(color.gradient)
+                Text(abbreviation.prefix(3).uppercased())
+                    .font(.system(size: size * 0.28, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .minimumScaleFactor(0.65)
+                    .lineLimit(1)
+                    .padding(4)
+            }
         }
         .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.31, style: .continuous))
         .accessibilityHidden(true)
+        .task(id: artworkURLs) {
+            let urls = artworkURLs
+            let image = await TeamArtworkLoader.shared.image(for: urls)
+            guard !Task.isCancelled else { return }
+            loadedURLs = urls
+            artwork = image
+        }
     }
 }
 

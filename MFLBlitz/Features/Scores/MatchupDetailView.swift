@@ -356,7 +356,7 @@ private struct MatchupHeaderTeam: View {
 
     var body: some View {
         VStack(spacing: 7) {
-            TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 48)
+            TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 48, artworkURLs: team.artworkURLs)
             Text(team.name)
                 .font(.subheadline.weight(.semibold))
                 .multilineTextAlignment(.center)

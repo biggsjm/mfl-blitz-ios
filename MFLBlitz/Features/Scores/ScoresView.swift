@@ -258,7 +258,7 @@ private struct FeaturedTeam: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 48)
+            TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 48, artworkURLs: team.artworkURLs)
             Text(team.name)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(2)
@@ -351,7 +351,7 @@ private struct CompactTeamRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 36)
+            TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 36, artworkURLs: team.artworkURLs)
             VStack(alignment: .leading, spacing: 2) {
                 Text(team.name)
                     .font(.subheadline.weight(isLeader ? .bold : .medium))

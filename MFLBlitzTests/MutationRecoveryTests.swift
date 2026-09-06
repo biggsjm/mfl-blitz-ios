@@ -67,8 +67,11 @@ actor MutationFixtureTransport: MFLHTTPTransport {
             return try response(["league": ["id": "41333", "name": "Fixture League", "baseURL": "https://www45.myfantasyleague.com",
                 "startWeek": "1", "precision": "2", "bbidConditional": "Yes", "currentWaiverType": "BBID_FCFS",
                 "maxWaiverRounds": "8", "bbidMinimum": "1", "bbidIncrement": "1", "bbidSeasonLimit": "100",
-                "franchises": ["franchise": [["id": "0001", "name": "Fixture One", "bbidAvailableBalance": "100"],
-                                              ["id": "0002", "name": "Fixture Two"]]]]])
+                "franchises": ["franchise": [["id": "0001", "name": "Fixture One", "bbidAvailableBalance": "100",
+                    "icon": "https://images.example.com/2015/team-one.png", "logo": "https://images.example.com/team-one.jpg"],
+                    ["id": "0002", "name": "Fixture Two", "icon": "http://images.example.com/insecure.gif"]]]]])
+        case "leagueStandings":
+            return try response(["leagueStandings": ["franchise": [["id": "0002", "h2hw": "1"], ["id": "0001", "h2hw": "0"]]]])
         case "freeAgents":
             return try response(["freeAgents": ["leagueUnit": ["unit": "LEAGUE", "player": [["id": "101"], ["id": "102"]]]]])
         case "players":
@@ -113,6 +116,21 @@ actor MutationFixtureTransport: MFLHTTPTransport {
 }
 
 struct MutationRecoveryTests {
+    @Test("Live and completed matchups and official standings carry each franchise's safe artwork")
+    func franchiseArtwork() async throws {
+        let repository = try await connected(MutationFixtureTransport())
+        let expected = [URL(string: "https://images.example.com/2015/team-one.png")!, URL(string: "https://images.example.com/team-one.jpg")!]
+        for week in [1, 2] {
+            let scores = try await repository.refreshScores(week: week)
+            #expect(scores.matchups.first?.away.artworkURLs == expected)
+            #expect(scores.matchups.first?.home.artworkURLs.isEmpty == true)
+        }
+        let standings = try await repository.loadStandings()
+        #expect(standings.map(\.id) == ["0002", "0001"])
+        #expect(standings.first?.artworkURLs.isEmpty == true)
+        #expect(standings.last?.artworkURLs == expected)
+    }
+
     @Test("Week 1 projections populate lineup, matchup totals and waiver candidates despite MFL's blank placeholder")
     func projections() async throws {
         let repository = try await connected(MutationFixtureTransport())

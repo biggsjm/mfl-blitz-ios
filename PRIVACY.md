@@ -11,8 +11,9 @@ MFL Blitz is an independent, open-source iOS client for MyFantasyLeague. It has 
 - The MFL session value is stored in this device’s Keychain, accessible while unlocked and not synchronized to iCloud Keychain or migrated to another device. It is used to reconnect after app termination; your password is never saved.
 - League information requested from MFL can include rosters, scores, standings, pending waiver bids, and message-board content. Version 0.1 uses only an in-memory response cache.
 - Lineup drafts, queued waiver edits, board drafts, and an unconfirmed-post marker are stored in the same device-only Keychain, scoped to season, league, and franchise. The marker prevents an interrupted send from being automatically repeated after relaunch.
+- Team icons and logos use the HTTPS artwork URLs supplied by your league. Images may be hosted by MFL or an external website. Artwork requests use a separate session that sends no account cookie or credentials, accepts no image-host cookies, and has no disk cache. Small, static thumbnails are cached only in memory.
 
-No MFL account or league data is sent to the developer or to an MFL Blitz server. Apple and MyFantasyLeague may process network or platform data under their own policies.
+No MFL account or league data is sent to the developer or to an MFL Blitz server. Apple and MyFantasyLeague may process network or platform data under their own policies. Artwork hosts also receive your IP address and the requested image URL under their own policies; they do not receive your MFL sign-in or other league API responses.
 
 ## Sharing and tracking
 
