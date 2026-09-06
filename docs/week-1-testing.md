@@ -32,3 +32,9 @@ Week 2 distribution is a separate step: production MFL API-client registration/U
 ## Implementation evidence
 
 The test suites cover current-week decoding, completed-result reads, authenticated session restoration, team-scoped draft recovery, refresh conflicts, all-bid cancellation, partial round saves, stale-baseline rejection, timeout-after-save reconciliation, restart-safe unconfirmed replies, and rejecting another owner’s matching post. Live scoring timing and actual league processing still require the checks above.
+
+## Same-position replacements — 0.2.3 (5)
+
+Tap a starter's down arrow (or swipe → Replace) to open a native replacement sheet. It lists only eligible bench players at that exact position, sorted by projection with unpublished values last. Locked players and IR players are excluded. Cancel leaves the lineup unchanged; selecting a replacement makes one atomic draft swap and preserves the number of starters and position counts. Nothing is submitted until Review & submit. If the incoming player was the bench tiebreaker, choose a new bench tiebreaker before submitting. Bench up arrows still allow filling an incomplete lineup.
+
+Regression coverage includes QB/RB/WR/TE filtering, canceled/empty selection, lock/IR checks, keeping players with missing projections selectable, stale week/account/refresh/conflict rejection, draft persistence without a server write, and an iPhone UI test that opens, cancels, and completes a QB swap.

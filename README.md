@@ -13,7 +13,7 @@ This is a private Week 1 testing build with a tested MFL API foundation. The app
 The current build includes:
 
 - a scores-first game-day dashboard with the user's matchup featured and tappable position-by-position live scoring for every matchup;
-- a tap- and swipe-accessible lineup editor with lock, injury, deadline, projection, validation, review, and receipt states;
+- a tap- and swipe-accessible lineup editor with same-position replacement pickers, lock, injury, deadline, projection, validation, review, and receipt states;
 - an ordered conditional-FAAB queue with search, useful sorting, bid/drop editing, budget checks, reordering, and explicit full-queue confirmation;
 - division and overall standings that preserve MFL's official ordering;
 - the existing MFL message board presented as readable native threads, with compose and reply flows;

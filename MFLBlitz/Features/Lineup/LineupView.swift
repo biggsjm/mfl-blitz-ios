@@ -3,6 +3,7 @@ import SwiftUI
 struct LineupView: View {
     @Environment(AppModel.self) private var model
     @State private var showingSubmitConfirmation = false
+    @State private var replacementRequest: AppModel.LineupReplacementRequest?
 
     var body: some View {
         List {
@@ -71,11 +72,11 @@ struct LineupView: View {
                     ForEach(model.lineup.starters) { player in
                         LineupPlayerRow(
                             player: player,
-                            actionTitle: "Bench",
+                            actionTitle: "Replace",
                             actionIcon: "arrow.down.circle.fill",
-                            isEditable: model.canEditLineup
+                            isEditable: model.canChangeLineupDraft
                         ) {
-                            withAnimation(.snappy) { model.toggleStarter(player.id) }
+                            replacementRequest = model.replacementRequest(for: player.id)
                         }
                     }
                 } header: {
@@ -93,7 +94,7 @@ struct LineupView: View {
                             player: player,
                             actionTitle: "Start",
                             actionIcon: "arrow.up.circle.fill",
-                            isEditable: model.canEditLineup
+                            isEditable: model.canChangeLineupDraft
                         ) {
                             withAnimation(.snappy) { model.toggleStarter(player.id) }
                         }
@@ -110,7 +111,7 @@ struct LineupView: View {
                                 Text("\(player.name) · \(player.position)").tag(player.id)
                             }
                         }
-                        .disabled(!model.canEditLineup)
+                        .disabled(!model.canChangeLineupDraft)
                     } header: {
                         Text("Tiebreaker")
                     } footer: {
@@ -138,6 +139,11 @@ struct LineupView: View {
             }
         }
         .refreshable { await model.refreshAll() }
+        .sheet(item: $replacementRequest) { request in
+            LineupReplacementPicker(request: request)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
         .confirmationDialog(
             "Submit Week \(model.lineup.week) lineup?",
             isPresented: $showingSubmitConfirmation,
@@ -207,6 +213,86 @@ struct LineupView: View {
         return message
     }
 
+}
+
+private struct LineupReplacementPicker: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let request: AppModel.LineupReplacementRequest
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    HStack(spacing: 12) {
+                        PositionBadge(position: request.starter.position)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(request.starter.name).font(.headline)
+                            Text("Currently starting · Week \(request.week)")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                Section {
+                    if model.isLoadingLineup {
+                        ProgressView("Updating eligible players…")
+                    } else if candidates.isEmpty {
+                        Text("No eligible \(request.starter.position) replacements")
+                            .font(.headline)
+                        Text("There are no available same-position bench players, or this lineup has changed. No swap was made.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    } else {
+                        ForEach(candidates) { player in
+                            Button {
+                                if model.replaceStarter(request, with: player.id) { dismiss() }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(player.name).font(.body.weight(.semibold))
+                                            .foregroundStyle(.primary)
+                                        HStack(spacing: 6) {
+                                            Text("\(player.position) · \(player.nflTeam)")
+                                            if let injury = player.injuryStatus {
+                                                Text(injury.rawValue).foregroundStyle(.orange)
+                                            }
+                                        }
+                                        .font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    Spacer(minLength: 8)
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        Text(player.projectedPoints.pointsText)
+                                            .font(.body.bold().monospacedDigit()).foregroundStyle(.primary)
+                                        Text("proj").font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                    Image(systemName: "arrow.up.circle.fill")
+                                        .font(.title3).foregroundStyle(Color.blitzGreen)
+                                }
+                                .frame(minHeight: 48)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Replace \(request.starter.name) with \(player.name), \(player.position), \(player.nflTeam), projected \(player.projectedPoints.pointsText) points\(player.injuryStatus.map { ", \($0.label)" } ?? "")")
+                            .accessibilityHint("Swaps the players in your draft. Review and submit to save to MFL.")
+                            .accessibilityIdentifier("lineup-replacement-\(player.id)")
+                        }
+                    }
+                } header: {
+                    Text("Bench · \(request.starter.position)")
+                } footer: {
+                    Text("Only eligible same-position bench players are shown, highest projection first. Choose a replacement, then review and submit your lineup to save to MFL.")
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Replace \(request.starter.position)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            }
+        }
+    }
+
+    private var candidates: [LineupPlayer] { model.replacementCandidates(for: request) }
 }
 
 private struct LineupSummaryCard: View {
@@ -338,12 +424,12 @@ private struct LineupPlayerRow: View {
                 Label(actionTitle, systemImage: actionIcon)
             }
             .tint(actionTitle == "Start" ? .green : .orange)
-            .disabled(player.isLocked || !isEditable)
+            .disabled(!actionIsAvailable)
         }
     }
 
     private var actionIsAvailable: Bool {
-        isEditable && !player.isLocked
+        isEditable && !player.isLocked && player.injuryStatus != .injuredReserve
     }
 
     private var actionColor: Color {
@@ -357,6 +443,10 @@ private struct LineupPlayerRow: View {
         }
         if !isEditable {
             return "Lineup changes are unavailable"
+        }
+        if player.injuryStatus == .injuredReserve { return "Move this player off injured reserve on MFL first" }
+        if actionTitle == "Replace" {
+            return "Shows eligible \(player.position) bench players. Choosing one swaps both players in your draft."
         }
         let destination = actionTitle == "Start" ? "starting lineup" : "bench"
         return "Moves this player to the \(destination). Review and submit to send the change to MFL."

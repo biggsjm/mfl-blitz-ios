@@ -100,7 +100,7 @@ final class MFLBlitzUITests: XCTestCase {
     }
 
     @MainActor
-    func testLineupRowsExposeDirectStartAndBenchButtons() throws {
+    func testLineupRowsExposeDirectStartAndReplacementButtons() throws {
         let app = XCUIApplication()
         app.launch()
 
@@ -111,11 +111,11 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertTrue(lineupTab.waitForExistence(timeout: 3))
         lineupTab.tap()
 
-        let benchButtons = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH %@", "lineup-bench-")
+        let replacementButtons = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "lineup-replace-")
         )
-        XCTAssertTrue(benchButtons.firstMatch.waitForExistence(timeout: 3))
-        XCTAssertTrue(benchButtons.firstMatch.isHittable)
+        XCTAssertTrue(replacementButtons.firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(replacementButtons.firstMatch.isHittable)
         XCTAssertFalse(
             app.buttons.matching(
                 NSPredicate(format: "label BEGINSWITH %@", "Actions for ")
@@ -144,5 +144,47 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Review & submit lineup"].exists)
         startButtons.firstMatch.tap()
         XCTAssertTrue(app.buttons["Review & submit lineup"].waitForExistence(timeout: 3))
+    }
+
+    @MainActor
+    func testQuarterbackReplacementPickerCancelsAndSwapsWithoutSubmitting() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let preview = app.buttons["Preview Champion Hall"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        preview.tap()
+        let lineupTab = app.tabBars.buttons["Lineup"]
+        XCTAssertTrue(lineupTab.waitForExistence(timeout: 3))
+        lineupTab.tap()
+        let replaceDak = app.buttons["lineup-replace-12620"]
+        XCTAssertTrue(replaceDak.waitForExistence(timeout: 3))
+        replaceDak.tap()
+
+        XCTAssertTrue(app.navigationBars["Replace QB"].waitForExistence(timeout: 3))
+        let kyler = app.buttons["lineup-replacement-14056"]
+        XCTAssertTrue(kyler.exists)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "lineup-replacement-")).count, 1)
+        XCTAssertFalse(app.buttons["lineup-replacement-15712"].exists) // RB
+        XCTAssertFalse(app.buttons["lineup-replacement-15757"].exists) // WR
+        XCTAssertFalse(app.buttons["lineup-replacement-16269"].exists) // TE
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Same-position replacement picker"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(replaceDak.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Review & submit lineup"].exists)
+        replaceDak.tap()
+        XCTAssertTrue(kyler.waitForExistence(timeout: 3))
+        kyler.tap()
+        XCTAssertTrue(app.buttons["Review & submit lineup"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.navigationBars["Replace QB"].exists)
+        let replaceKyler = app.buttons["lineup-replace-14056"]
+        for _ in 0..<8 where !replaceKyler.isHittable { app.swipeUp() }
+        XCTAssertTrue(replaceKyler.isHittable)
+        XCTAssertFalse(app.buttons["lineup-replace-12620"].exists)
+        // Do not tap Review & submit; this test verifies a local draft only.
     }
 }

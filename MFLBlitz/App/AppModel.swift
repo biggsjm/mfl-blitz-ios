@@ -17,6 +17,13 @@ final class AppModel {
         let tiebreakerPlayerIDs: [String]
     }
 
+    struct LineupReplacementRequest: Identifiable {
+        let id = UUID()
+        let starter: LineupPlayer
+        let week: Int
+        fileprivate let sessionGeneration: Int
+    }
+
     var phase: Phase = .onboarding
     var workspace: LeagueWorkspace?
     var scores = ScoresSnapshot(week: 1, matchups: [], lastUpdated: .distantPast, isLive: false)
@@ -71,6 +78,9 @@ final class AppModel {
 
     var canEditLineup: Bool {
         isDemo || (LiveWritePolicy.lineupsEnabled && lineup.editState.allowsEditing)
+    }
+    var canChangeLineupDraft: Bool {
+        canEditLineup && !isBusy && !isLoadingLineup && lineupConflict == nil && lineup.week == selectedWeek
     }
     var canSubmitLineup: Bool { !isBusy && !isLoadingLineup && canEditLineup && lineup.editState.allowsEditing && lineupConflict == nil && lineup.week == selectedWeek }
     var canSubmitWaivers: Bool { !isBusy && !isLoadingWaivers && waiverConflict == nil && (isDemo || (LiveWritePolicy.waiversEnabled && waivers.unavailableReason == nil)) }
@@ -344,9 +354,10 @@ final class AppModel {
     }
 
     func toggleStarter(_ playerID: String) {
-        guard !isBusy, canEditLineup,
+        guard canChangeLineupDraft,
               let index = lineup.players.firstIndex(where: { $0.id == playerID }),
-              !lineup.players[index].isLocked else { return }
+              !lineup.players[index].isLocked,
+              lineup.players[index].injuryStatus != .injuredReserve else { return }
         lineup.players[index].isStarter.toggle()
         if lineup.players[index].isStarter {
             lineup.tiebreakerPlayerIDs.removeAll(where: { $0 == playerID })
@@ -354,8 +365,60 @@ final class AppModel {
         saveLineupDraft()
     }
 
+    func replacementRequest(for starterID: String) -> LineupReplacementRequest? {
+        guard let starter = lineup.players.first(where: { $0.id == starterID }) else { return nil }
+        let request = LineupReplacementRequest(starter: starter, week: lineup.week,
+                                               sessionGeneration: sessionGeneration)
+        return replaceableStarter(for: request) == nil ? nil : request
+    }
+
+    func replacementCandidates(for request: LineupReplacementRequest) -> [LineupPlayer] {
+        guard let starter = replaceableStarter(for: request) else { return [] }
+        let playersByID = Dictionary(grouping: lineup.players, by: \.id)
+        return lineup.bench.filter {
+            $0.position == starter.position && !$0.isLocked && $0.injuryStatus != .injuredReserve
+                && playersByID[$0.id]?.count == 1
+        }.sorted { lhs, rhs in
+            // Unpublished projections sort after every published value, even zero.
+            if lhs.projectedPoints != rhs.projectedPoints {
+                return (lhs.projectedPoints ?? -.infinity) > (rhs.projectedPoints ?? -.infinity)
+            }
+            if lhs.name != rhs.name { return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending }
+            return lhs.id < rhs.id
+        }
+    }
+
+    @discardableResult
+    func replaceStarter(_ request: LineupReplacementRequest, with replacementID: String) -> Bool {
+        // Revalidate at selection time: a refresh, kickoff, week switch, or
+        // account change may have happened while the picker was open.
+        guard replacementCandidates(for: request).contains(where: { $0.id == replacementID }),
+              let outgoing = lineup.players.firstIndex(where: { $0.id == request.starter.id }),
+              let incoming = lineup.players.firstIndex(where: { $0.id == replacementID }) else { return false }
+        var updated = lineup
+        updated.players[outgoing].isStarter = false
+        updated.players[incoming].isStarter = true
+        updated.tiebreakerPlayerIDs.removeAll { $0 == replacementID }
+        lineup = updated
+        saveLineupDraft()
+        lineupRevision &+= 1
+        return true
+    }
+
+    private func replaceableStarter(for request: LineupReplacementRequest) -> LineupPlayer? {
+        guard canChangeLineupDraft, request.sessionGeneration == sessionGeneration,
+              request.week == lineup.week else { return nil }
+        let matches = lineup.players.filter { $0.id == request.starter.id }
+        guard matches.count == 1, let starter = matches.first,
+              starter.isStarter, !starter.isLocked, starter.injuryStatus != .injuredReserve,
+              starter.position == request.starter.position,
+              !starter.position.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              starter.position != "—" else { return nil }
+        return starter
+    }
+
     func setTiebreaker(_ playerID: String) {
-        guard !isBusy, canEditLineup else { return }
+        guard canChangeLineupDraft else { return }
         guard !playerID.isEmpty else {
             lineup.tiebreakerPlayerIDs = []
             saveLineupDraft()

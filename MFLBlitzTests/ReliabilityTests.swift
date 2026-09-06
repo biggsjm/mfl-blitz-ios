@@ -84,6 +84,32 @@ actor TestGate {
 
 @MainActor
 struct ReliabilityTests {
+    @Test("Replacement drafts survive restart without submitting, and old-account pickers cannot act")
+    func replacementDraftRecovery() async throws {
+        let store = MemoryPrivateStore()
+        let repository = ReliabilityRepository()
+        let model = AppModel(repository: repository, privateStore: store)
+        await model.signIn(credentials: LoginCredentials())
+        let request = try #require(model.replacementRequest(for: "14073"))
+        #expect(model.replaceStarter(request, with: "15712"))
+        let savedOnServer = await repository.testLineup
+        #expect(savedOnServer.starters.contains { $0.id == "14073" })
+        #expect(!savedOnServer.starters.contains { $0.id == "15712" })
+        let restored = AppModel(repository: repository, privateStore: store)
+        await restored.restoreSession()
+        #expect(restored.lineup.starters.contains { $0.id == "15712" })
+        #expect(restored.lineup.bench.contains { $0.id == "14073" })
+        #expect(restored.lineup.starters.count == savedOnServer.starters.count)
+        #expect(restored.hasLineupChanges)
+        let oldAccountRequest = try #require(model.replacementRequest(for: "12620"))
+        await model.signOut()
+        await repository.changeTeam()
+        await model.signIn(credentials: LoginCredentials())
+        #expect(model.replacementCandidates(for: oldAccountRequest).isEmpty)
+        #expect(!model.replaceStarter(oldAccountRequest, with: "14056"))
+        #expect(!model.hasLineupChanges)
+    }
+
     @Test("Reconnect ends and each tab appears before slow waivers finish")
     func progressiveReconnect() async throws {
         let repository = ReliabilityRepository()
