@@ -1,0 +1,32 @@
+{
+  "pendingWaivers": {
+    "waiverRequest": [
+      {
+        "id": "w-1",
+        "type": "BBID_WAIVER_REQUEST",
+        "franchise_id": "0001",
+        "round": "1",
+        "timestamp": "1780000200",
+        "claim": [
+          {
+            "player": "17001",
+            "drop": "16001",
+            "amount": "$17.00",
+            "priority": "1"
+          },
+          {
+            "add": "17002",
+            "drop": "0000",
+            "bid": 8,
+            "priority": 2
+          }
+        ]
+      },
+      {
+        "id": "w-2",
+        "round": 2,
+        "picks": "17003_5_16002,17004_2_0000"
+      }
+    ]
+  }
+}

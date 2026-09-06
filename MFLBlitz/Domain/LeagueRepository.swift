@@ -1,0 +1,39 @@
+import Foundation
+
+enum LiveWritePolicy {
+    // Keep production MFL mutations opt-in until the registered User-Agent and
+    // every write path have been exercised in a disposable league.
+    static let isEnabled = false
+}
+
+protocol LeagueRepository: Sendable {
+    func signIn(with credentials: LoginCredentials) async throws -> LeagueWorkspace
+    func loadWorkspace() async throws -> LeagueWorkspace
+    func loadScores(week: Int) async throws -> ScoresSnapshot
+    func loadLineup(week: Int) async throws -> LineupSnapshot
+    func submitLineup(_ lineup: LineupSnapshot) async throws
+    func loadWaivers() async throws -> WaiverSnapshot
+    func submitWaivers(_ claims: [WaiverClaim]) async throws
+    func loadStandings() async throws -> [StandingRow]
+    func loadBoard() async throws -> [BoardThread]
+    func loadThread(id: String) async throws -> BoardThread
+    func postMessage(subject: String?, body: String, threadID: String?) async throws
+    func signOut() async
+}
+
+enum RepositoryError: LocalizedError {
+    case invalidCredentials
+    case missingSession
+    case server(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidCredentials:
+            "MFL did not recognize that username and password."
+        case .missingSession:
+            "Your MFL session has expired. Sign in again to continue."
+        case .server(let message):
+            message
+        }
+    }
+}

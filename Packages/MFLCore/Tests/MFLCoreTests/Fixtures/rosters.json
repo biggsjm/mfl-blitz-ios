@@ -1,0 +1,24 @@
+{
+  "rosters": {
+    "franchise": [
+      {
+        "id": "0001",
+        "week": "1",
+        "player": {
+          "id": "14836",
+          "status": "ROSTER",
+          "salary": "$12.50",
+          "contractYear": "2"
+        }
+      },
+      {
+        "id": "0002",
+        "week": 1,
+        "player": [
+          { "id": "16001", "status": "INJURED_RESERVE" },
+          { "id": "16002", "status": "TAXI_SQUAD" }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "leagueStandings": {
+    "franchise": [
+      {
+        "id": "0001",
+        "h2hw": "6",
+        "h2hl": 1,
+        "h2ht": "0",
+        "h2hpct": ".857",
+        "pf": "812.45",
+        "pa": "700.10",
+        "avgpf": "116.06",
+        "bbidbalance": "$74.50",
+        "strk": "W3",
+        "custom_metric": "11.4"
+      },
+      {
+        "id": "0002",
+        "h2hw": "4",
+        "h2hl": "3",
+        "h2ht": "0",
+        "pf": "755.00",
+        "pa": "731.20"
+      }
+    ],
+    "column_names": {
+      "column": [
+        { "id": "h2hwlt", "abbrev": "W-L-T", "title": "Overall Record" },
+        { "id": "pf", "abbrev": "PF", "title": "Points For" }
+      ]
+    }
+  }
+}

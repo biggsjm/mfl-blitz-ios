@@ -1,0 +1,22 @@
+{
+  "messageBoardThread": {
+    "id": "9001",
+    "subject": "Week 7 trash talk",
+    "posts": {
+      "post": [
+        {
+          "id": "501",
+          "franchise_id": "0001",
+          "body": { "$t": "Good luck this week!" },
+          "timestamp": "1780000000"
+        },
+        {
+          "id": "502",
+          "franchiseId": "0002",
+          "text": "You will need it.",
+          "postTime": 1780000100
+        }
+      ]
+    }
+  }
+}

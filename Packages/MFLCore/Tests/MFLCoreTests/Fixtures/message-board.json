@@ -1,0 +1,19 @@
+{
+  "messageBoard": {
+    "thread": [
+      {
+        "id": "9001",
+        "subject": { "$t": "Week 7 trash talk" },
+        "lastPostTime": "1780000100",
+        "lastPostBy": "0002",
+        "replies": "4"
+      },
+      {
+        "id": 9000,
+        "subject": "Rule vote",
+        "timestamp": 1780000000,
+        "postCount": "2"
+      }
+    ]
+  }
+}

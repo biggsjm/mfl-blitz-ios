@@ -1,0 +1,42 @@
+{
+  "liveScoring": {
+    "week": "7",
+    "matchup": {
+      "franchise": [
+        {
+          "id": "0001",
+          "isHome": "0",
+          "score": "101.45",
+          "gameSecondsRemaining": "3600",
+          "playersYetToPlay": "1",
+          "playersCurrentlyPlaying": "2",
+          "players": {
+            "player": [
+              {
+                "id": "14836",
+                "status": "starter",
+                "score": "18.75",
+                "gameSecondsRemaining": "900",
+                "updatedStats": "7 receptions, 92 yards"
+              },
+              {
+                "id": "16001",
+                "status": "nonstarter",
+                "score": 4,
+                "gameSecondsRemaining": 0
+              }
+            ]
+          }
+        },
+        {
+          "id": "0002",
+          "isHome": true,
+          "score": 99.2,
+          "gameSecondsRemaining": 0,
+          "playersYetToPlay": 0,
+          "playersCurrentlyPlaying": 0
+        }
+      ]
+    }
+  }
+}

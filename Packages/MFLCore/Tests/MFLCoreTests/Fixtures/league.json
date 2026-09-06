@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "encoding": "utf-8",
+  "league": {
+    "id": "41366",
+    "name": "Saturday Legends",
+    "baseURL": "https://www42.myfantasyleague.com",
+    "startWeek": "1",
+    "endWeek": 18,
+    "lastRegularSeasonWeek": "14",
+    "rosterSize": "18",
+    "injuredReserve": "3",
+    "taxiSquad": "4",
+    "precision": "2",
+    "currentWaiverType": "BBID_FCFS",
+    "bbidSeasonLimit": "100.00",
+    "bbidMinimum": "1",
+    "bbidIncrement": "1.00",
+    "bbidConditional": "Yes",
+    "maxWaiverRounds": "8",
+    "tiebreakerCount": "1",
+    "h2h": "YES",
+    "partialLineupAllowed": "NO",
+    "franchises": {
+      "count": "2",
+      "franchise": [
+        {
+          "id": "0001",
+          "name": "Lake Effect",
+          "abbrev": "LAKE",
+          "division": "00",
+          "bbidAvailableBalance": "74.50",
+          "waiverSortOrder": "2",
+          "icon": "https://example.invalid/team-one.png"
+        },
+        {
+          "id": "0002",
+          "name": "Fourth & Long",
+          "division": "00",
+          "bbidAvailableBalance": 91
+        }
+      ]
+    },
+    "divisions": {
+      "division": {
+        "id": "00",
+        "name": "North"
+      }
+    },
+    "starters": {
+      "count": "9",
+      "position": [
+        { "name": "QB", "limit": "1" },
+        { "name": "RB", "limit": "2-3" },
+        { "name": "WR", "limit": "2+" }
+      ]
+    }
+  }
+}
