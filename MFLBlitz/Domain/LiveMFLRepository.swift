@@ -184,7 +184,7 @@ actor LiveMFLRepository: LeagueRepository {
         guard live.week == nil || live.week == week else {
             throw RepositoryError.server("MFL returned a different scoring week. Your existing scores were kept.")
         }
-        let projections = (try? await client.projectedScores(week: week))?.scoresByPlayerID ?? [:]
+        let projections = await loadProjections(client: client, week: week).scores
 
         let livePlayerIDs = Set(
             live.matchups
@@ -286,7 +286,7 @@ actor LiveMFLRepository: LeagueRepository {
         }
 
         async let catalogTask = client.players(ids: playerIDs)
-        async let projectionTask = try? await client.projectedScores(week: week)
+        async let projectionTask = loadProjections(client: client, week: week)
         async let statusTask = client.playerRosterStatus(
             playerIDs: playerIDs,
             week: week,
@@ -303,7 +303,8 @@ actor LiveMFLRepository: LeagueRepository {
             refreshPolicy: .reloadIgnoringCache
         )
         let (catalog, rosterStatuses, live) = try await (catalogTask, statusTask, liveTask)
-        let projections = await projectionTask?.scoresByPlayerID ?? [:]
+        let projectionResult = await projectionTask
+        let projections = projectionResult.scores
         let catalogByID = Dictionary(grouping: catalog.players, by: \.id)
         let statusCollectionsByID = Dictionary(grouping: rosterStatuses.statuses, by: \.id)
         let playerByID = catalogByID.compactMapValues { $0.count == 1 ? $0[0] : nil }
@@ -379,6 +380,10 @@ actor LiveMFLRepository: LeagueRepository {
             )
         }
 
+        #if DEBUG
+        print("[MFL projections] Week \(week) lineup: \(players.filter { $0.projectedPoints != nil }.count)/\(players.count) players have projections")
+        #endif
+
         return LineupSnapshot(
             week: live?.week ?? week,
             players: players,
@@ -393,9 +398,7 @@ actor LiveMFLRepository: LeagueRepository {
                     assignment.status == .starter ? playerID : nil
                 }
             ),
-            projectionNote: projections.isEmpty
-                ? "Week \(week) projections are unavailable from MFL. Missing values stay blank."
-                : "Week \(week) · MFL / Fantasy Sharks projections, using your league’s scoring. Missing players stay blank.",
+            projectionNote: projectionResult.note,
             editState: editState
         )
     }
@@ -595,7 +598,7 @@ actor LiveMFLRepository: LeagueRepository {
         async let calendarTask: MFLJSONValue? = try? await client.calendar()
         async let resultsTask: MFLJSONValue? = try? await client.waiverResults()
         let projectionWeek = seasonStatus?.lineupWeek ?? (workspace.weekIsConfirmed ? workspace.week : nil)
-        async let projectionTask = projectionsIfAvailable(client: client, week: projectionWeek)
+        async let projectionTask = loadProjections(client: client, week: projectionWeek)
         let (freeAgentPool, pending) = try await (freeAgentTask, pendingTask)
         // A malformed non-empty response must never become an apparently empty
         // queue that a replacement could erase.
@@ -605,7 +608,8 @@ actor LiveMFLRepository: LeagueRepository {
         let ownedRoster = try await client.rosters(franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache)
         let ownedIDs = Set(ownedRoster.rosters.first?.players.map(\.id) ?? [])
         let ownedNames = Dictionary(uniqueKeysWithValues: catalog.players.filter { ownedIDs.contains($0.id) }.map { ($0.id, $0.displayName) })
-        let projections = await projectionTask
+        let projectionResult = await projectionTask
+        let projections = projectionResult.scores
 
         let candidates = freeAgentPool.players.compactMap { freeAgent -> WaiverCandidate? in
             guard let player = playerByID[freeAgent.id],
@@ -661,7 +665,7 @@ actor LiveMFLRepository: LeagueRepository {
             results: waiverResults(from: results, catalog: playerByID, league: league),
             resultsUnavailable: results == nil,
             projectionWeek: projectionWeek,
-            projectionNote: projections.isEmpty ? "MFL projections are unavailable for this waiver week." : "MFL / Fantasy Sharks · league-scored projections"
+            projectionNote: projectionResult.note
         )
     }
 
@@ -963,9 +967,39 @@ actor LiveMFLRepository: LeagueRepository {
         )
     }
 
-    private func projectionsIfAvailable(client: MFLClient, week: Int?) async -> [String: Decimal] {
-        guard let week else { return [:] }
-        return (try? await client.projectedScores(week: week))?.scoresByPlayerID ?? [:]
+    private struct ProjectionLoad: Sendable {
+        let scores: [String: Decimal]
+        let note: String
+    }
+
+    private func loadProjections(client: MFLClient, week: Int?) async -> ProjectionLoad {
+        guard let week else {
+            return ProjectionLoad(scores: [:], note: "MFL’s projection week could not be confirmed.")
+        }
+        do {
+            let scores = try await client.projectedScores(week: week).scoresByPlayerID
+            return ProjectionLoad(scores: scores, note: scores.isEmpty
+                ? "Week \(week) projections are unavailable from MFL. Missing values stay blank."
+                : "Week \(week) · MFL / Fantasy Sharks projections, using your league’s scoring. Missing players stay blank.")
+        } catch {
+            // A failed read is not evidence that MFL has no projections. Keep
+            // optional forecasts from blocking lineups, but explain the failure
+            // without exposing raw responses, request URLs, or credentials.
+            let message: String
+            switch error {
+            case MFLCoreError.decoding, MFLCoreError.invalidResponse:
+                message = "MFL’s Week \(week) projection response could not be read. Your roster is still available."
+            case MFLCoreError.unauthorized, MFLCoreError.authenticationFailed:
+                message = "MFL denied access to Week \(week) projections. Reconnect your account to try again."
+            case MFLCoreError.rateLimited:
+                message = "MFL is limiting requests. Wait a little before pulling to retry Week \(week) projections."
+            case MFLCoreError.unexpectedRedirect:
+                message = "MFL redirected the projection request unexpectedly. Reconnect your account to try again."
+            default:
+                message = "Week \(week) projections could not be loaded. Pull to retry."
+            }
+            return ProjectionLoad(scores: [:], note: message)
+        }
     }
 
     private func scorePrecision(for league: MFLLeague) -> Int {

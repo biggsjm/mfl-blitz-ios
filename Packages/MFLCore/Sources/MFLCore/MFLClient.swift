@@ -225,6 +225,10 @@ public actor MFLClient {
         guard result.projectedScores.week == nil || result.projectedScores.week == week else {
             throw MFLCoreError.invalidResponse
         }
+        #if DEBUG
+        // Aggregate diagnostics only: never log cookies or raw response bodies.
+        print("[MFL projections] Week \(week): \(result.projectedScores.scoresByPlayerID.count) usable projections")
+        #endif
         return result.projectedScores
     }
 

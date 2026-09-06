@@ -19,6 +19,7 @@ actor MutationFixtureTransport: MFLHTTPTransport {
     var membership = "0001"
     var slowMembership = false
     var projectionsMissing = false
+    var projectionError: MFLCoreError?
 
     func configure(failRound: Int? = nil, boardTimeout: Bool = false, hidePost: Bool = false, author: String = "0001") {
         self.failRound = failRound; self.boardTimeout = boardTimeout; self.hidePost = hidePost; boardAuthor = author
@@ -27,6 +28,7 @@ actor MutationFixtureTransport: MFLHTTPTransport {
     func changeMembership() { membership = "0002" }
     func delayMembership() { slowMembership = true }
     func omitProjections() { projectionsMissing = true }
+    func failProjections(with error: MFLCoreError) { projectionError = error }
 
     func send(_ request: URLRequest) async throws -> MFLHTTPResponse {
         let components = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!
@@ -75,8 +77,10 @@ actor MutationFixtureTransport: MFLHTTPTransport {
         case "rosters":
             return try response(["rosters": ["franchise": ["id": "0001", "player": [["id": "201", "status": "ROSTER"]]]]])
         case "projectedScores":
+            if let projectionError { throw projectionError }
             return try response(["projectedScores": ["week": query["W"] ?? "1", "playerScore": projectionsMissing ? [] : [
-                ["id": "101", "score": "13.25"], ["id": "102", "score": "0.0"], ["id": "201", "score": "19.5"]]]])
+                ["id": "101", "score": "13.25"], ["id": "", "score": ""],
+                ["id": "102", "score": "0.0"], ["id": "201", "score": "19.5"]]]])
         case "playerRosterStatus":
             return try response(["playerRosterStatuses": ["player": [["id": "201", "franchise": [["id": "0001", "status": "S"]]]]]])
         case "liveScoring":
@@ -109,7 +113,7 @@ actor MutationFixtureTransport: MFLHTTPTransport {
 }
 
 struct MutationRecoveryTests {
-    @Test("Week 1 projections populate lineup, matchup totals and waiver candidates")
+    @Test("Week 1 projections populate lineup, matchup totals and waiver candidates despite MFL's blank placeholder")
     func projections() async throws {
         let repository = try await connected(MutationFixtureTransport())
         let lineup = try await repository.loadLineup(week: 1)
@@ -132,6 +136,30 @@ struct MutationRecoveryTests {
         #expect(!lineup.players.isEmpty)
         #expect(lineup.players.first?.projectedPoints == nil)
         #expect(lineup.projectionNote?.contains("unavailable") == true)
+    }
+
+    @Test("Projection failures explain the problem without claiming the feed is empty or blocking the roster",
+          arguments: [MFLCoreError.decoding("synthetic-sensitive-detail"),
+                      .unauthorized("synthetic-sensitive-detail"), .rateLimited(retryAfter: 90)])
+    func projectionFailures(error: MFLCoreError) async throws {
+        let transport = MutationFixtureTransport()
+        await transport.failProjections(with: error)
+        let repository = try await connected(transport)
+        let lineup = try await repository.loadLineup(week: 1)
+        #expect(!lineup.players.isEmpty)
+        #expect(lineup.players.allSatisfy { $0.projectedPoints == nil })
+        let note = try #require(lineup.projectionNote)
+        #expect(!note.contains("synthetic-sensitive-detail"))
+        #expect(!note.contains("unavailable from MFL"))
+        switch error {
+        case .decoding: #expect(note.contains("could not be read"))
+        case .unauthorized: #expect(note.contains("denied access"))
+        case .rateLimited: #expect(note.contains("limiting requests"))
+        default: Issue.record("Unexpected test case")
+        }
+        let waivers = try await repository.loadWaivers()
+        #expect(waivers.projectionNote != nil)
+        #expect(!waivers.candidates.isEmpty)
     }
 
     @Test("Restore has a total deadline and keeps the saved cookie on a timeout")

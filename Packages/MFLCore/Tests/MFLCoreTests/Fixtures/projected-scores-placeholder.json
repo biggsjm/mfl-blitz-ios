@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "encoding": "utf-8",
+  "projectedScores": {
+    "week": "1",
+    "playerScore": [
+      { "id": "13589", "score": "34.8" },
+      { "id": "", "score": "" },
+      { "id": "test-player", "score": "0.0" }
+    ]
+  }
+}
