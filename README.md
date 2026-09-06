@@ -8,11 +8,11 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
-**0.3.7 (16) — private Week 1 testing, September 6, 2026.** Built, installed, and launched on Josh's iPhone; app code is on `main` at [`e779e4b`](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b). This is not yet a public or TestFlight release.
+**0.4.1 (18) — My Team and discoverable Board drafts, private owner testing, September 6, 2026.** This is not a public or TestFlight release. See [current status](docs/current-status.md) for the verified code, test and device baseline.
 
 Connect mode talks directly to MFL and permits user-reviewed lineup, supported conditional blind-bid, trade, and board actions with readback and no automatic write retries. MFL does not expose saved lineup tiebreakers for confirmation; accepted trades may still need league approval/processing. **Preview Champion Hall** uses sample data and sends nothing to MFL, including its fictional trade offers.
 
-The final build-16 verification passed **96 app/UI test functions, 121 executions including parameterized cases**, with no failures or runtime warnings. This includes the two-week synthetic model scenarios and five native trade journeys—not two real game weeks or a human usability study. See [current status and known limits](docs/current-status.md), the [historical performance report](docs/two-week-synthetic-testing.md), and the [Week 1 checklist](docs/week-1-testing.md) before inviting the league.
+Verification includes core fixtures, app-model regressions, native UI journeys and the two-week synthetic model scenarios—not two real game weeks or a human usability study. Exact current counts and device evidence are recorded in the status document. See [current status and known limits](docs/current-status.md), the [historical performance report](docs/two-week-synthetic-testing.md), and the [Week 1 checklist](docs/week-1-testing.md) before inviting the league.
 
 The current build includes:
 
@@ -20,7 +20,10 @@ The current build includes:
 - a tap- and swipe-accessible lineup editor with league-aware bench/starter/FLEX replacements and rotations, projections, validation, review, and saved-starter receipts;
 - explicit Week N calendar controls on Scores and Lineup, Settings at the upper left of Scores, and an original crossing-play-route Lineup icon;
 - an ordered conditional-FAAB queue with search, useful sorting, bid/drop editing, budget checks, reordering, and explicit full-queue confirmation;
-- a Transactions hub with Waivers, Trades, and Activity; native player/pick/FAAB offers, acceptance, decline, withdrawal, and explicitly separate counteroffers;
+- a native My Team tab with your franchise logo/initials, read-only roster and season schedule, plus a prominent Transactions entry and trade attention badge;
+- shared player details with identity, current ownership, available matching-week metrics and optional biography, linked from rosters, Lineup and matchup cells;
+- team and league season timelines with published opponents, configured week bounds, clear future/playoff states and matchup browsing that preserves lineup edits and the selected week;
+- a Transactions hub inside My Team with Waivers, Trades, and Activity; native player/pick/FAAB offers, acceptance, decline, withdrawal, and explicitly separate counteroffers;
 - a prominent Create trade / Resume trade action, Cancel with draft rollback, Save & close disabled for blank drafts, exact two-sided review, fresh ownership checks, and restart-safe protection against repeating an unconfirmed trade action;
 - division and overall standings with owner names from MFL that preserve its official ordering;
 - league team artwork in scores, matchup details, and standings, with initials as an offline/missing-image fallback;
@@ -39,7 +42,7 @@ The current build includes:
 
 First: owner-led live Week 1 validation, MFL client registration/User-Agent confirmation, accessibility/device checks, and Apple/TestFlight preparation. Week 2 invitations depend on those gates, not just automated tests.
 
-The coordinated **My Team, schedule, and player-detail designs are not implemented**. Proposed tabs are Scores / Lineup / My Team / Standings / Board, keeping Lineup and moving Transactions inside My Team. Existing waiver search is reused; there is no extra Players tab or new global search destination. See the [remaining execution plan](docs/roadmap.md).
+The initial **My Team, schedule and read-only player-detail slice is implemented**. Tabs are Scores / Lineup / My Team / Standings / Board. Full player history, additional player links/actions in waiver/trade screens, and complete supported-device/accessibility validation remain. Existing waiver search is reused; there is no extra Players tab or new global search destination. See the [remaining execution plan](docs/roadmap.md).
 
 ## Why this app
 
@@ -58,7 +61,7 @@ See [the competitive review](docs/competitive-review.md) and [product brief](doc
 ```text
 SwiftUI features
     ↓ view data + explicit user intents
-AppModel / TransactionsModel / repository boundary
+AppModel / TransactionsModel / scoped browse models
     ↓
 MFLCore (local Swift package)
     ├── authenticated account/franchise mapping + host discovery
@@ -115,7 +118,8 @@ Do not run overlapping jobs on one simulator. See [contributing](CONTRIBUTING.md
 | [API integration](docs/api-integration.md) / [MFLCore](Packages/MFLCore/README.md) | Endpoints, cache policies, implementation boundaries |
 | [Week 1 testing](docs/week-1-testing.md) / [Synthetic report](docs/two-week-synthetic-testing.md) | Live checklist / historical automated evidence |
 | [Lineup swaps](docs/lineup-starter-swaps.md) / [Trade inbox](docs/trade-inbox-ux.md) | Shipped interaction contracts and regressions |
-| [Schedule proposal](docs/schedule-ux.md) / [Player-detail proposal](docs/player-detail-ux.md) | Coordinated future work, not implemented features |
+| [Board drafts](docs/board-drafts.md) | Close/save/discard and visible draft recovery |
+| [Schedule](docs/schedule-ux.md) / [Player and team detail](docs/player-detail-ux.md) | Implemented first slice, data/state contracts and remaining enrichment |
 | [Competitive research](docs/competitive-review.md) / [Icon brief](docs/icon-brief.md) | Dated research and artwork rationale |
 | [Privacy](PRIVACY.md) / [Security](SECURITY.md) / [Contributing](CONTRIBUTING.md) | Data handling, safe reporting and development workflow |
 

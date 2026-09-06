@@ -1,6 +1,6 @@
-# Trade inbox — 0.3.7 (16)
+# Trade inbox
 
-Implemented at [`e779e4b`](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b), installed on the owner's phone September 6, 2026. See [current status](current-status.md), [remaining plan](roadmap.md), and [owner verification](week-1-testing.md). Future My Team navigation will reuse this hub; it is not part of build 16.
+Implemented at [`e779e4b`](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b), installed on the owner's phone September 6, 2026. See [current status](current-status.md), [remaining plan](roadmap.md), and [owner verification](week-1-testing.md). Version 0.4.0 (17) moves this unchanged workflow to My Team → Transactions, above the team's Roster / Schedule control, retaining the trade badge and all draft/review protections. Build 16's direct Transactions tab is historical.
 
 Native trading is the primary path. A full-width **Create trade** button sits directly below the transaction selector and remains visible while the inbox scrolls. A saved draft changes that same action to **Resume trade**; there is no duplicate draft card.
 
@@ -25,6 +25,8 @@ Every editor opening uses a unique, explicit SwiftUI view identity and an immuta
 Click-through QA uncovered a first-presentation bug: separate response-action and sheet-visibility state could show the default Accept review after tapping Withdraw or Decline. The response sheet now receives the selected action as one identifiable payload. The API role checks remain in place; UI tests also assert the exact first-tap Decline/Withdraw titles and confirmation labels, then cancel without performing an action.
 
 ## Regression coverage
+
+The native test helper now enters Transactions through My Team. UI validation includes large-text access to the new entry, then the existing Create/Resume, draft and response journeys. See [current status](current-status.md) for candidate-specific results; the build-16 counts below remain historical.
 
 `TradeInboxPresentationTests` checks confirmed-empty states, loading/errors, pending verification, unresolved offers, and draft changes that must not alter existing offers. Existing trade safety and transaction refresh suites cover ownership, preflight, authoritative readback, duplicate prevention, cancellation, caching, and cooldowns.
 

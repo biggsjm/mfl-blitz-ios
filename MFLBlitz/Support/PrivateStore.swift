@@ -92,6 +92,17 @@ struct LineupDraft: Codable, Equatable, Sendable {
 struct BoardDraft: Codable, Equatable, Sendable {
     var subject = ""
     var body = ""
+
+    var hasContent: Bool {
+        !subject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+struct SavedBoardDraft: Identifiable, Equatable, Sendable {
+    let id: String
+    let draft: BoardDraft
+    var threadID: String? { id == "new" ? nil : id }
 }
 
 struct LeagueDrafts: Codable, Sendable {

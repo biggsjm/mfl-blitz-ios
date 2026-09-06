@@ -489,6 +489,7 @@ private struct LineupSummaryCard: View {
 }
 
 private struct LineupPlayerRow: View {
+    @Environment(AppModel.self) private var model
     let player: LineupPlayer
     var slotLabel: String? = nil
     let actionTitle: String
@@ -498,47 +499,49 @@ private struct LineupPlayerRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            HStack(spacing: 12) {
-                PositionBadge(position: slotLabel ?? player.position)
+            identityLink {
+                HStack(spacing: 12) {
+                    PositionBadge(position: slotLabel ?? player.position)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Text(player.name)
-                            .font(.body.weight(.semibold))
-                            .lineLimit(1)
-                        if let injury = player.injuryStatus {
-                            Text(injury.rawValue)
-                                .font(.caption2.bold())
-                                .foregroundStyle(injury == .questionable ? Color.orange : Color.red)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background((injury == .questionable ? Color.orange : Color.red).opacity(0.12), in: Capsule())
-                                .accessibilityLabel(injury.label)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text(player.name)
+                                .font(.body.weight(.semibold))
+                                .lineLimit(1)
+                            if let injury = player.injuryStatus {
+                                Text(injury.rawValue)
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(injury == .questionable ? Color.orange : Color.red)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background((injury == .questionable ? Color.orange : Color.red).opacity(0.12), in: Capsule())
+                                    .accessibilityLabel(injury.label)
+                            }
+                            if player.isLocked {
+                                Image(systemName: "lock.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityLabel("Locked")
+                            }
                         }
-                        if player.isLocked {
-                            Image(systemName: "lock.fill")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .accessibilityLabel("Locked")
-                        }
+                        Text(playerMetadata)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    Text(playerMetadata)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
 
-                Spacer(minLength: 4)
+                    Spacer(minLength: 4)
 
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(player.projectedPoints.pointsText)
-                        .font(.body.bold().monospacedDigit())
-                    Text("proj")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(player.projectedPoints.pointsText)
+                            .font(.body.bold().monospacedDigit())
+                        Text("proj")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(accessibilityLabel)
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(accessibilityLabel)
 
             Button(action: action) {
                 Image(systemName: actionIcon)
@@ -565,6 +568,18 @@ private struct LineupPlayerRow: View {
 
     private var actionIsAvailable: Bool {
         isEditable && !player.isLocked && player.injuryStatus != .injuredReserve
+    }
+
+    @ViewBuilder
+    private func identityLink<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        if let scope = model.browseScope {
+            NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: model.lineup.week)) {
+                content()
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("lineup-player-\(player.id)")
+            .accessibilityHint("Opens player details without changing your lineup")
+        } else { content() }
     }
 
     private var actionColor: Color {

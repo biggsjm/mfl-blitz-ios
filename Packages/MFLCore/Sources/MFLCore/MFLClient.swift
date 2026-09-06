@@ -208,6 +208,17 @@ public actor MFLClient {
         return status
     }
 
+    /// Omitting W and F returns the whole fantasy season. This is schedule
+    /// metadata, not an invitation to fetch every week's player scoring.
+    public func schedule(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLSchedule {
+        let result: MFLScheduleResponse = try await export(
+            MFLScheduleResponse.self, endpoint: .schedule,
+            host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
+            parameters: [:], ttl: 900, refreshPolicy: refreshPolicy
+        )
+        return result.schedule
+    }
+
     public func weeklyResults(week: Int) async throws -> MFLLiveScoring {
         try validateWeek(week)
         let result: MFLWeeklyResultsResponse = try await export(

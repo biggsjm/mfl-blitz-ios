@@ -1,6 +1,6 @@
 # Performance audit and synthetic user testing — 0.3.3 (11)
 
-Historical report for 0.3.3, September 6, 2026. Original benchmarks and counts below remain tied to that build. The current installed release is **0.3.7 (16)**; see [current status](current-status.md) and the [remaining plan](roadmap.md).
+Historical report for 0.3.3, September 6, 2026. Original benchmarks and counts below remain tied to that build. The current My Team increment is **0.4.0 (17)**; see [current status](current-status.md) and the [remaining plan](roadmap.md).
 
 ## Subsequent regression evidence
 

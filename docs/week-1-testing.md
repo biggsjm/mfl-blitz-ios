@@ -1,13 +1,13 @@
 # Week 1 owner test and Week 2 go/no-go
 
-Updated September 6, 2026 for **0.3.7 (16)**. See [current status](current-status.md) for test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
+Updated September 6, 2026 for **0.4.1 (18)**. See [current status](current-status.md) for test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
 ## Already observed
 
 - Josh reported successfully submitting a lineup and seeing Week 1 projections.
-- Build 16 was installed/launched on Josh's phone. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse.
+- Build 0.4.1 (18)'s Board revision is installed on Josh's phone; its launch check was blocked by the device relocking. The final pre-merge compatibility rebuild still needs reinstall when the phone is reachable. Build 0.4.0 (17) had installed/launched successfully. Josh reported the My Team screen looked good; its detailed update timer was then simplified. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse. Full schedule comparison remains unchecked below.
 - Core, app-model and native UI checks passed as described in [current status](current-status.md). Four synthetic managers completed two accelerated weeks; those are not actual Week 1 results.
 
 ## Before kickoff
@@ -26,6 +26,14 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 - [ ] Swap RB/WR/TE with FLEX and reverse it. Compatible starter-only swaps keep everyone starting and require no MFL membership write.
 - [ ] Try a cross-position move into FLEX. Cancel/Back before the second choice must change nothing; completing the follow-up applies the rotation atomically. Review any resulting bench-to-starter change before submission.
 - [ ] Confirm locked/reserve players are excluded, stale/conflicting picks are rejected, and a promoted bench tiebreaker requires another valid tiebreaker before submitting. Observe lock behavior; test deliberately invalid submissions only in a disposable league.
+
+### My Team, players and schedule
+
+- [ ] My Team shows the correct franchise/logo/owner. Transactions is visible above Roster / Schedule; its badge remains trade-specific. Other teams do not display your inbox.
+- [ ] Compare the current roster and labeled starting/bench assignments with MFL. Generic roster status must not be guessed as Bench. Open players and check ownership, available matching-week points/projections and optional biography.
+- [ ] Compare your remaining opponents and the league timeline against MFL, including playoff boundaries. Future games must not show fake scores; missing opponents are not assumed byes.
+- [ ] Make an unsent lineup edit, browse a different schedule week/player/team, then return. The edit and selected Lineup/Scores week must remain unchanged. Check Back and section/scroll restoration.
+- [ ] Open this week's schedule matchup and confirm player scoring matches Scores. Backgrounding stops polling; returning does not create duplicate refreshers.
 
 ### Waivers and Activity
 
@@ -47,7 +55,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 ### Board
 
-- [ ] Draft a thread/reply, close and reopen the composer; ensure private text survives. Post only an intended message and verify exactly one matching copy on MFL.
+- [ ] Close an empty thread/reply: no save prompt or empty draft. With text, Close offers Save draft / Discard draft / Keep editing. Save and reopen via Board → Drafts (or Resume reply in its thread); confirm the correct text. Discard must not resurrect after reopening. Post only an intended message and verify exactly one matching copy on MFL. See the [Board interaction contract](board-drafts.md).
 - [ ] If a post is unconfirmed, use Check MFL without sending again. Clear its warning only after inspecting MFL; do not repost an existing message.
 
 ## During games
@@ -69,7 +77,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 Do not invite the league until P0 [release gates](roadmap.md) are complete: live Week 1 evidence, intended-write verification, regression/manual usability checks, production MFL registration/exact User-Agent, Apple signing/TestFlight/privacy/review setup, safe support/security reporting and Josh's go-ahead. Unsupported formats must be clearly excluded from the release scope with a usable MFL fallback.
 
-My Team/player/schedule views, native FCFS/IR/taxi management, notifications, widgets and Live Activities are not in this installed build. They are not prerequisites for the focused owner trial and must not be advertised as available.
+My Team, initial read-only player detail and fantasy schedules are included in the 0.4.0 private build and need the live comparisons above. Full player history, native FCFS/IR/taxi management, notifications, widgets and Live Activities remain unavailable and must not be advertised as implemented.
 
 ## Record findings safely
 

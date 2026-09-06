@@ -2,7 +2,7 @@ import SwiftUI
 
 struct BoardView: View {
     @Environment(AppModel.self) private var model
-    @State private var showingComposer = false
+    @State private var composerMode: MessageComposerView.Mode?
 
     var body: some View {
         List {
@@ -16,6 +16,34 @@ struct BoardView: View {
                     .listRowBackground(Color.clear)
             }
             if model.unconfirmedBoardPost != nil { UnconfirmedPostSection() }
+
+            if !model.savedBoardDrafts.isEmpty {
+                Section("Drafts") {
+                    ForEach(model.savedBoardDrafts) { saved in
+                        Button {
+                            if let threadID = saved.threadID {
+                                composerMode = .reply(threadID: threadID, subject: replySubject(threadID))
+                            } else { composerMode = .newThread }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "doc.text").foregroundStyle(Color.blitzGreen)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(draftTitle(saved)).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                                    Text(saved.draft.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                        ? "Continue writing" : saved.draft.body)
+                                        .font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                                }
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                            }
+                            .frame(minHeight: BlitzMetrics.minimumTapTarget)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Resume draft, \(draftTitle(saved))")
+                        .accessibilityIdentifier("board-draft-\(saved.id)")
+                    }
+                }
+            }
 
             if model.boardThreads.isEmpty && model.isLoadingBoard {
                 ProgressView("Loading the league board…")
@@ -46,14 +74,24 @@ struct BoardView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("New thread", systemImage: "square.and.pencil") { showingComposer = true }
+                Button("New thread", systemImage: "square.and.pencil") { composerMode = .newThread }
                     .disabled(!model.canPostToBoard)
             }
         }
-        .sheet(isPresented: $showingComposer) {
-            MessageComposerView(mode: .newThread)
+        .sheet(item: $composerMode) { mode in
+            MessageComposerView(mode: mode)
         }
         .refreshable { await model.refreshAll() }
+    }
+
+    private func replySubject(_ threadID: String) -> String {
+        model.boardThreads.first { $0.id == threadID }?.subject ?? "Thread \(threadID)"
+    }
+
+    private func draftTitle(_ saved: SavedBoardDraft) -> String {
+        if let threadID = saved.threadID { return "Reply: \(replySubject(threadID))" }
+        let subject = saved.draft.subject.trimmingCharacters(in: .whitespacesAndNewlines)
+        return subject.isEmpty ? "New thread" : subject
     }
 }
 
@@ -126,13 +164,15 @@ private struct ThreadDetailView: View {
                     Button {
                         showingReply = true
                     } label: {
-                        Label("Reply to thread", systemImage: "arrowshape.turn.up.left.fill")
+                        Label(model.boardDraft(threadID: threadID).hasContent ? "Resume reply" : "Reply to thread",
+                              systemImage: "arrowshape.turn.up.left.fill")
                             .font(.headline)
                             .foregroundStyle(Color.blitzNavy)
                             .frame(maxWidth: .infinity, minHeight: 50)
                             .background(Color.blitzGreen, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("board-reply-\(threadID)")
                     .disabled(!model.canPostToBoard)
                     .opacity(model.canPostToBoard ? 1 : 0.45)
                     .padding(.horizontal, 16)
@@ -180,9 +220,14 @@ private struct PostRow: View {
 }
 
 struct MessageComposerView: View {
-    enum Mode {
+    enum Mode: Identifiable {
         case newThread
         case reply(threadID: String, subject: String)
+
+        var id: String {
+            if case .reply(let threadID, _) = self { return threadID }
+            return "new"
+        }
     }
 
     @Environment(AppModel.self) private var model
@@ -192,6 +237,10 @@ struct MessageComposerView: View {
     @State private var bodyText = ""
     @FocusState private var bodyFocused: Bool
     @State private var loadedDraft = false
+    @State private var showingCloseChoice = false
+    @State private var isClosing = false
+    @State private var editingScope: String?
+    @State private var draftError: String?
 
     private var threadID: String? {
         if case .reply(let id, _) = mode { return id }
@@ -218,13 +267,15 @@ struct MessageComposerView: View {
                         .accessibilityLabel("Message body")
                 }
 
-                Section {
-                    Label("Draft saved privately on this device", systemImage: "lock.shield")
-                        .font(.caption).foregroundStyle(.secondary)
+                if let draftError {
+                    Section {
+                        Label(draftError, systemImage: "exclamationmark.triangle")
+                            .font(.footnote).foregroundStyle(.orange)
+                    }
                 }
 
                 Section {
-                    Label("Your post is sent to the existing MFL message board and will be visible to league members.", systemImage: "person.2")
+                    Label("Visible to your league when posted.", systemImage: "person.2")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -233,7 +284,15 @@ struct MessageComposerView: View {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Save & close") { dismiss() }.disabled(model.isBusy) }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        bodyFocused = false
+                        if hasContent { showingCloseChoice = true }
+                        else { finishDraft(save: false) }
+                    }
+                    .disabled(model.isBusy)
+                    .accessibilityIdentifier("board-composer-close")
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Post") {
                         Task {
@@ -245,6 +304,7 @@ struct MessageComposerView: View {
                                 didPost = await model.post(subject: nil, body: bodyText, threadID: threadID)
                             }
                             if didPost {
+                                isClosing = true
                                 dismiss()
                             }
                         }
@@ -256,6 +316,7 @@ struct MessageComposerView: View {
             .onAppear {
                 guard !loadedDraft else { return }
                 let draft = model.boardDraft(threadID: threadID)
+                editingScope = model.workspace?.storageScope
                 subject = draft.subject
                 bodyText = draft.body
                 loadedDraft = true
@@ -268,14 +329,38 @@ struct MessageComposerView: View {
                 subject = saved.subject
                 bodyText = saved.body
             }
-            .interactiveDismissDisabled(model.isBusy)
+            .alert("Save draft?", isPresented: $showingCloseChoice) {
+                Button("Save draft") { finishDraft(save: true) }
+                Button("Discard draft", role: .destructive) { finishDraft(save: false) }
+                Button("Keep editing", role: .cancel) { bodyFocused = true }
+            } message: {
+                Text("Continue later from Drafts on Board.")
+            }
+            .interactiveDismissDisabled(model.isBusy || hasContent)
         }
     }
 
     private func saveDraft() {
-        guard loadedDraft else { return }
-        model.saveBoardDraft(subject: subject, body: bodyText, threadID: threadID)
+        guard loadedDraft, !isClosing, editingScope == model.workspace?.storageScope else { return }
+        draftError = model.saveBoardDraft(subject: subject, body: bodyText, threadID: threadID)
+            ? nil : "Couldn’t save your draft. Keep this open and try again."
     }
+
+    private func finishDraft(save: Bool) {
+        guard !model.isBusy, editingScope == model.workspace?.storageScope else { return }
+        let succeeded = save
+            ? model.saveBoardDraft(subject: subject, body: bodyText, threadID: threadID)
+            : model.discardBoardDraft(threadID: threadID)
+        guard succeeded else {
+            draftError = "Couldn’t update your draft. Keep this open and try again."
+            return
+        }
+        // Queued field changes must not recreate a discarded or posted draft.
+        isClosing = true
+        dismiss()
+    }
+
+    private var hasContent: Bool { BoardDraft(subject: subject, body: bodyText).hasContent }
 
     private var title: String {
         if case .newThread = mode { return "New thread" }

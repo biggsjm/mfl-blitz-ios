@@ -1,0 +1,13 @@
+{
+  "schedule": {
+    "weeklySchedule": {
+      "week": "2",
+      "matchup": {
+        "franchise": [
+          {"id": "0007", "isHome": "0", "score": "0", "result": "L"},
+          {"id": "0012", "isHome": "1", "score": "101.25", "result": "W"}
+        ]
+      }
+    }
+  }
+}

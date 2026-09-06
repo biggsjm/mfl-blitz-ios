@@ -1,6 +1,6 @@
 # App icon brief
 
-Artwork history audited September 6, 2026; the assets below remain in **0.3.7 (16)**. The proposed My Team franchise-logo tab is a separate, unimplemented [navigation design](schedule-ux.md), not a replacement for either original icon described here.
+Artwork history audited September 6, 2026; the original assets below remain in **0.4.0 (17)**. My Team now adds a 26-point original-rendered franchise-logo/initials tab icon using the existing safe loader. This [navigation treatment](schedule-ux.md) does not replace either original icon described here.
 
 The checked-in icon is original artwork generated for MFL Blitz. It does not use the MFL, NFL, or any team logo.
 

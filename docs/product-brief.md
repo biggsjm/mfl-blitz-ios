@@ -1,6 +1,6 @@
 # Product brief
 
-Reconciled September 6, 2026 against **0.3.7 (16)**. [Current status](current-status.md) distinguishes implemented behavior from product targets and remaining validation.
+Reconciled September 6, 2026 against **0.4.1 (18)**. [Current status](current-status.md) distinguishes implemented behavior from product targets and remaining validation.
 
 ## Promise
 
@@ -14,30 +14,30 @@ MFL is unusually powerful because a commissioner can shape nearly every rule. Th
 2. **Set a legal lineup before lock.** See league-derived slots, eligible bench/starter replacements and available projections; make changes accessibly; review the full lineup; retain edits if submission fails. Verified opponent/kickoff/injury enrichment remains incomplete.
 3. **Build conditional bids confidently.** Search and sort free agents, see remaining budget, pair every add with its drop, reorder rounds, and replace the saved queue only after a clear review.
 4. **Stay connected where the league already talks.** Read, compose, and reply on MFL's message board rather than forcing the league into a second chat network.
-5. **Understand the race.** See official standings order, divisions, owners, record and points without a horizontally scrolling report. Team schedules and richer playoff context are planned.
+5. **Understand the race.** See official standings order, divisions, owners, record and points without a horizontally scrolling report. Team and league schedules use published opponents; undecided playoffs stay explicitly unset.
 6. **Make and manage trades.** Find Create/Resume immediately, compare exact assets on both sides, cancel draft edits safely, and review the intended response before committing.
 
 ## Shipped navigation
 
-Five stable, labeled tabs make every priority one tap away:
+Five stable, labeled tabs keep Scores and Lineup one tap away; Transactions is one level inside My Team:
 
 | Tab | First screen | Primary action |
 |---|---|---|
 | Scores | User matchup, then league scoreboard | Refresh / change week |
 | Lineup | Submitted starters and bench | Review and submit |
-| Transactions | Waivers / Trades / Activity | Build bids, Create/Resume trade, review/respond |
-| Standings | Divisions using official MFL sort | Switch overall/divisions |
-| Board | Existing MFL threads with unread state | New thread / reply |
+| My Team | Team identity, Transactions entry, Roster / Schedule | Browse players/opponents or open Waivers / Trades / Activity |
+| Standings | Divisions using official MFL sort | Switch overall/divisions or open a team |
+| Board | Existing MFL threads with unread state and visible Drafts | New thread / reply / resume draft; Close offers save/discard |
 
 Settings is upper-left on Scores, not a top-level tab. Scores and Lineup share a calendar control labeled Week N. Standings order information stays behind an anchored information popover. Trades put the native Create/Resume action first and move the routine MFL link into secondary options; errors retain visible recovery links.
 
 This follows Apple's guidance that tabs represent persistent peer destinations, use familiar symbols plus labels, and avoid behaving like action buttons: [Tab bars](https://developer.apple.com/design/human-interface-guidelines/tab-bars).
 
-### Coordinated next navigation — not implemented
+### My Team navigation
 
-The agreed design is **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions, with a prominent Transactions entry above read-only Roster / Schedule. Lineup remains the dedicated editor. Other-team details share Roster / Schedule, and player identity links open shared detail without taking over Start/Replace, waiver Add, or trade asset-selection actions.
+The implemented navigation is **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions, with a prominent Transactions entry above read-only Roster / Schedule. Lineup remains the dedicated editor. Other-team details share Roster / Schedule, and player identity links from rosters, Lineup and matchup cells open shared read-only detail. Existing waiver Add and trade asset-selection actions are unchanged; contextual player links there remain follow-up work.
 
-Reuse existing Transactions → Waivers available-player search. There is no extra Players tab or new global search destination. Browsing a team/player/schedule must not change the active lineup week or drafts. Native-size center-team-logo feasibility was typechecked in a separate probe; device visual validation and all navigation implementation remain outstanding. See the [schedule](schedule-ux.md) and [player-detail](player-detail-ux.md) plans.
+Reuse existing Transactions → Waivers available-player search. There is no extra Players tab or new global search destination. Browsing a team/player/schedule must not change the active lineup week or drafts. My Team uses a 26-point original-rendered logo/initials inside the native tab bar. The system owns tab layout and selection; no raised custom tab bar is introduced. See the [schedule](schedule-ux.md) and [player-detail](player-detail-ux.md) plans.
 
 ## Design principles
 
