@@ -7,6 +7,8 @@ actor LiveMFLRepository: LeagueRepository {
     private var workspace: LeagueWorkspace?
     let privateStore: any PrivateStore
     var tradeMutationInFlight = false
+    var watchMutationInFlight = false
+    var rosterMutationInFlight = false
     private let transport: any MFLHTTPTransport
     private let requestInterval: Duration
     private let restoreTimeout: Duration
@@ -147,6 +149,15 @@ actor LiveMFLRepository: LeagueRepository {
             franchiseName: workspace.franchiseName, baseURL: workspace.baseURL,
             week: status.currentWeek, lineupWeek: status.lineupWeek)
         return status.currentWeek
+    }
+
+    func playerToolsSeasonStatus(client requestedClient: MFLClient) async throws -> MFLSeasonStatus {
+        if let seasonStatus, Date().timeIntervalSince(statusUpdatedAt) < 90 { return seasonStatus }
+        let loaded = try await requestedClient.seasonStatus()
+        guard client === requestedClient else { throw CancellationError() }
+        seasonStatus = loaded
+        statusUpdatedAt = Date()
+        return loaded
     }
 
     func loadWorkspace() async throws -> LeagueWorkspace {
@@ -497,6 +508,8 @@ actor LiveMFLRepository: LeagueRepository {
     }
 
     func submitLineup(_ lineup: LineupSnapshot) async throws {
+        try beginRosterMutation()
+        defer { rosterMutationInFlight = false }
         let (client, _, workspace) = try requireSession()
         guard lineup.editState.allowsEditing else {
             throw RepositoryError.server(
@@ -685,6 +698,8 @@ actor LiveMFLRepository: LeagueRepository {
     }
 
     func submitWaivers(_ claims: [WaiverClaim], replacing baseline: [WaiverClaim]) async throws {
+        try beginRosterMutation()
+        defer { rosterMutationInFlight = false }
         let (client, _, workspace) = try requireSession()
         let fresh = try await loadWaivers(refreshRules: true)
         if let reason = fresh.unavailableReason { throw RepositoryError.server(reason) }

@@ -134,6 +134,9 @@ struct LineupView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Lineup")
+        .task(id: "\(model.workspace?.storageScope ?? "none")|\(model.selectedWeek)") {
+            await model.loadPlayerAvailability(week: model.selectedWeek)
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 WeekPicker(selection: weekBinding, range: 1...18)
@@ -398,6 +401,7 @@ private struct LineupVacatedSlotPicker: View {
 }
 
 private struct LineupReplacementCandidateRow: View {
+    @Environment(AppModel.self) private var model
     let player: LineupPlayer
     let detail: String?
     let actionIcon: String
@@ -422,6 +426,7 @@ private struct LineupReplacementCandidateRow: View {
                 .fixedSize(horizontal: true, vertical: false)
                 Image(systemName: actionIcon).font(.title3).foregroundStyle(Color.blitzGreen)
             }
+            PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.nflTeam, week: model.lineup.week)
             if let detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
         }
         .frame(minHeight: 48)
@@ -527,6 +532,7 @@ private struct LineupPlayerRow: View {
                         Text(playerMetadata)
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.nflTeam, week: model.lineup.week)
                     }
 
                     Spacer(minLength: 4)
@@ -594,7 +600,7 @@ private struct LineupPlayerRow: View {
         if !isEditable {
             return "Lineup changes are unavailable"
         }
-        if player.injuryStatus == .injuredReserve { return "Move this player off injured reserve on MFL first" }
+        if player.injuryStatus == .injuredReserve { return "Activate this player from injured reserve in My Team first" }
         if actionTitle == "Replace" {
             return slotLabel == "FLEX"
                 ? "Shows eligible bench players and starters allowed in FLEX by your league’s rules."
@@ -606,16 +612,20 @@ private struct LineupPlayerRow: View {
 
     private var playerMetadata: String {
         let team = slotLabel == "FLEX" ? "\(player.position) · \(player.nflTeam)" : player.nflTeam
-        guard !player.opponent.isEmpty, player.opponent != "—" else {
-            return team
-        }
-        return "\(team) · \(player.opponent) · \(player.gameTime.formatted(date: .omitted, time: .shortened))"
+        return team
     }
 
     private var accessibilityLabel: String {
         var value = "\(player.name), \(player.position), \(player.nflTeam)"
         if slotLabel == "FLEX" { value += ", starting in FLEX" }
-        if !player.opponent.isEmpty, player.opponent != "—" { value += ", \(player.opponent)" }
+        if let availability = model.playerTools.availability[model.lineup.week], availability.scope == model.workspace?.storageScope {
+            if availability.byeWeeks[player.nflTeam] == model.lineup.week { value += ", bye week" }
+            else if let game = availability.games[player.nflTeam] {
+                value += ", \(game.opponentLabel)"
+                if let kickoff = game.kickoff { value += ", \(kickoff.formatted(date: .abbreviated, time: .shortened))" }
+            }
+            if let injury = availability.injuries[player.id] { value += ", injury report: \(injury.status)" }
+        }
         value += ", projected \(player.projectedPoints.pointsText) points"
         if let injury = player.injuryStatus { value += ", \(injury.label)" }
         if player.isLocked { value += ", locked" }

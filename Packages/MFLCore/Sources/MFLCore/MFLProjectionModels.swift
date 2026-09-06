@@ -30,7 +30,7 @@ public struct MFLProjectedScores: Decodable, Equatable, Sendable {
     }
 }
 
-private struct ProjectionEntry: Decodable {
+struct ProjectionEntry: Decodable {
     let value: MFLPlayerProjection?
     private enum CodingKeys: String, CodingKey { case id }
 

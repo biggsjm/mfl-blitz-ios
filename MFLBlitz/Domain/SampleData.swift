@@ -323,6 +323,8 @@ enum SampleData {
 
 actor DemoLeagueRepository: LeagueRepository {
     var demoTrades = SampleData.tradePreview
+    var demoWatched: Set<String> = []
+    var demoMembership: [String: String]?
     func signIn(with credentials: LoginCredentials) async throws -> LeagueWorkspace {
         try await shortDelay()
         guard !credentials.username.isEmpty, !credentials.password.isEmpty else {
@@ -345,11 +347,29 @@ actor DemoLeagueRepository: LeagueRepository {
         try await shortDelay()
         var value = SampleData.lineup
         value.week = week
+        if let demoMembership {
+            value.players = value.players.filter { demoMembership[$0.id] != nil }.map { original in
+                var player = original
+                if demoMembership[player.id] == "INJURED_RESERVE" { player.injuryStatus = .injuredReserve; player.isStarter = false }
+                else if player.injuryStatus == .injuredReserve { player.injuryStatus = nil }
+                return player
+            }
+            for candidate in SampleData.waivers.candidates where demoMembership[candidate.id] == "ROSTER" && !value.players.contains(where: { $0.id == candidate.id }) {
+                value.players.append(LineupPlayer(id: candidate.id, name: candidate.name, position: candidate.position,
+                    nflTeam: candidate.nflTeam, opponent: "", projectedPoints: candidate.projectedPoints,
+                    seasonPoints: 0, isStarter: false, isLocked: false, gameTime: .distantFuture))
+            }
+        }
         return value
     }
 
     func submitLineup(_ lineup: LineupSnapshot) async throws { try await shortDelay() }
-    func loadWaivers() async throws -> WaiverSnapshot { try await shortDelay(); return SampleData.waivers }
+    func loadWaivers() async throws -> WaiverSnapshot {
+        try await shortDelay()
+        var value = SampleData.waivers
+        if let demoMembership { value.candidates.removeAll { demoMembership[$0.id] != nil } }
+        return value
+    }
     func submitWaivers(_ claims: [WaiverClaim], replacing baseline: [WaiverClaim]) async throws { try await shortDelay() }
     func loadStandings() async throws -> [StandingRow] { try await shortDelay(); return SampleData.standings }
     func loadBoard() async throws -> [BoardThread] { try await shortDelay(); return SampleData.board }

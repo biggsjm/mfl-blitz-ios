@@ -1,6 +1,6 @@
 # Product brief
 
-Reconciled September 6, 2026 against **0.4.1 (18)**. [Current status](current-status.md) distinguishes implemented behavior from product targets and remaining validation.
+Reconciled September 6, 2026 against **0.5.0 (19) candidate**. [Current status](current-status.md) distinguishes implemented behavior from product targets and remaining validation.
 
 ## Promise
 
@@ -35,7 +35,7 @@ This follows Apple's guidance that tabs represent persistent peer destinations, 
 
 ### My Team navigation
 
-The implemented navigation is **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions, with a prominent Transactions entry above read-only Roster / Schedule. Lineup remains the dedicated editor. Other-team details share Roster / Schedule, and player identity links from rosters, Lineup and matchup cells open shared read-only detail. Existing waiver Add and trade asset-selection actions are unchanged; contextual player links there remain follow-up work.
+The implemented navigation is **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions, with a prominent Transactions entry above Roster / Schedule / Watchlist, with separate Manage roster. Lineup remains the dedicated editor. Other-team details share Roster / Schedule, and player identity links from rosters, Lineup and matchup cells open shared player detail. Existing waiver Add and trade asset-selection actions are unchanged; separate contextual research links are now present.
 
 Reuse existing Transactions → Waivers available-player search. There is no extra Players tab or new global search destination. Browsing a team/player/schedule must not change the active lineup week or drafts. My Team uses a 26-point original-rendered logo/initials inside the native tab bar. The system owns tab layout and selection; no raised custom tab bar is introduced. See the [schedule](schedule-ux.md) and [player-detail](player-detail-ux.md) plans.
 
@@ -44,7 +44,7 @@ Reuse existing Transactions → Waivers available-player search. There is no ext
 - **Freshness is content.** Expose meaningful update/loading/error states. Foreground scoring is conservatively polled; background real-time delivery is not implemented.
 - **Proof beats optimism.** Reviewed writes use server readback. Ambiguous outcomes trigger reconciliation, not blind resubmission. Do not claim tiebreaker readback or completed trade approval when MFL cannot prove it.
 - **One obvious action.** Each screen keeps its critical action persistent and moves secondary detail behind disclosure.
-- **The league's rules win.** Derive supported behavior from capabilities/configuration and fail safely when unknown. Broader formats, IR/taxi management and commissioner tools are targets, not universally supported features today.
+- **The league's rules win.** Derive supported behavior from capabilities/configuration and fail safely when unknown. Broader formats, taxi management and commissioner tools remain targets; basic capability-gated add/drop and IR are implemented, not universally supported features today.
 - **No color-only state.** Live, leading, locked, injured, unread, and invalid states always include text or symbols.
 - **Native before novel.** System navigation, lists, sheets, menus, search, controls, typography, materials, haptics, and semantic colors come before custom chrome.
 - **Fast cold open.** Reuse the daily public catalog and end the blocking reconnect once identity is verified; load sections independently. Persistent private snapshots and a full offline cold start still need a reviewed design.

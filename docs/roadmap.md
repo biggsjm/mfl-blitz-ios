@@ -1,6 +1,6 @@
 # Execution plan and remaining work
 
-Updated September 6, 2026 against **0.4.1 (18)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 6, 2026 for the **0.5.0 (19) candidate**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 
@@ -15,7 +15,7 @@ Updated September 6, 2026 against **0.4.1 (18)**. Checked items mean implemented
 - [x] Daily public player disk cache, stable league memory cache, decoded reuse, request sharing/spacing/cooldowns and no blind write retries.
 - [x] Original icons, explicit Week N controls, adaptive layouts and accessibility foundations.
 - [x] Performance regressions, four synthetic managers across two accelerated weeks and native UI journeys; private build installed on the owner's phone.
-- [x] Initial My Team/shared team roster, Player Detail, team/league season schedules and canonical-ID navigation. Player history and additional waiver/trade links remain open.
+- [x] Initial My Team/shared team roster, Player Detail, team/league season schedules and canonical-ID navigation. Player tools 1–5 extend this in the current candidate.
 
 ## P0 — Week 1 validation and Week 2 release gates
 
@@ -37,29 +37,38 @@ My Team is a separately verified product increment. It does not substitute for r
 
 ## P1 — My Team, schedule and player detail
 
-**Next approved implementation: [Player tools 1–5](player-tools-plan.md).** Josh approved injury/kickoff/bye context, richer league-scored player research, an MFL-synced watchlist, native first-come add/drop and IR management on September 6. The linked plan defines acceptance checks and keeps trading blocks, calendars, polls and playoff brackets queued after those five. None is marked shipped until its implementation and verification evidence is recorded.
+**Current implemented candidate: [Player tools 1–5](player-tools-plan.md).** Josh approved injury/kickoff/bye context, richer league-scored player research, an MFL-synced watchlist, native first-come add/drop and IR management on September 6. The linked plan defines acceptance checks and keeps trading blocks, calendars, polls and playoff brackets queued after those five. All five are implemented in the candidate; final test/CI/device and live-owner checks are recorded separately.
 
 **Initial slice implemented in 0.4.0 (17).** Tabs: **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. No Players tab and no new global search destination; reuse the existing available-player search in Transactions → Waivers.
 
 1. [x] Implement canonical-ID routes and the shared read-only team shell. My Team exposes Transactions above Roster / Schedule; dedicated Lineup retains editing/submission. Other-team pages never present the owner's inbox as their own. Carry the existing trade-specific badge onto My Team and its Transactions entry.
 2. [x] Add team roster and truthful initial player detail: identity, authoritative ownership/status, available projection/current points and optional supplied bio/contracts. Keep identity taps separate from lineup/waiver/asset-selection actions. See [player-detail plan](player-detail-ux.md).
 3. [x] Validate the official schedule request/schema; add a shared season/league cache and team/league timelines. Use configured week bounds, distinguishing byes, TBD, missing data and multiple matchups. See [schedule plan](schedule-ux.md).
-4. [ ] Validate player-scoring history and add progressive, cached season/week history. Do not issue 18 forced full-week reads on first open or substitute zero for missing data.
-5. [ ] Complete remaining contextual links and search/selection restoration. Roster, Lineup, matchup, Standings and schedule links are implemented; waiver/trade identity links and modal routing remain. Browsing must not change `AppModel.selectedWeek`, active lineup edits or saved trade drafts. Preserve explicit trade editor/review identities.
+4. [x] Progressive targeted player history (four completed weeks/page), season totals/average and position points-allowed context. Missing scores are not zero. Live completed-week comparison remains a Week 1 gate.
+5. [x] Waiver identity links, separate trade research controls and modal routing are implemented alongside existing routes. Browsing must not change `AppModel.selectedWeek`, active lineup edits or saved trade drafts. Preserve explicit trade editor/review identities.
 6. [ ] Complete supported-device/accessibility validation. Native iPhone simulator journeys cover the My Team logo, team/league routes and large-text Transactions access; minimum-supported-OS, iPad and full manual assistive-technology review remain.
 
 Implementation boundaries: team/player work owns roster/player surfaces; schedule work owns season data/timelines; native-app work owns shared routes/navigation and existing mutation flows. All slices were coordinated before integration. Schedule browsing uses destination-local scores and preserves active lineup and trade drafts.
+
+## Next feature queue — after player tools 1–5
+
+6. [ ] Trading block: publish available assets/needs and start offers.
+7. [ ] League calendar and opt-in deadline reminders.
+8. [ ] Board polls and voting.
+9. [ ] Playoff brackets beside schedules.
+
+These are retained in the [approved plan](player-tools-plan.md) and are not implemented in 0.5.0.
 
 ## P2 — Broader coverage and polish
 
 - [ ] Multi-league picker/switching with session/draft isolation; underlying account mapping already exists.
 - [ ] Broader rule rendering: superflex/IDP, duplicate-player ownership, best ball/total points, doubleheaders and unusual seasons. Keep unsupported capabilities explicit and non-actionable.
-- [ ] Native non-conditional BBID, classic priority and FCFS. Today only supported conditional blind bidding writes natively; other windows/formats use MFL.
-- [ ] IR/taxi moves, commissioner-on-behalf actions and richer salary/contracts where capabilities allow. Reading a field does not implement its management workflow.
+- [ ] Broader non-conditional BBID and classic priority waivers. Conditional blind bidding and capability-gated FCFS are implemented; unsupported formats use MFL.
+- [ ] Taxi moves, broader IR formats, commissioner-on-behalf actions and richer salary/contracts. Basic Out/IR deactivation and activation with reviewed drops are implemented. Reading a field does not implement its management workflow.
 - [ ] Reviewed private-data offline/cold-start storage. Currently only the public player directory persists as a response cache.
 - [ ] Rich board HTML/link handling beyond plain-text cleanup, optional standings columns and iPad split-view details.
 - [ ] Privacy-redacted diagnostics export and remaining manual accessibility work.
-- [ ] Verified injury/opponent/kickoff and season-total enrichment. Placeholder fields are not research data; optional images/news/advanced stats need source and rights verification.
+- [x] Official injury/opponent/kickoff/bye and league-scored research integration. Actual game-week completeness remains under owner validation; licensed news/images/raw stats need separate sourcing.
 
 ### Configuration coverage matrix
 

@@ -10,7 +10,9 @@ struct PlayerIdentityView: View {
         HStack(spacing: 12) {
             Text(player.position ?? "—")
                 .font(.caption.weight(.heavy))
+                .lineLimit(1).minimumScaleFactor(0.3)
                 .foregroundStyle(Color.blitzNavy)
+                .padding(4)
                 .frame(width: 44, height: 44)
                 .background(Color.blitzGreen.opacity(0.85), in: RoundedRectangle(cornerRadius: 12))
                 .accessibilityHidden(true)

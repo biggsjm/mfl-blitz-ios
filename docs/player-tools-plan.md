@@ -1,6 +1,6 @@
 # Player tools and roster actions
 
-Approved by Josh September 6, 2026, after **0.4.1 (18)**. This is the implementation plan for the next five features, not a claim that they have shipped. [Current status](current-status.md) records the installed build; [roadmap](roadmap.md) retains release gates and remaining work.
+Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in the 0.5.0 (19) candidate. Implementation checks below are separate from final verification, installation and live-owner certification. [Current status](current-status.md) records the installed build; [roadmap](roadmap.md) retains release gates and remaining work.
 
 ## Scope and sequence
 
@@ -18,43 +18,43 @@ Champion Hall's September 6 public configuration reports `BBID_FCFS`, conditiona
 
 ## 1 — Player availability
 
-- [ ] Decode official injury reports, NFL schedule/kickoffs, and bye weeks with singleton/array and missing-value handling.
-- [ ] Share season/week caches; load secondary information independently so it never blocks sign-in, lineup or scores.
-- [ ] Show compact injury/bye badges and opponent/kickoff context. Use local time and explicit source freshness in detail.
-- [ ] An absent injury record is not proof of health. A missing game is not proof of a bye. MFL injury data is documented as daily, not instant breaking news.
-- [ ] Do not treat acquisition locks as lineup locks or the schedule export as live NFL scoring. MFL remains authoritative for write eligibility.
+- [x] Decode official injury reports, NFL schedule/kickoffs, and bye weeks with singleton/array and missing-value handling.
+- [x] Share season/week caches; load secondary information independently so it never blocks sign-in, lineup or scores.
+- [x] Show compact injury/bye badges and opponent/kickoff context. Use local time and explicit source freshness in detail.
+- [x] An absent injury record is not proof of health. A missing game is not proof of a bye. MFL injury data is documented as daily, not instant breaking news.
+- [x] Do not treat acquisition locks as lineup locks or the schedule export as live NFL scoring. MFL remains authoritative for write eligibility.
 
 ## 2 — Player research
 
-- [ ] Add league-scored fantasy totals/average and completed-week game history, with a simple recent-form view.
-- [ ] Load targeted player scores progressively; initially only recent completed weeks, then explicit Load more. Never fan out 18 forced week requests on first open or request future results.
-- [ ] Distinguish missing data from a real zero, partial history from complete history, and projections from results. Preserve exact season/week/player/league identity.
-- [ ] Add opponent fantasy points allowed by position when the feed has verified data; avoid suggesting small-sample matchup figures are predictions.
-- [ ] Extend identity links into waiver/trade surfaces without stealing add/bid/asset-selection taps or losing search, scroll or drafts.
-- [ ] Do not reuse legacy placeholder season totals, trends, opponent or kickoff fields as research facts. No raw NFL stat/news provider is introduced.
+- [x] Add league-scored fantasy totals/average and completed-week game history, with a simple recent-form view.
+- [x] Load targeted player scores progressively; initially only recent completed weeks, then explicit Load more. Never fan out 18 forced week requests on first open or request future results.
+- [x] Distinguish missing data from a real zero, partial history from complete history, and projections from results. Preserve exact season/week/player/league identity.
+- [x] Add opponent fantasy points allowed by position when the feed has verified data (position totals; not per-game averages); avoid suggesting small-sample matchup figures are predictions.
+- [x] Extend identity links into waiver/trade surfaces without stealing add/bid/asset-selection taps or losing search, scroll or drafts.
+- [x] Do not reuse legacy placeholder season totals, trends, opponent or kickoff fields as research facts. No raw NFL stat/news provider is introduced.
 
 ## 3 — Watchlist
 
-- [ ] Read the owner's MFL watchlist and expose a clear empty/error/stale state.
-- [ ] Add/remove using the documented incremental import, then confirm fresh readback. No full-list overwrite or automatic mutation retry.
-- [ ] Make saved players discoverable from My Team and available-player filtering in Waivers.
-- [ ] Scope all data/actions to season/league/franchise/session; reject old-session completions. Keep an unconfirmed action visible until reconciled so a timeout cannot silently invert/repeat a toggle.
+- [x] Read the owner's MFL watchlist and expose a clear empty/error/stale state.
+- [x] Add/remove using the documented incremental import, then confirm fresh readback. No full-list overwrite or automatic mutation retry.
+- [x] Make saved players discoverable from My Team and available-player filtering in Waivers.
+- [x] Scope all data/actions to season/league/franchise/session; reject old-session completions. Keep an unconfirmed action visible until reconciled so a timeout cannot silently invert/repeat a toggle.
 
 ## 4 — First-come add/drop
 
-- [ ] Show native add/drop only for a supported league and current owner capability/window. Unknown/closed capabilities remain non-actionable with MFL fallback.
-- [ ] Present the selected addition, optional necessary drop and resulting roster impact before any request. Support a deliberate drop-only action where valid.
-- [ ] Preflight fresh pool, owner roster, league limits, abilities and player acquisition status; reject stale user-reviewed baselines or unsupported duplicate/complex formats.
-- [ ] Save a durable pending-action marker before sending. Submit once, read back exact membership changes and reconcile uncertain results without retrying the import.
-- [ ] Refresh affected My Team, lineup, pool, watchlist availability and transaction views without overwriting active drafts. Explain conflicts that now need review.
+- [x] Show native add/drop only for a supported league and current owner capability/window. Unknown/closed capabilities remain non-actionable with MFL fallback.
+- [x] Present the selected addition, optional necessary drop and resulting roster impact before any request. Support a deliberate drop-only action where valid.
+- [x] Preflight fresh pool, owner roster, league limits, abilities and player acquisition status; reject stale user-reviewed baselines or unsupported duplicate/complex formats.
+- [x] Save a durable pending-action marker before sending. Submit once, read back exact membership changes and reconcile uncertain results without retrying the import.
+- [x] Refresh affected My Team, lineup, pool, watchlist availability and transaction views without overwriting active drafts. Explain conflicts that now need review.
 
 ## 5 — IR management
 
-- [ ] Offer Move to IR / Activate only on the signed-in owner's applicable players, using current roster membership rather than displayed starter slot.
-- [ ] Show available IR/active-roster capacity and review the move. Check current capabilities, limits and baseline; MFL enforces league-specific injury eligibility.
-- [ ] Support explicit activation with a required reviewed drop when necessary; never silently drop a player to make space.
-- [ ] Reuse the durable roster-action and verification machinery. Confirm the target player's new roster status and any intended drop before declaring success.
-- [ ] Keep taxi, salary and commissioner-on-behalf writes outside this increment.
+- [x] Offer Move to IR / Activate only on the signed-in owner's applicable players, using current roster membership rather than displayed starter slot.
+- [x] Show available IR/active-roster capacity and review the move. Check current capabilities, limits and baseline; MFL enforces league-specific injury eligibility.
+- [x] Support explicit activation with a required reviewed drop when necessary; never silently drop a player to make space.
+- [x] Reuse the durable roster-action and verification machinery. Confirm the target player's new roster status and any intended drop before declaring success.
+- [x] Keep taxi, salary and commissioner-on-behalf writes outside this increment.
 
 ## Cache, security and correctness
 
@@ -82,6 +82,12 @@ Champion Hall's September 6 public configuration reports `BBID_FCFS`, conditiona
 9. [ ] Playoff brackets: add configured postseason brackets beside schedules (`playoffBrackets`, `playoffBracket`).
 
 Later candidates, not authorized as part of 1–5: keeper selection, draft tools, multi-league switching, commissioner/accounting tools, broader waiver/taxi/salary formats, widgets and Live Activities. Investigate MFL's `device_tokens` / `add_device_token` before promising push delivery; registration endpoints alone do not establish an APNs delivery contract for Blitz. Raw NFL statistics and third-party news require a separate source and rights review.
+
+## Verified wire evidence — September 6
+
+Josh supplied owner-scoped `abilities.franchise(id).ability(id,value,desc)`: WAIVERS, DROP and INJURED_RESERVE are explicit permissions. Unknown/duplicate IDs, another franchise and non-1 values cannot grant a write. Josh also verified empty `myWatchList: {}` and singleton `player: {id}` responses. No credential was requested or retained.
+
+Public injury/schedule/bye feeds were checked against 2026. The nonempty 2025 pointsAllowed export uses `team(id).position(name,points)`; 2026 is currently empty. The implementation labels position totals correctly and does not reuse 2025 figures in 2026. MFL’s league rules page currently requires Out/IR for this league, and none of the owner’s current players was eligible when checked. Synthetic writes are not proof of a real successful FCFS/IR move.
 
 ## References
 

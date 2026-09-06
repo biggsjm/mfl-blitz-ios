@@ -520,7 +520,101 @@ public actor MFLClient {
         return response.pendingWaivers
     }
 
+    // MARK: Player availability and research
+
+    public func injuries(week: Int, refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLInjuries {
+        try validateWeek(week)
+        let response = try await export(MFLInjuriesResponse.self, endpoint: .injuries, host: .api,
+            leagueID: nil, parameters: ["W": String(week)], ttl: 3_600, refreshPolicy: refreshPolicy)
+        guard response.injuries.week == nil || response.injuries.week == week else { throw MFLCoreError.invalidResponse }
+        return response.injuries
+    }
+
+    public func nflSchedule(week: Int, refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLNFLSchedule {
+        try validateWeek(week)
+        let response = try await export(MFLNFLScheduleResponse.self, endpoint: .nflSchedule, host: .api,
+            leagueID: nil, parameters: ["W": String(week)], ttl: 21_600, refreshPolicy: refreshPolicy)
+        guard response.nflSchedule.week == nil || response.nflSchedule.week == week else { throw MFLCoreError.invalidResponse }
+        return response.nflSchedule
+    }
+
+    public func nflByeWeeks(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLByeWeeks {
+        let response = try await export(MFLByeWeeksResponse.self, endpoint: .nflByeWeeks, host: .api,
+            leagueID: nil, parameters: [:], ttl: 86_400, refreshPolicy: refreshPolicy)
+        guard response.nflByeWeeks.year == nil || response.nflByeWeeks.year == configuration.league.season else {
+            throw MFLCoreError.invalidResponse
+        }
+        return response.nflByeWeeks
+    }
+
+    public func playerScores(playerIDs: [String], period: MFLPlayerScorePeriod,
+                             refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLPlayerScores {
+        guard !playerIDs.isEmpty, playerIDs.count <= 100, Set(playerIDs).count == playerIDs.count else {
+            throw MFLCoreError.invalidRequest("Choose between one and 100 unique players.")
+        }
+        try playerIDs.forEach(validateIdentifier)
+        if case .week(let week) = period { try validateWeek(week) }
+        let response = try await export(MFLPlayerScoresResponse.self, endpoint: .playerScores,
+            host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
+            parameters: ["W": period.parameter, "PLAYERS": playerIDs.sorted().joined(separator: ",")],
+            ttl: 3_600, refreshPolicy: refreshPolicy)
+        guard response.playerScores.period == nil || response.playerScores.period?.uppercased() == period.parameter else {
+            throw MFLCoreError.invalidResponse
+        }
+        return response.playerScores
+    }
+
+    public func pointsAllowed(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLJSONValue {
+        try await export(MFLJSONValue.self, endpoint: .pointsAllowed, host: try await resolvedLeagueHost(),
+            leagueID: configuration.league.leagueID, parameters: [:], ttl: 21_600, refreshPolicy: refreshPolicy)
+    }
+
+    public func watchList(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLWatchList {
+        try await export(MFLWatchList.self, endpoint: .myWatchList, host: try await resolvedLeagueHost(),
+            leagueID: configuration.league.leagueID, parameters: [:], ttl: 60, refreshPolicy: refreshPolicy)
+    }
+
+    public func abilities(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLJSONValue {
+        try await export(MFLJSONValue.self, endpoint: .abilities, host: try await resolvedLeagueHost(),
+            leagueID: configuration.league.leagueID, parameters: ["DETAILS": "1"], ttl: 30, refreshPolicy: refreshPolicy)
+    }
+
     // MARK: Writes
+
+    @discardableResult
+    public func updateWatchList(playerID: String, isWatched: Bool) async throws -> MFLMutationResult {
+        try validateIdentifier(playerID)
+        defer { invalidate([.myWatchList]) }
+        return try await performImport(endpoint: .myWatchList, parameters: [isWatched ? "ADD" : "REMOVE": playerID])
+    }
+
+    @discardableResult
+    public func addDrop(addPlayerID: String?, dropPlayerID: String?) async throws -> MFLMutationResult {
+        guard addPlayerID != nil || dropPlayerID != nil else { throw MFLCoreError.invalidRequest("Choose a player to add or drop.") }
+        if let addPlayerID { try validateIdentifier(addPlayerID) }
+        if let dropPlayerID { try validateIdentifier(dropPlayerID) }
+        guard addPlayerID == nil || addPlayerID != dropPlayerID else {
+            throw MFLCoreError.invalidRequest("The same player cannot be added and dropped.")
+        }
+        var parameters: [String: String] = [:]
+        parameters["ADD"] = addPlayerID
+        parameters["DROP"] = dropPlayerID
+        defer { invalidate([.rosters, .playerRosterStatus, .freeAgents, .league, .transactions]) }
+        return try await performImport(endpoint: .fcfsWaiver, parameters: parameters)
+    }
+
+    @discardableResult
+    public func moveInjuredReserve(playerID: String, activate: Bool, dropPlayerID: String? = nil) async throws -> MFLMutationResult {
+        try validateIdentifier(playerID)
+        if let dropPlayerID { try validateIdentifier(dropPlayerID) }
+        guard dropPlayerID != playerID, activate || dropPlayerID == nil else {
+            throw MFLCoreError.invalidRequest("This injured-reserve move is invalid.")
+        }
+        var parameters = [activate ? "ACTIVATE" : "DEACTIVATE": playerID]
+        parameters["DROP"] = dropPlayerID
+        defer { invalidate([.rosters, .playerRosterStatus, .freeAgents, .league, .transactions]) }
+        return try await performImport(endpoint: .ir, parameters: parameters)
+    }
 
     @discardableResult
     public func submitLineup(_ submission: MFLLineupSubmission) async throws -> MFLMutationResult {
@@ -731,7 +825,7 @@ public actor MFLClient {
             host: host,
             leagueID: leagueID,
             parameters: parameters,
-            cookie: cookie
+            cookie: [.injuries, .nflSchedule, .nflByeWeeks].contains(endpoint) ? nil : cookie
         )
         let version = UUID()
         readVersions[key] = version

@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed September 6, 2026 against **0.4.1 (18)**. Contact the repository owner through an established private channel rather than posting a vulnerability publicly. GitHub private vulnerability reporting is currently disabled; establishing an available reporting route is a [distribution gate](docs/roadmap.md). Do not assume a **Report a vulnerability** button is available. If no private contact is available, request a private reporting route without disclosing exploit details or sensitive data.
+Reviewed September 6, 2026 against **0.5.0 (19) candidate**. Contact the repository owner through an established private channel rather than posting a vulnerability publicly. GitHub private vulnerability reporting is currently disabled; establishing an available reporting route is a [distribution gate](docs/roadmap.md). Do not assume a **Report a vulnerability** button is available. If no private contact is available, request a private reporting route without disclosing exploit details or sensitive data.
 
 Never include MyFantasyLeague usernames, passwords, `MFL_USER_ID` values, API keys, private message content, trade terms, blind bids or unredacted authenticated payloads in an issue or routine diagnostic report. Use synthetic reproduction data; report build, affected workflow and expected/observed behavior.
 
@@ -14,8 +14,10 @@ MFL Blitz is designed to:
 - perform no analytics, ad tracking, or credential proxying;
 - isolate franchise images in an ephemeral cookieless session with HTTPS validation, no redirects and bounded static thumbnails;
 - persist only the public player directory as a response cache; keep private API response caches in memory;
-- review intended lineup, waiver, trade and board actions, use fresh preflight/readback, and never blindly retry imports;
-- retain durable markers for ambiguous board/trade writes across relaunch, without assuming disappearance alone proves a timed-out trade acceptance.
+- review intended lineup, waiver, trade, board and roster actions, use fresh preflight/readback, and never blindly retry imports;
+- retain durable markers for ambiguous board/trade/watchlist/roster writes across relaunch, without assuming disappearance alone proves a timed-out trade acceptance.
+
+Roster actions require exact owner-scoped ability IDs, a supported league format, fresh reviewed membership/limits and explicit acquisition-unlocked state for additions. IR uses current roster membership, never a guessed lineup slot. Full membership/status readback confirms moves. Unknown/duplicate permissions or roster states fail closed; a shared roster-write gate prevents overlapping local mutations. Watchlist updates are incremental, not full-list replacements.
 
 Resolve any unconfirmed action against MFL before disconnecting, since disconnect removes its local duplicate-prevention marker. Data already submitted to MFL is not deleted by Cancel, disconnect or app removal. See [privacy](PRIVACY.md) for data flow and retention.
 

@@ -224,8 +224,23 @@ struct TradeTerms: View {
     let sending: [TradeAsset]
     let receiving: [TradeAsset]
     var body: some View {
-        Section("You receive") { ForEach(receiving) { TradeAssetRow(asset: $0) } }
-        Section("You send") { ForEach(sending) { TradeAssetRow(asset: $0) } }
+        Section("You receive") { ForEach(receiving) { asset in HStack { TradeAssetRow(asset: asset); Spacer(); TradePlayerResearchLink(asset: asset) } } }
+        Section("You send") { ForEach(sending) { asset in HStack { TradeAssetRow(asset: asset); Spacer(); TradePlayerResearchLink(asset: asset) } } }
+    }
+}
+
+struct TradePlayerResearchLink: View {
+    @Environment(AppModel.self) private var model
+    let asset: TradeAsset
+    var body: some View {
+        if asset.kind == .player, let scope = model.browseScope {
+            NavigationLink(value: PlayerRoute(scope: scope, playerID: asset.id, inspectedWeek: model.currentWeek)) {
+                Image(systemName: "info.circle").frame(width: 44, height: 44)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Research \(asset.name)")
+            .accessibilityIdentifier("trade-research-\(asset.id)")
+        }
     }
 }
 
@@ -294,6 +309,7 @@ private struct TradeDetailView: View {
                 }
                 if let workspace = trades.workspace { Link("View trades on MFL", destination: workspace.reportURL("05")) }
             }
+            .leagueBrowseDestinations()
             .navigationTitle("Trade offer").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() }.disabled(trades.isBusy) } }
             .refreshable { await trades.refresh() }
@@ -339,6 +355,7 @@ private struct TradeResponseReviewView: View {
                 }
                 if let notice = trades.notice { Section { Text(notice).font(.subheadline) } }
             }
+            .leagueBrowseDestinations()
             .navigationTitle(response.title).navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(trades.isBusy) } }
         }.interactiveDismissDisabled(trades.isBusy)

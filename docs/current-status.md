@@ -2,7 +2,15 @@
 
 Audited September 6, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Current private build
+## Player-tools candidate
+
+**0.5.0 (19)** implements the approved [features 1–5](player-tools-plan.md): official availability, progressive league-scored history, synced watchlist, reviewed FCFS add/drop and IR activation/deactivation. Roster and watchlist mutations have durable uncertainty/readback protection. Native roster controls are gated by exact owner abilities and supported league rules. The candidate is undergoing full regression, CI and signed-device verification; it is not yet recorded as installed.
+
+Wire validation: Josh supplied abilities and both empty/singleton watchlist responses. Public availability feeds were checked; last season's nonempty points-allowed response verified position totals. No real roster/trade/waiver/lineup/board writes were made by automated QA. Initial core suite: 73 passing tests. Initial app unit suite: 140 functions / 169 executions, zero failures/runtime warnings; further tests and UI refinements were added afterward, so this is not the final candidate result.
+
+Native preview review/cancel/IR confirmation and largest-text journeys passed. The initial watchlist UI journey failed only because its assertion used an incomplete empty-state title; the test was corrected. Screenshots exposed a truncated position badge at largest text; its small decorative label now scales to fit while the full metadata remains readable. The requested Dark launch preference did not change the simulator appearance, so those first screenshots certify Light only. Final actual Dark review is separate.
+
+## Previous installed private build
 
 - **MFL Blitz 0.4.1 (18): My Team and Board drafts.** Implemented, tested and signed. The final compatibility rebuild was installed and launched successfully on Josh's iPhone on September 6 after the phone became available. Includes the concise schedule update label and Board Close/save/discard with visible draft recovery.
 - Previous installed baseline: **0.3.7 (16), [e779e4b](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b)**. The documentation baseline was merged in [PR #1](https://github.com/biggsjm/mfl-blitz-ios/pull/1).
@@ -54,14 +62,14 @@ All native QA explicitly enters preview and performs no live lineup, waiver, tra
 
 ## Known gaps and next work
 
-The next approved increment is [Player tools 1–5](player-tools-plan.md): availability context, player research, synced watchlists, native FCFS add/drop and IR. Its checkboxes track implementation separately from the installed 0.4.1 build; trading blocks, calendars, polls and playoff brackets are explicitly queued afterward.
+The implemented candidate is [Player tools 1–5](player-tools-plan.md): availability context, player research, synced watchlists, native FCFS add/drop and IR. Its checkboxes track implementation separately from the installed 0.4.1 build; trading blocks, calendars, polls and playoff brackets are explicitly queued afterward.
 
-- Full player scoring history still needs a verified endpoint and progressive cache. Do not issue 18 forced full-week reads on first open.
-- Add player links/actions in waiver/trade surfaces with independent asset-selection controls, modal destinations and search/scroll/draft restoration. Existing waiver search remains available-player-only; no Players tab/global directory is introduced.
+- Compare completed player history, season metrics and points-allowed coverage against MFL after Week 1; the bounded implementation and synthetic fixtures are not live-game evidence.
+- Contextual waiver/trade links are implemented. Validate their live-owner use with retained search, selections and drafts. No Players tab/global directory is introduced.
 - Season timelines use league bounds, but the separate Scores/Lineup week picker still uses 1…18.
-- Optional live biography fields vary. No headshots/news/licensed raw-stat feed, ADP, verified injury/opponent/kickoff enrichment or reliable season totals are integrated.
+- Optional live biography fields vary. No headshots/news/licensed raw-stat feed or ADP is integrated; official availability and fantasy totals are now in the candidate.
 - Legacy live Lineup `opponent`/game-time and Lineup/Waiver `seasonPoints`/trend/rostered-percent placeholders are not reused as player research facts.
-- Broad league-format certification, multi-league switching, native FCFS/IR/taxi/commissioner management, rich board HTML, private offline snapshots, diagnostics export and iPad split-view remain unfinished.
+- Broad league-format certification, multi-league switching, broader FCFS/IR formats, taxi/commissioner management, rich board HTML, private offline snapshots, diagnostics export and iPad split-view remain unfinished.
 - Full manual VoiceOver/Voice Control/Switch Control, contrast, small-screen/iPad and older-supported-OS validation remain release gates.
 - MFL client registration is unconfirmed. The app still supplies `MFL Blitz/0.1 (com.biggsjm.MFLBlitz)`; do not change a registered-client identity merely to match a marketing version.
 - GitHub private vulnerability reporting was disabled at the September 6 audit. Establish a safe private reporting route before wider distribution.

@@ -82,6 +82,7 @@ struct TradeComposerView: View {
                     Text(trades.validationMessage(for: draft) ?? "Ready for review. Your draft has not been sent.")
                 }
             }
+            .leagueBrowseDestinations()
             .navigationTitle(draft.countering == nil ? "Build a trade" : "Counteroffer")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -116,7 +117,7 @@ struct TradeComposerView: View {
         Section {
             ForEach(trades.assets(selection.wrappedValue, teamID: teamID)) { asset in
                 HStack {
-                    TradeAssetRow(asset: asset)
+                    HStack { TradeAssetRow(asset: asset); Spacer(); TradePlayerResearchLink(asset: asset) }
                     Spacer()
                     Button("Remove \(asset.name)", systemImage: "minus.circle") { selection.wrappedValue.remove(asset.id) }
                         .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44).disabled(trades.isBusy)
@@ -150,6 +151,7 @@ private struct TradeAssetPicker: View {
                 if !assets.isEmpty {
                     Section(kind == .player ? "Players" : "Draft picks") {
                         ForEach(assets) { asset in
+                            HStack {
                             Button {
                                 var updated = selected
                                 if updated.contains(asset.id) { updated.remove(asset.id) } else { updated.insert(asset.id) }
@@ -167,6 +169,8 @@ private struct TradeAssetPicker: View {
                             .buttonStyle(.plain)
                             .accessibilityLabel("\(asset.name), \(asset.detail), \(selected.contains(asset.id) ? "selected" : "not selected")")
                             .accessibilityIdentifier("trade-asset-\(asset.id)")
+                            TradePlayerResearchLink(asset: asset)
+                            }
                         }
                     }
                 }

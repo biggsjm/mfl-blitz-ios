@@ -70,6 +70,7 @@ struct SettingsView: View {
                     Button("Disconnect this device", role: .destructive) {
                         showingSignOutConfirmation = true
                     }
+                    .disabled(model.isBusy || model.transactions.isBusy || model.playerTools.isChangingWatchList)
                 } footer: {
                     Text("MFL Blitz is an independent open-source client and is not affiliated with or endorsed by MyFantasyLeague, the NFL, or any NFL team.")
                 }

@@ -2,7 +2,7 @@
 
 Effective September 6, 2026
 
-Implementation reviewed against private build **0.4.1 (18)**. Team/player browsing and the fantasy season schedule read directly from MFL and use memory-only private caches.
+Implementation reviewed against private build **0.5.0 (19) candidate**. Team/player browsing and the fantasy season schedule read directly from MFL and use memory-only private caches.
 
 MFL Blitz is an independent, open-source iOS client for MyFantasyLeague. It has no advertising, analytics, tracking, crash-reporting, or proprietary chat service.
 
@@ -19,13 +19,15 @@ MFL Blitz is an independent, open-source iOS client for MyFantasyLeague. It has 
 
 No MFL account or league data is sent to the developer or to an MFL Blitz server. Apple and MyFantasyLeague may process network or platform data under their own policies. Artwork hosts also receive your IP address and the requested image URL under their own policies; they do not receive your MFL sign-in or other league API responses.
 
+The player-tools increment also reads public injury/schedule/bye feeds, league-scored player history and points allowed, the owner's watchlist and action permissions. These responses are memory-only. Watchlist stars send incremental add/remove requests directly to MFL; roster moves send only the reviewed player IDs. Watchlist markers retain player ID, desired state and time; roster markers retain scope, requested move, expected membership and time. Both are device-only Keychain data used for readback/duplicate prevention, not analytics.
+
 ## Sharing and tracking
 
 MFL Blitz does not sell or share personal information and does not track you across apps or websites. The app includes no third-party analytics, advertising, or social SDKs.
 
 ## Retention and deletion
 
-Disconnecting a live team clears its saved session, local drafts, unconfirmed-action markers, and in-memory league data. Session expiry preserves drafts so you can recover them by signing in to the same franchise. Closing the app clears private response caches but retains the protected session and drafts, plus the public player cache described above. Expired player data is not used and is replaced on the next successful download; uninstalling the app removes its cache files. Data already submitted to MFL remains on MyFantasyLeague. Resolve any unconfirmed post or trade action on MFL before disconnecting, since disconnecting removes the local duplicate-prevention markers too.
+Disconnecting a live team clears its saved session, local drafts, unconfirmed-action markers, and in-memory league data. Session expiry preserves drafts so you can recover them by signing in to the same franchise. Closing the app clears private response caches but retains the protected session and drafts, plus the public player cache described above. Expired player data is not used and is replaced on the next successful download; uninstalling the app removes its cache files. Data already submitted to MFL remains on MyFantasyLeague. Resolve any unconfirmed post, trade, watchlist or roster action on MFL before disconnecting, since disconnecting removes the local duplicate-prevention markers too.
 
 Meaningful trade edits are autosaved privately for interruption recovery. Cancel restores the draft that existed before the editor opened, with a discard confirmation for changes; opening an empty composer alone does not retain a draft. Discard draft deletes that local draft, not offers already sent to MFL. Uninstalling may not remove Keychain items; use Disconnect first to remove the team's protected data.
 
@@ -33,7 +35,7 @@ Meaningful Board edits are autosaved for interruption recovery. Close asks wheth
 
 ## Connected-league actions
 
-This private testing build permits live reads and user-confirmed lineup, supported conditional blind-bid, trade, and message-board submissions. Each is sent directly to MFL and read back for confirmation. Offers and responses may notify other owners through MFL. A counteroffer is a new offer and leaves the original open; acceptance may require league approval or processing. MFL does not expose saved lineup tiebreakers. A multi-round waiver save can partially succeed; the app stops and asks you to compare saved versus drafted rounds. Unconfirmed posts and trade actions are not automatically resent. Unsupported waiver configurations and unverified trade details use the league website. The interactive Champion Hall preview uses local sample data and sends nothing to MFL.
+This private testing build permits live reads, explicit watchlist star toggles, and user-reviewed lineup, supported conditional blind-bid, trade, board, supported FCFS add/drop and IR submissions. Each is sent directly to MFL and read back for confirmation. Offers and responses may notify other owners through MFL. A counteroffer is a new offer and leaves the original open; acceptance may require league approval or processing. MFL does not expose saved lineup tiebreakers. A multi-round waiver save can partially succeed; the app stops and asks you to compare saved versus drafted rounds. Unconfirmed posts, trades, watchlist changes and roster moves are not automatically resent. Unsupported waiver configurations and unverified trade details use the league website. The interactive Champion Hall preview uses local sample data and sends nothing to MFL.
 
 ## Contact
 

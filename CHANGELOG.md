@@ -2,6 +2,16 @@
 
 Implemented private-build history through September 6, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.5.0 (19) — September 6, 2026 — player tools candidate
+
+- Shared official injury, opponent/kickoff and bye context in player details, roster, lineup/replacements and available-player rows. Missing reports are not proof of health; acquisition locks remain separate from lineup locks.
+- League-scored player history, season total/average and recent-form chart. Initially reads four completed weeks, with explicit earlier-page loading; missing scores remain distinct from zero. Opponent points allowed are position totals, not invented per-game averages.
+- MFL watch/unwatch with fresh readback, My Team → Watchlist, waiver filtering and durable uncertain-toggle recovery. Owner-supplied empty/singleton watchlist and abilities responses verified the private formats.
+- Reviewed first-come add/drop and IR/activation through My Team → Manage roster and Transactions → Waivers. Exact owner permissions, supported formats, fresh roster/limits and acquisition eligibility gate writes. Activation may include an explicitly reviewed drop.
+- Roster changes persist a marker before their only import and require exact current-membership readback. A pending move blocks other roster-affecting writes until checked. Refresh preserves lineup, waiver and trade drafts.
+- Contextual player research links in waiver/trade surfaces preserve asset-selection controls. New core/model/native safety and two-week synthetic journeys; [current status](docs/current-status.md) records final test, CI and device evidence.
+- The [approved plan](docs/player-tools-plan.md) retains trading block, calendar/reminders, polls and playoff brackets as the next four features, not part of this increment.
+
 ## 0.4.1 (18) — September 6, 2026
 
 - Board composers use Close. Empty composers close immediately; meaningful content offers Save draft, Discard draft or Keep editing in a centered alert.
