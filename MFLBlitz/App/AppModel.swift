@@ -1210,9 +1210,42 @@ extension AppModel {
 
     func boardDraft(threadID: String?) -> BoardDraft { drafts.board[threadID ?? "new"] ?? BoardDraft() }
 
-    func saveBoardDraft(subject: String, body: String, threadID: String?) {
-        drafts.board[threadID ?? "new"] = BoardDraft(subject: subject, body: body)
-        persistDrafts()
+    var savedBoardDrafts: [SavedBoardDraft] {
+        drafts.board.filter { $0.value.hasContent }
+            .map { SavedBoardDraft(id: $0.key, draft: $0.value) }
+            .sorted { left, right in
+                if (left.threadID == nil) != (right.threadID == nil) { return left.threadID == nil }
+                return left.id < right.id
+            }
+    }
+
+    @discardableResult
+    func saveBoardDraft(subject: String, body: String, threadID: String?) -> Bool {
+        let draft = BoardDraft(subject: subject, body: body)
+        return updateBoardDraft(draft.hasContent ? draft : nil, threadID: threadID)
+    }
+
+    @discardableResult
+    func discardBoardDraft(threadID: String?) -> Bool {
+        updateBoardDraft(nil, threadID: threadID)
+    }
+
+    private func updateBoardDraft(_ draft: BoardDraft?, threadID: String?) -> Bool {
+        let key = threadID ?? "new"
+        if draft == nil, drafts.board[key] == nil { return true }
+        var updated = drafts
+        updated.board[key] = draft
+        do {
+            if !isDemo {
+                guard let workspace else { return false }
+                try privateStore.encode(updated, key: "drafts.\(workspace.storageScope)")
+            }
+            drafts = updated
+            return true
+        } catch {
+            notice = .error(error.localizedDescription)
+            return false
+        }
     }
 
     func checkUnconfirmedPost() async {

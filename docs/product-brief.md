@@ -1,6 +1,6 @@
 # Product brief
 
-Reconciled September 6, 2026 against **0.4.0 (17)**. [Current status](current-status.md) distinguishes implemented behavior from product targets and remaining validation.
+Reconciled September 6, 2026 against **0.4.1 (18)**. [Current status](current-status.md) distinguishes implemented behavior from product targets and remaining validation.
 
 ## Promise
 
@@ -27,7 +27,7 @@ Five stable, labeled tabs keep Scores and Lineup one tap away; Transactions is o
 | Lineup | Submitted starters and bench | Review and submit |
 | My Team | Team identity, Transactions entry, Roster / Schedule | Browse players/opponents or open Waivers / Trades / Activity |
 | Standings | Divisions using official MFL sort | Switch overall/divisions or open a team |
-| Board | Existing MFL threads with unread state | New thread / reply |
+| Board | Existing MFL threads with unread state and visible Drafts | New thread / reply / resume draft; Close offers save/discard |
 
 Settings is upper-left on Scores, not a top-level tab. Scores and Lineup share a calendar control labeled Week N. Standings order information stays behind an anchored information popover. Trades put the native Create/Resume action first and move the routine MFL link into secondary options; errors retain visible recovery links.
 

@@ -8,7 +8,7 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
-**0.4.0 (17) — My Team, private owner testing, September 6, 2026.** This is not a public or TestFlight release. See [current status](docs/current-status.md) for the verified code, test and device baseline.
+**0.4.1 (18) — My Team and discoverable Board drafts, private owner testing, September 6, 2026.** This is not a public or TestFlight release. See [current status](docs/current-status.md) for the verified code, test and device baseline.
 
 Connect mode talks directly to MFL and permits user-reviewed lineup, supported conditional blind-bid, trade, and board actions with readback and no automatic write retries. MFL does not expose saved lineup tiebreakers for confirmation; accepted trades may still need league approval/processing. **Preview Champion Hall** uses sample data and sends nothing to MFL, including its fictional trade offers.
 
@@ -118,6 +118,7 @@ Do not run overlapping jobs on one simulator. See [contributing](CONTRIBUTING.md
 | [API integration](docs/api-integration.md) / [MFLCore](Packages/MFLCore/README.md) | Endpoints, cache policies, implementation boundaries |
 | [Week 1 testing](docs/week-1-testing.md) / [Synthetic report](docs/two-week-synthetic-testing.md) | Live checklist / historical automated evidence |
 | [Lineup swaps](docs/lineup-starter-swaps.md) / [Trade inbox](docs/trade-inbox-ux.md) | Shipped interaction contracts and regressions |
+| [Board drafts](docs/board-drafts.md) | Close/save/discard and visible draft recovery |
 | [Schedule](docs/schedule-ux.md) / [Player and team detail](docs/player-detail-ux.md) | Implemented first slice, data/state contracts and remaining enrichment |
 | [Competitive research](docs/competitive-review.md) / [Icon brief](docs/icon-brief.md) | Dated research and artwork rationale |
 | [Privacy](PRIVACY.md) / [Security](SECURITY.md) / [Contributing](CONTRIBUTING.md) | Data handling, safe reporting and development workflow |

@@ -1,13 +1,13 @@
 # Week 1 owner test and Week 2 go/no-go
 
-Updated September 6, 2026 for **0.4.0 (17)**. See [current status](current-status.md) for test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
+Updated September 6, 2026 for **0.4.1 (18)**. See [current status](current-status.md) for test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
 ## Already observed
 
 - Josh reported successfully submitting a lineup and seeing Week 1 projections.
-- Build 0.4.0 (17) is installed/launched on Josh's phone. Josh reported the My Team screen looked good; its detailed update timer was then simplified. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse. Full schedule comparison remains unchecked below.
+- Build 0.4.1 (18) is installed on Josh's phone; its launch check was blocked by the device relocking. Build 0.4.0 (17) had installed/launched successfully. Josh reported the My Team screen looked good; its detailed update timer was then simplified. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse. Full schedule comparison remains unchecked below.
 - Core, app-model and native UI checks passed as described in [current status](current-status.md). Four synthetic managers completed two accelerated weeks; those are not actual Week 1 results.
 
 ## Before kickoff
@@ -55,7 +55,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 ### Board
 
-- [ ] Draft a thread/reply, close and reopen the composer; ensure private text survives. Post only an intended message and verify exactly one matching copy on MFL.
+- [ ] Close an empty thread/reply: no save prompt or empty draft. With text, Close offers Save draft / Discard draft / Keep editing. Save and reopen via Board → Drafts (or Resume reply in its thread); confirm the correct text. Discard must not resurrect after reopening. Post only an intended message and verify exactly one matching copy on MFL. See the [Board interaction contract](board-drafts.md).
 - [ ] If a post is unconfirmed, use Check MFL without sending again. Clear its warning only after inspecting MFL; do not repost an existing message.
 
 ## During games

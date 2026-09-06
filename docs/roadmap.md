@@ -1,6 +1,6 @@
 # Execution plan and remaining work
 
-Updated September 6, 2026 against **0.4.0 (17)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 6, 2026 against **0.4.1 (18)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 
@@ -11,6 +11,7 @@ Updated September 6, 2026 against **0.4.0 (17)**. Checked items mean implemented
 - [x] Conditional blind-bid queues, confirmed $0 league fallback, fresh preflight, round replacement/cancellation and partial-outcome recovery.
 - [x] Native trades and separate counteroffers, durable unconfirmed-action protection, prominent Create/Resume, draft cancel/rollback and correct first-tap response reviews.
 - [x] Official standings/owner names, safe team artwork, native board threads/replies and exact-post verification.
+- [x] Board Close/save/discard flow, visible Drafts and Resume reply, blank-draft filtering and storage-failure protection (0.4.1).
 - [x] Daily public player disk cache, stable league memory cache, decoded reuse, request sharing/spacing/cooldowns and no blind write retries.
 - [x] Original icons, explicit Week N controls, adaptive layouts and accessibility foundations.
 - [x] Performance regressions, four synthetic managers across two accelerated weeks and native UI journeys; private build installed on the owner's phone.

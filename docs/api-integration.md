@@ -1,6 +1,6 @@
 # MFL 2026 API integration
 
-Implementation audit: September 6, 2026, **0.4.0 (17)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
+Implementation audit: September 6, 2026, **0.4.1 (18)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
 
 Primary sources: [general API guidance](https://api.myfantasyleague.com/2026/api_info), [request reference](https://api.myfantasyleague.com/2026/api_info?STATE=details), and [sample code](https://api.myfantasyleague.com/2026/api_info?STATE=example).
 
@@ -64,6 +64,8 @@ Reconnect has a 15-second account-verification deadline and a cancel-to-sign-in 
 Blind-bid writes compare fresh pending requests with the user-reviewed baseline, then verify the entire intermediate queue after each changed round. Empty `PICKS` explicitly clears a round. A failed request stops the sequence and triggers readback, not resubmission. Unknown queue structures fail closed. Calendar dates use explicit future `WAIVER_BBID` events when available; recurrence is not guessed. Recent processed acquisitions use `transactions` filtered to `BBID_WAIVER,WAIVER,FREE_AGENT`; the MFL website remains the full processing report.
 
 Before a board import, a durable marker records the intended body, subject/thread, and existing IDs. Readback must find a new post with the same owner and full body; new threads require a thread-detail fetch, not just a matching summary subject. An ambiguous send remains blocked across relaunch until readback confirms it or the user explicitly verifies MFL and resolves the warning.
+
+Version 0.4.1 changes only Board draft presentation/persistence, not the import contract: Close offers save/discard for meaningful text, and Board → Drafts exposes new-thread and per-thread reply recovery. Blank drafts are omitted, failed secure writes cannot close as a successful save/discard, and an editor's late field callbacks cannot recreate discarded text. Discard preserves unconfirmed-send markers. See [Board drafts](board-drafts.md).
 
 ## League 41333 profile
 

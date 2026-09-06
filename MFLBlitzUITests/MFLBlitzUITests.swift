@@ -661,8 +661,14 @@ final class MFLBlitzUITests: XCTestCase {
         let body = app.textViews["Message body"]
         body.tap()
         body.typeText("A draft, not a league post.")
-        app.buttons["Save & close"].tap()
-        app.buttons["New thread"].tap()
+        app.buttons["board-composer-close"].tap()
+        XCTAssertTrue(app.alerts["Save draft?"].waitForExistence(timeout: 3))
+        app.alerts.buttons["Save draft"].tap()
+        let resume = app.buttons["board-draft-new"]
+        XCTAssertTrue(resume.waitForExistence(timeout: 3))
+        let boardScreenshot = XCTAttachment(screenshot: app.screenshot())
+        boardScreenshot.name = "Board — visible saved draft"; boardScreenshot.lifetime = .keepAlways; add(boardScreenshot)
+        resume.tap()
         XCTAssertTrue(subject.waitForExistence(timeout: 5))
         XCTAssertEqual(subject.value as? String, "Week one test")
         XCTAssertEqual(body.value as? String, "A draft, not a league post.")
@@ -670,6 +676,66 @@ final class MFLBlitzUITests: XCTestCase {
         screenshot.name = "Saved private board draft"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+    }
+
+    @MainActor
+    func testBoardCloseEmptyKeepEditingAndDiscard() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        app.tabBars.buttons["Board"].firstMatch.tap()
+        app.buttons["New thread"].tap()
+        XCTAssertTrue(app.buttons["board-composer-close"].waitForExistence(timeout: 3))
+        app.buttons["board-composer-close"].tap()
+        XCTAssertTrue(app.buttons["New thread"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.alerts["Save draft?"].exists)
+        XCTAssertFalse(app.buttons["board-draft-new"].exists)
+        app.buttons["New thread"].tap()
+        let subject = app.textFields["What’s the topic?"]
+        subject.tap(); subject.typeText("Subject only")
+        app.buttons["board-composer-close"].tap()
+        XCTAssertTrue(app.alerts["Save draft?"].waitForExistence(timeout: 3))
+        let confirmation = XCTAttachment(screenshot: app.screenshot())
+        confirmation.name = "Close composer — save, discard or keep editing"; confirmation.lifetime = .keepAlways; add(confirmation)
+        app.alerts.buttons["Keep editing"].tap()
+        XCTAssertEqual(subject.value as? String, "Subject only")
+        app.buttons["board-composer-close"].tap()
+        app.alerts.buttons["Discard draft"].tap()
+        XCTAssertTrue(app.buttons["New thread"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["board-draft-new"].exists)
+        app.buttons["New thread"].tap()
+        XCTAssertEqual(subject.value as? String, "What’s the topic?")
+        XCTAssertEqual(app.textViews["Message body"].value as? String, "")
+    }
+
+    @MainActor
+    func testBoardReplyDraftIsAccessibleFromBoard() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        app.tabBars.buttons["Board"].firstMatch.tap()
+        let thread = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Week 1 is finally here")).firstMatch
+        XCTAssertTrue(thread.waitForExistence(timeout: 3))
+        thread.tap()
+        let reply = app.buttons["board-reply-t1"]
+        XCTAssertTrue(reply.waitForExistence(timeout: 3))
+        reply.tap()
+        let body = app.textViews["Message body"]
+        XCTAssertTrue(body.waitForExistence(timeout: 3))
+        body.tap(); body.typeText("Unsent reply draft")
+        app.buttons["board-composer-close"].tap()
+        app.alerts.buttons["Save draft"].tap()
+        XCTAssertEqual(reply.label, "Resume reply")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let resume = app.buttons["board-draft-t1"]
+        XCTAssertTrue(resume.waitForExistence(timeout: 3))
+        resume.tap()
+        XCTAssertEqual(body.value as? String, "Unsent reply draft")
+        XCTAssertTrue(app.staticTexts["Week 1 is finally here"].exists)
+        app.buttons["board-composer-close"].tap()
+        app.alerts.buttons["Discard draft"].tap()
+        XCTAssertTrue(app.buttons["New thread"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["board-draft-t1"].exists)
     }
 
     @MainActor

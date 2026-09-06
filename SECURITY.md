@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed September 6, 2026 against **0.4.0 (17)**. Contact the repository owner through an established private channel rather than posting a vulnerability publicly. GitHub private vulnerability reporting is currently disabled; establishing an available reporting route is a [distribution gate](docs/roadmap.md). Do not assume a **Report a vulnerability** button is available. If no private contact is available, request a private reporting route without disclosing exploit details or sensitive data.
+Reviewed September 6, 2026 against **0.4.1 (18)**. Contact the repository owner through an established private channel rather than posting a vulnerability publicly. GitHub private vulnerability reporting is currently disabled; establishing an available reporting route is a [distribution gate](docs/roadmap.md). Do not assume a **Report a vulnerability** button is available. If no private contact is available, request a private reporting route without disclosing exploit details or sensitive data.
 
 Never include MyFantasyLeague usernames, passwords, `MFL_USER_ID` values, API keys, private message content, trade terms, blind bids or unredacted authenticated payloads in an issue or routine diagnostic report. Use synthetic reproduction data; report build, affected workflow and expected/observed behavior.
 

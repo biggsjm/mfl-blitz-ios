@@ -2,6 +2,13 @@
 
 Implemented private-build history through September 6, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.4.1 (18) — September 6, 2026
+
+- Board composers use Close. Empty composers close immediately; meaningful content offers Save draft, Discard draft or Keep editing in a centered alert.
+- A visible Drafts section on Board opens saved new threads and replies. Threads with an unfinished reply offer Resume reply.
+- Removed the storage-specific composer callout. Empty drafts are omitted; confirmed save/discard failures keep the composer open, and discarded/posted drafts cannot be recreated by late field callbacks.
+- Added focused model/native draft regression tests and updated the [Board contract](docs/board-drafts.md), owner checklist, privacy notes and remaining plan. Trade composer controls are unchanged by this Board-specific update.
+
 ## 0.4.0 (17) — September 6, 2026
 
 - My Team replaces only the center Transactions tab, with a native team-logo/initials icon, visible Transactions entry and preserved trade badge. Dedicated Lineup stays one tap away.

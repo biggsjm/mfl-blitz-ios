@@ -2,7 +2,7 @@
 
 Effective September 6, 2026
 
-Implementation reviewed against private build **0.4.0 (17)**. Team/player browsing and the fantasy season schedule read directly from MFL and use memory-only private caches.
+Implementation reviewed against private build **0.4.1 (18)**. Team/player browsing and the fantasy season schedule read directly from MFL and use memory-only private caches.
 
 MFL Blitz is an independent, open-source iOS client for MyFantasyLeague. It has no advertising, analytics, tracking, crash-reporting, or proprietary chat service.
 
@@ -28,6 +28,8 @@ MFL Blitz does not sell or share personal information and does not track you acr
 Disconnecting a live team clears its saved session, local drafts, unconfirmed-action markers, and in-memory league data. Session expiry preserves drafts so you can recover them by signing in to the same franchise. Closing the app clears private response caches but retains the protected session and drafts, plus the public player cache described above. Expired player data is not used and is replaced on the next successful download; uninstalling the app removes its cache files. Data already submitted to MFL remains on MyFantasyLeague. Resolve any unconfirmed post or trade action on MFL before disconnecting, since disconnecting removes the local duplicate-prevention markers too.
 
 Meaningful trade edits are autosaved privately for interruption recovery. Cancel restores the draft that existed before the editor opened, with a discard confirmation for changes; opening an empty composer alone does not retain a draft. Discard draft deletes that local draft, not offers already sent to MFL. Uninstalling may not remove Keychain items; use Disconnect first to remove the team's protected data.
+
+Meaningful Board edits are autosaved for interruption recovery. Close asks whether to retain the draft, discard it, or keep editing. Saved new threads and replies are accessible from Board → Drafts; a thread can also Resume reply. Discard deletes only that draft, not any MFL post or unresolved-send marker. Empty composers do not retain a draft. Save/discard failures keep the composer open for retry.
 
 ## Connected-league actions
 
