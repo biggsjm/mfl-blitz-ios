@@ -18,7 +18,9 @@ final class PlayerToolsUITests: XCTestCase {
         for _ in 0..<6 where !manage.isHittable { app.swipeDown() }
         manage.tap()
         let menu = revealRosterMenu("13319", in: app)
-        tapRosterMenu(menu, in: app)
+        // Exercise the measured-touch path on every SDK, even where XCTest
+        // can also resolve an accessibility hit point for this menu.
+        tapRosterMenu(menu, in: app, useMeasuredTouch: true)
         XCTAssertTrue(move.waitForExistence(timeout: 5))
         XCTAssertFalse(move.isEnabled)
         capture(app, "Roster menu — Questionable does not permit IR")
@@ -166,9 +168,9 @@ final class PlayerToolsUITests: XCTestCase {
         return target
     }
 
-    @MainActor private func tapRosterMenu(_ menu: XCUIElement, in app: XCUIApplication) {
+    @MainActor private func tapRosterMenu(_ menu: XCUIElement, in app: XCUIApplication, useMeasuredTouch: Bool = false) {
         XCTAssertTrue(menu.exists && menu.isEnabled)
-        if menu.isHittable {
+        if menu.isHittable && !useMeasuredTouch {
             menu.tap()
             return
         }
