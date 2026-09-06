@@ -18,7 +18,7 @@ final class PlayerToolsUITests: XCTestCase {
         for _ in 0..<6 where !manage.isHittable { app.swipeDown() }
         manage.tap()
         let menu = revealRosterMenu("13319", in: app)
-        menu.tap()
+        tapRosterMenu(menu, in: app)
         XCTAssertTrue(move.waitForExistence(timeout: 5))
         XCTAssertFalse(move.isEnabled)
         capture(app, "Roster menu — Questionable does not permit IR")
@@ -99,7 +99,7 @@ final class PlayerToolsUITests: XCTestCase {
         manage.tap()
         let playerMenu = revealRosterMenu("12620", in: app)
         XCTAssertTrue(playerMenu.waitForExistence(timeout: 5))
-        playerMenu.tap()
+        tapRosterMenu(playerMenu, in: app)
         app.buttons["Drop player"].tap()
         let confirm = app.buttons["confirm-roster-move"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 5))
@@ -110,7 +110,7 @@ final class PlayerToolsUITests: XCTestCase {
         app.alerts.buttons["Cancel"].tap()
         app.buttons["Close"].tap()
         XCTAssertTrue(playerMenu.waitForExistence(timeout: 5))
-        playerMenu.tap()
+        tapRosterMenu(playerMenu, in: app)
         app.buttons["Move to IR"].tap()
         XCTAssertTrue(confirm.waitForExistence(timeout: 5))
         XCTAssertTrue(waitUntilEnabled(confirm))
@@ -134,7 +134,7 @@ final class PlayerToolsUITests: XCTestCase {
         let menu = revealRosterMenu("12620", in: app)
         XCTAssertTrue(menu.exists)
         XCTAssertGreaterThanOrEqual(menu.frame.height, 44)
-        menu.tap()
+        tapRosterMenu(menu, in: app)
         app.buttons["Drop player"].tap()
         XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 5))
         capture(app, "Roster review — largest text identity")
@@ -164,6 +164,30 @@ final class PlayerToolsUITests: XCTestCase {
         let target = nativeButton.exists ? nativeButton : container
         XCTAssertTrue(target.exists, "Roster action must exist for \(playerID)")
         return target
+    }
+
+    @MainActor private func tapRosterMenu(_ menu: XCUIElement, in app: XCUIApplication) {
+        XCTAssertTrue(menu.exists && menu.isEnabled)
+        if menu.isHittable {
+            menu.tap()
+            return
+        }
+        // Xcode 16.4 / iOS 18.5 can expose the visible UIKit Menu button but
+        // report no accessibility hit point, even after scroll-to-visible.
+        // Exercise a real touch at its measured center (not an action hook).
+        // Require the whole target to be inside unobscured content first;
+        // the callers must still verify the menu and its actual actions.
+        let top = app.navigationBars.firstMatch.frame.maxY
+        let bottom = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : app.frame.maxY
+        let frame = menu.frame
+        guard frame.width >= 44, frame.height >= 44,
+              frame.minX >= app.frame.minX, frame.maxX <= app.frame.maxX,
+              frame.minY >= top, frame.maxY <= bottom else {
+            XCTFail("Roster menu must be fully visible before a coordinate tap: \(frame)")
+            return
+        }
+        capture(app, "Roster menu — visible target before native touch")
+        menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     @MainActor private func preview(arguments: [String] = []) -> XCUIApplication {
