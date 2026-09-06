@@ -28,16 +28,25 @@ struct SettingsView: View {
                     )
                 }
 
-                if !model.isDemo && !model.canSubmitChanges {
+                if !model.isDemo && model.hasRestrictedLiveActions {
                     Section {
                         Label("Live scores and league data are enabled", systemImage: "checkmark.circle.fill")
                             .foregroundStyle(.green)
-                        Label("Lineup, waiver, and board writes are gated", systemImage: "lock.shield.fill")
+                        if model.canEditLineup {
+                            Label("Lineup changes are enabled", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        } else {
+                            Label("Lineup changes are unavailable this week", systemImage: "lock.shield.fill")
+                                .foregroundStyle(.orange)
+                        }
+                        Label("Waiver submissions are unavailable", systemImage: "lock.shield.fill")
+                            .foregroundStyle(.orange)
+                        Label("Message-board posting is unavailable", systemImage: "lock.shield.fill")
                             .foregroundStyle(.orange)
                     } header: {
-                        Text("Safety preview")
+                        Text("Connected league access")
                     } footer: {
-                        Text("Writes unlock only after the MFL client is registered and every mutation is verified in a disposable league.")
+                        Text("Saved starters are confirmed with MFL after submission. MFL does not expose saved tiebreakers for confirmation. Waiver and board writes remain disabled while those flows are verified.")
                     }
                 }
 

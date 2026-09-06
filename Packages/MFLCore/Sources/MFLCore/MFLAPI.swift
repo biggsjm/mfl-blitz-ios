@@ -178,6 +178,7 @@ public struct MFLCacheDurations: Equatable, Sendable {
     public var players: TimeInterval
     public var freeAgents: TimeInterval
     public var rosters: TimeInterval
+    public var playerRosterStatus: TimeInterval
     public var liveScoring: TimeInterval
     public var standings: TimeInterval
     public var messageBoard: TimeInterval
@@ -191,6 +192,7 @@ public struct MFLCacheDurations: Equatable, Sendable {
         players: 24 * 60 * 60,
         freeAgents: 60,
         rosters: 30,
+        playerRosterStatus: 15,
         liveScoring: 90,
         standings: 60,
         messageBoard: 30,
@@ -203,6 +205,7 @@ public struct MFLCacheDurations: Equatable, Sendable {
         players: TimeInterval,
         freeAgents: TimeInterval,
         rosters: TimeInterval,
+        playerRosterStatus: TimeInterval = 15,
         liveScoring: TimeInterval,
         standings: TimeInterval,
         messageBoard: TimeInterval,
@@ -213,6 +216,7 @@ public struct MFLCacheDurations: Equatable, Sendable {
         self.players = max(0, players)
         self.freeAgents = max(0, freeAgents)
         self.rosters = max(0, rosters)
+        self.playerRosterStatus = max(0, playerRosterStatus)
         self.liveScoring = max(0, liveScoring)
         self.standings = max(0, standings)
         self.messageBoard = max(0, messageBoard)
@@ -251,6 +255,7 @@ public enum MFLExportEndpoint: String, CaseIterable, Sendable {
     case players
     case freeAgents
     case rosters
+    case playerRosterStatus
     case liveScoring
     case leagueStandings
     case messageBoard

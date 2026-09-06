@@ -8,7 +8,7 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
-This repository contains a polished, runnable product prototype and a tested MFL API foundation. The app includes an interactive **Champion Hall** preview based on league `41333`; connect mode uses MFL's direct-device API architecture and is being hardened against the platform's many custom league configurations before real writes are enabled by default.
+This repository contains a polished, runnable product prototype and a tested MFL API foundation. The app includes an interactive **Champion Hall** preview based on league `41333`; connect mode uses MFL's direct-device API architecture. Live lineup editing and submission are enabled with explicit review and exact saved-starter verification. MFL accepts lineup tiebreakers but does not expose their saved state for readback. Non-transactional waiver replacement and message-board writes remain gated while those paths are validated across MFL configurations.
 
 The current build includes:
 

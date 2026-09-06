@@ -9,6 +9,7 @@
 - [x] Original app icon and semantic design tokens
 - [x] Dependency-free MFL transport package and fixture tests
 - [x] Secure login/session architecture
+- [x] Review-confirmed lineup import with exact saved-starter verification
 - [ ] Verify every mutation against a disposable MFL league
 - [ ] Register the production API User-Agent with MFL
 
@@ -26,7 +27,7 @@
 
 ## 0.3 — Verified writes
 
-- Lineup import followed by server-state verification and receipt
+- Validate lineup import, lock behavior, write-only tiebreakers, and receipts across the configuration matrix
 - Conditional and non-conditional BBID, waiver-priority, and FCFS workflows
 - Draft-preserved local claim forms; no automatic retry
 - Board new-thread/reply verification

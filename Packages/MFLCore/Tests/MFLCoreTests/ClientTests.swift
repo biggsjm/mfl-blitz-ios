@@ -193,6 +193,87 @@ struct ClientTests {
         #expect(request.url?.query?.contains("POSITION=WR") == true)
     }
 
+    @Test("Player roster status uses the resolved league host and is cached")
+    func playerRosterStatus() async throws {
+        let transport = StubTransport(responses: [
+            .json(try fixtureData("player-roster-status")),
+        ])
+        let client = MFLClient(
+            configuration: try configuration(host: "www45.myfantasyleague.com"),
+            transport: transport
+        )
+        let playerIDs = ["12620", "14056", "15001", "15002", "17001"]
+
+        let first = try await client.playerRosterStatus(
+            playerIDs: playerIDs,
+            week: 7,
+            franchiseID: "0001"
+        )
+        let second = try await client.playerRosterStatus(
+            playerIDs: playerIDs,
+            week: 7,
+            franchiseID: "0001"
+        )
+        let requests = await transport.recordedRequests()
+        let request = try #require(requests.first)
+        let requestURL = try #require(request.url)
+        let items = try #require(URLComponents(url: requestURL, resolvingAgainstBaseURL: false)?.queryItems)
+        let query = Dictionary(uniqueKeysWithValues: items.compactMap { item in
+            item.value.map { (item.name, $0) }
+        })
+
+        #expect(first == second)
+        #expect(first.statuses.count == playerIDs.count)
+        #expect(requests.count == 1)
+        #expect(request.url?.host == "www45.myfantasyleague.com")
+        #expect(query["TYPE"] == "playerRosterStatus")
+        #expect(query["JSON"] == "1")
+        #expect(query["L"] == "41366")
+        #expect(query["P"] == playerIDs.joined(separator: ","))
+        #expect(query["W"] == "7")
+        #expect(query["F"] == "0001")
+        #expect(MFLCacheDurations.standard.playerRosterStatus == 15)
+    }
+
+    @Test("Player roster status validates required ids, week, and franchise")
+    func playerRosterStatusValidation() async throws {
+        let transport = StubTransport(responses: [])
+        let client = MFLClient(
+            configuration: try configuration(host: "www45.myfantasyleague.com"),
+            transport: transport
+        )
+        let invalidArguments: [([String], Int?, String?)] = [
+            ([], nil, nil),
+            (["12620,14056"], nil, nil),
+            (["12620", "12620"], nil, nil),
+            (["12620"], 22, nil),
+            (["12620"], nil, "0001,0002"),
+        ]
+
+        var invalidRequestCount = 0
+        for (playerIDs, week, franchiseID) in invalidArguments {
+            do {
+                _ = try await client.playerRosterStatus(
+                    playerIDs: playerIDs,
+                    week: week,
+                    franchiseID: franchiseID
+                )
+                Issue.record("Expected invalid player roster status arguments to fail")
+            } catch let error as MFLCoreError {
+                if case .invalidRequest = error {
+                    invalidRequestCount += 1
+                } else {
+                    Issue.record("Unexpected error: \(error)")
+                }
+            } catch {
+                Issue.record("Unexpected error: \(error)")
+            }
+        }
+
+        #expect(invalidRequestCount == invalidArguments.count)
+        #expect(await transport.recordedRequests().isEmpty)
+    }
+
     @Test("Message-board writer distinguishes a new thread from a reply")
     func messageBoardWrites() async throws {
         let success = Data("{\"status\":\"OK\"}".utf8)

@@ -97,7 +97,9 @@ enum SampleData {
         requiredTiebreakerCount: 1,
         tiebreakerPlayerIDs: ["14056"],
         deadline: Calendar.current.date(byAdding: .hour, value: 5, to: now)!,
-        lastSubmitted: Calendar.current.date(byAdding: .day, value: -1, to: now)
+        lastSubmitted: Calendar.current.date(byAdding: .day, value: -1, to: now),
+        serverStarterPlayerIDs: Set(lineupPlayers.filter(\.isStarter).map(\.id)),
+        editState: .editable
     )
 
     static let waiverCandidates: [WaiverCandidate] = [

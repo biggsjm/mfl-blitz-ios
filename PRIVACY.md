@@ -23,7 +23,7 @@ Disconnecting clears the active session and in-memory league data. Closing the a
 
 ## Connected-league safety preview
 
-Version 0.1 permits live reads but disables lineup, waiver, and message-board writes by default until the production API client and mutation flows have been validated in disposable leagues. The interactive Champion Hall preview uses local sample data and sends nothing to MFL.
+Version 0.1 permits live reads and user-confirmed lineup submissions. A submitted lineup is sent directly to MFL and then reloaded for exact saved-starter verification. MFL accepts tiebreakers but does not expose their saved state for readback. Waiver and message-board writes remain disabled by default until the production API client and those mutation flows have been validated in disposable leagues. The interactive Champion Hall preview uses local sample data and sends nothing to MFL.
 
 ## Contact
 

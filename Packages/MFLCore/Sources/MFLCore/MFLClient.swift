@@ -281,6 +281,46 @@ public actor MFLClient {
         return response.rosters
     }
 
+    /// Returns MFL's roster assignments and optional eligibility flags for the
+    /// requested player ids. MFL requires at least one id in `P`; `week` selects
+    /// the lineup week. `franchiseID` is sent as MFL's optional `F` context for
+    /// deluxe leagues; callers still select the desired roster assignment.
+    public func playerRosterStatus(
+        playerIDs: [String],
+        week: Int? = nil,
+        franchiseID: String? = nil,
+        refreshPolicy: MFLRefreshPolicy = .useCache
+    ) async throws -> MFLPlayerRosterStatusCollection {
+        guard !playerIDs.isEmpty else {
+            throw MFLCoreError.invalidRequest("At least one player id is required for roster status.")
+        }
+        try playerIDs.forEach(validateIdentifier)
+        guard Set(playerIDs).count == playerIDs.count else {
+            throw MFLCoreError.invalidRequest("Player ids for roster status must be unique.")
+        }
+
+        var parameters = ["P": playerIDs.joined(separator: ",")]
+        if let week {
+            try validateWeek(week)
+            parameters["W"] = String(week)
+        }
+        if let franchiseID {
+            try validateIdentifier(franchiseID)
+            parameters["F"] = franchiseID
+        }
+
+        let response: MFLPlayerRosterStatusesResponse = try await export(
+            MFLPlayerRosterStatusesResponse.self,
+            endpoint: .playerRosterStatus,
+            host: try await resolvedLeagueHost(),
+            leagueID: configuration.league.leagueID,
+            parameters: parameters,
+            ttl: configuration.cacheDurations.playerRosterStatus,
+            refreshPolicy: refreshPolicy
+        )
+        return response.playerRosterStatuses
+    }
+
     /// Returns players currently available to add. Join each result's `id`
     /// against `players(ids:)` for names, NFL teams, and positions.
     public func freeAgents(
@@ -433,7 +473,7 @@ public actor MFLClient {
         }
 
         let result = try await performImport(endpoint: .lineup, parameters: parameters)
-        invalidate([.rosters, .liveScoring])
+        invalidate([.rosters, .playerRosterStatus, .liveScoring])
         return result
     }
 

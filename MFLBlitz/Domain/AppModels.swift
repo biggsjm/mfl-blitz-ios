@@ -82,6 +82,10 @@ struct LineupSnapshot: Equatable, Sendable {
     var tiebreakerPlayerIDs: [String]
     var deadline: Date?
     var lastSubmitted: Date?
+    var serverStarterPlayerIDs: Set<String> = []
+    var editState: LineupEditState = .unavailable(
+        "MFL hasn’t returned a complete saved lineup for this week."
+    )
 
     var starters: [LineupPlayer] { players.filter(\.isStarter) }
     var bench: [LineupPlayer] { players.filter { !$0.isStarter } }
@@ -91,6 +95,21 @@ struct LineupSnapshot: Equatable, Sendable {
         return projections.reduce(0, +)
     }
     var hasLockedPlayers: Bool { players.contains(where: \.isLocked) }
+}
+
+enum LineupEditState: Equatable, Sendable {
+    case editable
+    case unavailable(String)
+
+    var allowsEditing: Bool {
+        if case .editable = self { return true }
+        return false
+    }
+
+    var unavailableMessage: String? {
+        guard case .unavailable(let message) = self else { return nil }
+        return message
+    }
 }
 
 struct LineupPositionRequirement: Identifiable, Equatable, Sendable {

@@ -1,9 +1,13 @@
 import Foundation
 
 enum LiveWritePolicy {
-    // Keep production MFL mutations opt-in until the registered User-Agent and
-    // every write path have been exercised in a disposable league.
-    static let isEnabled = false
+    // Lineups have a review step and exact saved-starter verification.
+    // MFL accepts tiebreakers but does not expose their saved state for readback.
+    // Keep non-transactional waiver replacement and board posting gated until
+    // those paths have been exercised with a registered client in a disposable league.
+    static let lineupsEnabled = true
+    static let waiversEnabled = false
+    static let boardEnabled = false
 }
 
 protocol LeagueRepository: Sendable {

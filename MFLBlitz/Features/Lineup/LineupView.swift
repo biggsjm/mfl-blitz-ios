@@ -13,8 +13,11 @@ struct LineupView: View {
                 DemoBanner()
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
-            } else if !model.canSubmitChanges {
-                LiveWriteSafetyBanner()
+            } else if !model.canEditLineup {
+                LiveWriteSafetyBanner(
+                    message: model.lineup.editState.unavailableMessage
+                        ?? "Safety preview · Lineup changes unavailable"
+                )
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
@@ -22,7 +25,8 @@ struct LineupView: View {
             if model.lineup.players.isEmpty {
                 EmptyState(
                     title: "Lineup unavailable",
-                    message: "MFL didn’t return a roster for Week \(model.lineup.week). Pull to refresh and try again.",
+                    message: model.lineup.editState.unavailableMessage
+                        ?? "MFL didn’t return a roster for Week \(model.lineup.week). Pull to refresh and try again.",
                     systemImage: "person.3.sequence"
                 )
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -32,7 +36,7 @@ struct LineupView: View {
                     LineupSummaryCard(
                         lineup: model.lineup,
                         isDirty: isDirty,
-                        hasValidationIssue: model.lineupValidationMessage != nil
+                        hasValidationIssue: model.starterValidationMessage != nil
                     )
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .listRowBackground(Color.clear)
@@ -53,7 +57,7 @@ struct LineupView: View {
                             player: player,
                             actionTitle: "Bench",
                             actionIcon: "arrow.down.circle",
-                            isEditable: model.canSubmitChanges
+                            isEditable: model.canEditLineup
                         ) {
                             withAnimation(.snappy) { model.toggleStarter(player.id) }
                         }
@@ -73,7 +77,7 @@ struct LineupView: View {
                             player: player,
                             actionTitle: "Start",
                             actionIcon: "arrow.up.circle",
-                            isEditable: model.canSubmitChanges
+                            isEditable: model.canEditLineup
                         ) {
                             withAnimation(.snappy) { model.toggleStarter(player.id) }
                         }
@@ -84,20 +88,22 @@ struct LineupView: View {
                     Section {
                         Picker("Bench tiebreaker", selection: tiebreakerBinding) {
                             Text("Choose a player").tag("")
-                            ForEach(model.lineup.bench.filter { $0.injuryStatus != .injuredReserve }) { player in
+                            ForEach(model.lineup.bench.filter {
+                                $0.injuryStatus != .injuredReserve && !$0.isLocked
+                            }) { player in
                                 Text("\(player.name) · \(player.position)").tag(player.id)
                             }
                         }
-                        .disabled(!model.canSubmitChanges)
+                        .disabled(!model.canEditLineup)
                     } header: {
                         Text("Tiebreaker")
                     } footer: {
-                        Text("Your league uses a nonstarter’s score to resolve tied matchups.")
+                        Text("Your league uses a nonstarter’s score to resolve tied matchups. MFL accepts this choice but does not expose the saved tiebreaker for the app to read back.")
                     }
                 }
 
                 Section {
-                    Label("Players lock individually at their NFL kickoff. Locked players stay visible but can’t be moved.", systemImage: "lock.shield")
+                    Label("Players whose NFL games have started are locked here. MFL applies your league’s final lock rules when you submit.", systemImage: "lock.shield")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -132,7 +138,7 @@ struct LineupView: View {
             }
             Button("Keep editing", role: .cancel) {}
         } message: {
-            Text("This sends your full starting lineup to MyFantasyLeague. Projected total: \(model.lineup.projectedTotal.pointsText) points.")
+            Text(confirmationMessage)
         }
         .onAppear {
             synchronizeSubmissionBaseline()
@@ -150,11 +156,8 @@ struct LineupView: View {
     }
 
     private var displayedValidationMessage: String? {
-        guard let validationMessage = model.lineupValidationMessage else { return nil }
-        guard model.canSubmitChanges else {
-            return "MFL reports an incomplete Week \(model.lineup.week) lineup."
-        }
-        return validationMessage
+        guard model.canEditLineup else { return nil }
+        return model.lineupValidationMessage
     }
 
     private var weekBinding: Binding<Int> {
@@ -182,7 +185,7 @@ struct LineupView: View {
                 title: "Review & submit lineup",
                 systemImage: "checkmark.circle.fill",
                 isBusy: model.isBusy,
-                isDisabled: model.lineupValidationMessage != nil || !model.canSubmitChanges
+                isDisabled: model.lineupValidationMessage != nil || !model.canSubmitLineup
             ) {
                 showingSubmitConfirmation = true
             }
@@ -191,6 +194,14 @@ struct LineupView: View {
         .padding(.top, 10)
         .padding(.bottom, 8)
         .background(.ultraThinMaterial)
+    }
+
+    private var confirmationMessage: String {
+        var message = "This sends your full starting lineup to MyFantasyLeague. MFL Blitz will read it back and confirm every starter."
+        if model.lineup.requiredTiebreakerCount > 0 {
+            message += " Your tiebreaker is sent too, but MFL does not expose it for readback."
+        }
+        return message
     }
 
     private func synchronizeSubmissionBaseline() {

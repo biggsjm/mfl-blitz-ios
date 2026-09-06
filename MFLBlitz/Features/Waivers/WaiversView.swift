@@ -23,8 +23,8 @@ struct WaiversView: View {
                 DemoBanner()
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
-            } else if !model.canSubmitChanges {
-                LiveWriteSafetyBanner()
+            } else if !model.canSubmitWaivers {
+                LiveWriteSafetyBanner(message: "Safety preview · Waiver requests can’t be submitted yet")
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
@@ -443,7 +443,12 @@ private struct WaiverReviewView: View {
             .navigationTitle("Review waivers")
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .bottom) {
-                PrimaryActionButton(title: "Submit to MFL", systemImage: "paperplane.fill", isBusy: model.isBusy) {
+                PrimaryActionButton(
+                    title: "Submit to MFL",
+                    systemImage: "paperplane.fill",
+                    isBusy: model.isBusy,
+                    isDisabled: !model.canSubmitWaivers
+                ) {
                     showingConfirmation = true
                 }
                 .padding(.horizontal, 16)

@@ -26,6 +26,26 @@ struct AppModelTests {
         #expect(model.lineupValidationMessage == "Choose 1 more starter")
     }
 
+    @Test("Connected lineup editing requires a complete MFL readback")
+    func connectedLineupEditingGate() {
+        let model = AppModel(repository: LiveMFLRepository())
+        var lineup = SampleData.lineup
+        lineup.editState = .unavailable("Incomplete lineup")
+        model.lineup = lineup
+        let starterID = lineup.starters[0].id
+
+        model.toggleStarter(starterID)
+
+        #expect(!model.canEditLineup)
+        #expect(model.lineup.players.first(where: { $0.id == starterID })?.isStarter == true)
+
+        model.lineup.editState = .editable
+        model.toggleStarter(starterID)
+
+        #expect(model.canEditLineup)
+        #expect(model.lineup.players.first(where: { $0.id == starterID })?.isStarter == false)
+    }
+
     @Test("Waiver alternatives reorder only inside their acquisition round")
     func waiverQueueOrdering() {
         let model = AppModel(repository: DemoLeagueRepository())
@@ -73,5 +93,48 @@ struct AppModelTests {
         #expect(!LiveMFLRepository.isPreseasonLiveScoringError(
             MFLCoreError.api("Live scoring is not available for this request")
         ))
+    }
+
+    @Test("Lineup readback rejects missing, duplicate, and ambiguous assignments")
+    func lineupReadbackVerification() throws {
+        let valid = try rosterStatuses(
+            #"[{"id":"1","roster_franchise":{"franchise_id":"0001","status":"S"}},{"id":"2","roster_franchise":{"franchise_id":"0001","status":"NS"}}]"#
+        )
+        let starters = try LiveMFLRepository.verifiedStarterIDs(
+            from: valid,
+            rosterPlayerIDs: ["1", "2"],
+            franchiseID: "0001"
+        )
+        #expect(starters == ["1"])
+
+        let invalidPayloads = [
+            #"[{"id":"1","roster_franchise":{"franchise_id":"0001","status":"S"}}]"#,
+            #"[{"id":"1","roster_franchise":{"franchise_id":"0001","status":"S"}},{"id":"1","roster_franchise":{"franchise_id":"0001","status":"S"}},{"id":"2","roster_franchise":{"franchise_id":"0001","status":"NS"}}]"#,
+            #"[{"id":"1","roster_franchise":{"franchise_id":"0001","status":"S"}},{"id":"2","roster_franchise":{"franchise_id":"0001","status":"R"}}]"#,
+        ]
+
+        var rejectionCount = 0
+        for payload in invalidPayloads {
+            do {
+                _ = try LiveMFLRepository.verifiedStarterIDs(
+                    from: rosterStatuses(payload),
+                    rosterPlayerIDs: ["1", "2"],
+                    franchiseID: "0001"
+                )
+                Issue.record("Expected unsafe lineup readback to be rejected")
+            } catch {
+                rejectionCount += 1
+            }
+        }
+        #expect(rejectionCount == invalidPayloads.count)
+    }
+
+    private func rosterStatuses(_ playerStatusJSON: String) throws -> MFLPlayerRosterStatusCollection {
+        let data = Data(
+            "{\"playerRosterStatuses\":{\"playerStatus\":\(playerStatusJSON)}}".utf8
+        )
+        return try JSONDecoder()
+            .decode(MFLPlayerRosterStatusesResponse.self, from: data)
+            .playerRosterStatuses
     }
 }

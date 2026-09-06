@@ -46,7 +46,15 @@ final class AppModel {
     var notice: AppNotice?
     var lineupRevision = 0
 
-    var canSubmitChanges: Bool { isDemo || LiveWritePolicy.isEnabled }
+    var canEditLineup: Bool {
+        isDemo || (LiveWritePolicy.lineupsEnabled && lineup.editState.allowsEditing)
+    }
+    var canSubmitLineup: Bool { canEditLineup && lineup.editState.allowsEditing }
+    var canSubmitWaivers: Bool { isDemo || LiveWritePolicy.waiversEnabled }
+    var canPostToBoard: Bool { isDemo || LiveWritePolicy.boardEnabled }
+    var hasRestrictedLiveActions: Bool {
+        !canEditLineup || !canSubmitWaivers || !canPostToBoard
+    }
 
     private var repository: any LeagueRepository
     private var sessionGeneration = 0
@@ -201,7 +209,7 @@ final class AppModel {
     }
 
     func toggleStarter(_ playerID: String) {
-        guard canSubmitChanges,
+        guard canEditLineup,
               let index = lineup.players.firstIndex(where: { $0.id == playerID }),
               !lineup.players[index].isLocked else { return }
         lineup.players[index].isStarter.toggle()
@@ -211,11 +219,30 @@ final class AppModel {
     }
 
     func setTiebreaker(_ playerID: String) {
-        guard canSubmitChanges else { return }
-        lineup.tiebreakerPlayerIDs = playerID.isEmpty ? [] : [playerID]
+        guard canEditLineup else { return }
+        guard !playerID.isEmpty else {
+            lineup.tiebreakerPlayerIDs = []
+            return
+        }
+        guard let player = lineup.players.first(where: { $0.id == playerID }),
+              !player.isStarter,
+              !player.isLocked,
+              player.injuryStatus != .injuredReserve
+        else { return }
+        lineup.tiebreakerPlayerIDs = [playerID]
     }
 
     var lineupValidationMessage: String? {
+        if let starterValidationMessage { return starterValidationMessage }
+        if lineup.tiebreakerPlayerIDs.count != lineup.requiredTiebreakerCount {
+            return lineup.requiredTiebreakerCount == 1
+                ? "Choose one bench tiebreaker before submitting changes"
+                : "Choose \(lineup.requiredTiebreakerCount) bench tiebreakers before submitting changes"
+        }
+        return nil
+    }
+
+    var starterValidationMessage: String? {
         let count = lineup.starters.count
         if count != lineup.requiredStarterCount {
             let difference = lineup.requiredStarterCount - count
@@ -233,18 +260,16 @@ final class AppModel {
                 return "Start no more than \(requirement.maximum) \(requirement.position)"
             }
         }
-        if lineup.tiebreakerPlayerIDs.count != lineup.requiredTiebreakerCount {
-            return lineup.requiredTiebreakerCount == 1
-                ? "Choose one bench tiebreaker"
-                : "Choose \(lineup.requiredTiebreakerCount) bench tiebreakers"
-        }
         return nil
     }
 
     @discardableResult
     func submitLineup() async -> LineupSubmissionReceipt? {
-        guard canSubmitChanges else {
-            notice = .error(liveWriteDisabledMessage)
+        guard canSubmitLineup else {
+            notice = .error(
+                lineup.editState.unavailableMessage
+                    ?? "Live lineup submission is unavailable for this week."
+            )
             return nil
         }
         if let validationMessage = lineupValidationMessage {
@@ -264,8 +289,17 @@ final class AppModel {
 
             if lineup.week == submittedLineup.week {
                 lineup.lastSubmitted = Date()
+                lineup.serverStarterPlayerIDs = Set(submittedLineup.starters.map(\.id))
             }
-            notice = .success(isDemo ? "Demo lineup saved on this device." : "Week \(submittedLineup.week) lineup submitted to MFL.")
+            if isDemo {
+                notice = .success("Demo lineup saved on this device.")
+            } else if submittedLineup.requiredTiebreakerCount > 0 {
+                notice = .success(
+                    "Week \(submittedLineup.week) starters confirmed by MFL. Your tiebreaker was sent, but MFL does not expose it for confirmation."
+                )
+            } else {
+                notice = .success("Week \(submittedLineup.week) lineup confirmed by MFL.")
+            }
             return LineupSubmissionReceipt(
                 week: submittedLineup.week,
                 starterIDs: Set(submittedLineup.starters.map(\.id)),
@@ -321,8 +355,8 @@ final class AppModel {
 
     @discardableResult
     func submitWaivers() async -> Bool {
-        guard canSubmitChanges else {
-            notice = .error(liveWriteDisabledMessage)
+        guard canSubmitWaivers else {
+            notice = .error("Live waiver submission remains in safety preview while its multi-round replacement flow is validated.")
             return false
         }
         guard !waivers.claims.isEmpty else { return false }
@@ -368,8 +402,8 @@ final class AppModel {
 
     @discardableResult
     func post(subject: String?, body: String, threadID: String? = nil) async -> Bool {
-        guard canSubmitChanges else {
-            notice = .error(liveWriteDisabledMessage)
+        guard canPostToBoard else {
+            notice = .error("Live message posting remains in safety preview while server confirmation is validated.")
             return false
         }
         let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -533,10 +567,6 @@ final class AppModel {
             return "Couldn’t refresh league data. Pull to refresh and try again."
         }
         return "Couldn’t refresh \(sections.joined(separator: ", ")). Other sections are up to date."
-    }
-
-    private var liveWriteDisabledMessage: String {
-        "This 0.1 safety preview is read-only for connected leagues. Live writes unlock after disposable-league verification and MFL client registration."
     }
 
     private func applyDemoPost(subject: String?, body: String, threadID: String?) {

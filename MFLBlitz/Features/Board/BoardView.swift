@@ -10,8 +10,8 @@ struct BoardView: View {
                 DemoBanner()
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
-            } else if !model.canSubmitChanges {
-                LiveWriteSafetyBanner()
+            } else if !model.canPostToBoard {
+                LiveWriteSafetyBanner(message: "Safety preview · Posting is unavailable")
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
@@ -43,7 +43,7 @@ struct BoardView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("New thread", systemImage: "square.and.pencil") { showingComposer = true }
-                    .disabled(!model.canSubmitChanges)
+                    .disabled(!model.canPostToBoard)
             }
         }
         .sheet(isPresented: $showingComposer) {
@@ -128,8 +128,8 @@ private struct ThreadDetailView: View {
                             .background(Color.blitzGreen, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
                     }
                     .buttonStyle(.plain)
-                    .disabled(!model.canSubmitChanges)
-                    .opacity(model.canSubmitChanges ? 1 : 0.45)
+                    .disabled(!model.canPostToBoard)
+                    .opacity(model.canPostToBoard ? 1 : 0.45)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 9)
                     .background(.ultraThinMaterial)
@@ -232,7 +232,7 @@ struct MessageComposerView: View {
                         }
                     }
                     .fontWeight(.semibold)
-                    .disabled(!isValid || model.isBusy)
+                    .disabled(!isValid || model.isBusy || !model.canPostToBoard)
                 }
             }
             .onAppear { bodyFocused = true }

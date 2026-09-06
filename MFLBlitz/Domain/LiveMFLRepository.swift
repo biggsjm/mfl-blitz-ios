@@ -115,23 +115,121 @@ actor LiveMFLRepository: LeagueRepository {
 
     func loadLineup(week: Int) async throws -> LineupSnapshot {
         let (client, league, workspace) = try requireSession()
-        async let rosterTask = client.rosters(franchiseID: workspace.franchiseID, week: week)
-        async let liveTask = liveScoringIfAvailable(from: client, week: week, includeBench: true)
-        let (rosterCollection, live) = try await (rosterTask, liveTask)
+        let requirements = league.starterRequirements.map {
+            LineupPositionRequirement(
+                position: $0.position,
+                minimum: $0.minimum ?? 0,
+                maximum: $0.maximum ?? $0.minimum ?? 0
+            )
+        }
+        let rosterCollection = try await client.rosters(
+            franchiseID: workspace.franchiseID,
+            week: week
+        )
         guard let roster = rosterCollection.rosters.first(where: { $0.franchiseID == workspace.franchiseID }) else {
-            throw RepositoryError.server("MFL returned no roster for \(workspace.franchiseName).")
+            return unavailableLineup(
+                week: week,
+                league: league,
+                requirements: requirements,
+                message: "MFL didn’t return a roster for \(workspace.franchiseName) in Week \(week)."
+            )
         }
 
-        let catalog = try await client.players(ids: roster.players.map(\.id))
-        let playerByID = Dictionary(uniqueKeysWithValues: catalog.players.map { ($0.id, $0) })
+        let playerIDs = roster.players.map(\.id)
+        guard !playerIDs.isEmpty else {
+            return unavailableLineup(
+                week: week,
+                league: league,
+                requirements: requirements,
+                message: "MFL hasn’t published a roster for Week \(week) yet."
+            )
+        }
+        guard Set(playerIDs).count == playerIDs.count else {
+            return unavailableLineup(
+                week: week,
+                league: league,
+                requirements: requirements,
+                message: "This roster contains duplicate player copies, which this preview can’t edit safely yet."
+            )
+        }
+
+        async let catalogTask = client.players(ids: playerIDs)
+        async let statusTask = client.playerRosterStatus(
+            playerIDs: playerIDs,
+            week: week,
+            franchiseID: workspace.franchiseID,
+            refreshPolicy: .reloadIgnoringCache
+        )
+        // A `nil` result here means only MFL's narrow documented preseason gap.
+        // Other scoring failures remain errors so missing in-season game state
+        // cannot accidentally make a player appear movable.
+        async let liveTask = liveScoringIfAvailable(
+            from: client,
+            week: week,
+            includeBench: true,
+            refreshPolicy: .reloadIgnoringCache
+        )
+        let (catalog, rosterStatuses, live) = try await (catalogTask, statusTask, liveTask)
+        let catalogByID = Dictionary(grouping: catalog.players, by: \.id)
+        let statusCollectionsByID = Dictionary(grouping: rosterStatuses.statuses, by: \.id)
+        let playerByID = catalogByID.compactMapValues { $0.count == 1 ? $0[0] : nil }
+        let statusByID = statusCollectionsByID.compactMapValues { $0.count == 1 ? $0[0] : nil }
         let liveFranchise = live?.matchups
             .flatMap(\.franchises)
             .first(where: { $0.franchiseID == workspace.franchiseID })
-        let liveByID = Dictionary(uniqueKeysWithValues: (liveFranchise?.players ?? []).map { ($0.id, $0) })
+        let liveByID = Dictionary(grouping: liveFranchise?.players ?? [], by: \.id)
+            .compactMapValues { $0.first }
+
+        let assignmentByID = Dictionary(uniqueKeysWithValues: playerIDs.compactMap { playerID in
+            statusByID[playerID]?.rosterFranchise(id: workspace.franchiseID).map { (playerID, $0) }
+        })
+        let supportedStatuses: Set<MFLPlayerLineupStatus> = [
+            .starter,
+            .nonStarter,
+            .injuredReserve,
+            .taxiSquad,
+        ]
+        let hasCompleteAssignments = playerIDs.allSatisfy { playerID in
+            assignmentByID[playerID].map { supportedStatuses.contains($0.status) } == true
+        }
+        let hasCompleteCatalog = playerIDs.allSatisfy { playerID in
+            guard let player = playerByID[playerID], let position = player.position else { return false }
+            return !cleanText(player.displayName).isEmpty && !position.isEmpty
+        }
+        let hasUniqueStatuses = playerIDs.allSatisfy { statusCollectionsByID[$0]?.count == 1 }
+        let hasCompleteGameState = live == nil || playerIDs.allSatisfy { playerID in
+            guard let assignment = assignmentByID[playerID] else { return false }
+            if assignment.status == .injuredReserve || assignment.status == .taxiSquad { return true }
+            return liveByID[playerID] != nil
+        }
+        let hasSupportedRules = supportsLineupEditing(for: league)
+        let editState: LineupEditState
+        if !hasSupportedRules {
+            editState = .unavailable(
+                "Lineup changes are not enabled for this league’s rule configuration yet."
+            )
+        } else if hasCompleteAssignments && hasCompleteCatalog && hasUniqueStatuses && hasCompleteGameState {
+            editState = .editable
+        } else {
+            editState = .unavailable(
+                "MFL didn’t return a complete saved lineup and game state for Week \(week), so changes are disabled to protect your starters."
+            )
+        }
 
         let players = roster.players.map { rosterPlayer -> LineupPlayer in
             let player = playerByID[rosterPlayer.id]
             let livePlayer = liveByID[rosterPlayer.id]
+            let assignment = assignmentByID[rosterPlayer.id]
+            let isReserve = assignment?.status == .injuredReserve || assignment?.status == .taxiSquad
+            let isLocked: Bool = if isReserve {
+                true
+            } else if let livePlayer {
+                // This only detects an NFL game that has begun. MFL remains
+                // authoritative for every league-specific lineup deadline.
+                livePlayer.gameSecondsRemaining < 3_600
+            } else {
+                false
+            }
             return LineupPlayer(
                 id: rosterPlayer.id,
                 name: cleanText(player?.displayName ?? "Player \(rosterPlayer.id)"),
@@ -140,18 +238,10 @@ actor LiveMFLRepository: LeagueRepository {
                 opponent: "—",
                 projectedPoints: nil,
                 seasonPoints: livePlayer?.score.doubleValue ?? 0,
-                isStarter: livePlayer?.isStarter ?? false,
-                isLocked: livePlayer.map { $0.gameSecondsRemaining < 3_600 } ?? false,
-                injuryStatus: nil,
+                isStarter: assignment?.status == .starter,
+                isLocked: isLocked,
+                injuryStatus: assignment?.status == .injuredReserve ? .injuredReserve : nil,
                 gameTime: Date()
-            )
-        }
-
-        let requirements = league.starterRequirements.map {
-            LineupPositionRequirement(
-                position: $0.position,
-                minimum: $0.minimum ?? 0,
-                maximum: $0.maximum ?? $0.minimum ?? 0
             )
         }
 
@@ -163,8 +253,69 @@ actor LiveMFLRepository: LeagueRepository {
             requiredTiebreakerCount: league.tiebreakerCount ?? 0,
             tiebreakerPlayerIDs: [],
             deadline: nil,
-            lastSubmitted: nil
+            lastSubmitted: nil,
+            serverStarterPlayerIDs: Set(
+                assignmentByID.compactMap { playerID, assignment in
+                    assignment.status == .starter ? playerID : nil
+                }
+            ),
+            editState: editState
         )
+    }
+
+    private func unavailableLineup(
+        week: Int,
+        league: MFLLeague,
+        requirements: [LineupPositionRequirement],
+        message: String
+    ) -> LineupSnapshot {
+        LineupSnapshot(
+            week: week,
+            players: [],
+            requiredStarterCount: league.starterCount ?? 0,
+            positionRequirements: requirements,
+            requiredTiebreakerCount: league.tiebreakerCount ?? 0,
+            tiebreakerPlayerIDs: [],
+            deadline: nil,
+            lastSubmitted: nil,
+            editState: .unavailable(message)
+        )
+    }
+
+    private func supportsLineupEditing(for league: MFLLeague) -> Bool {
+        guard let starterCount = league.starterCount,
+              starterCount > 0,
+              league.partialLineupsAllowed == false,
+              league.bestLineup == false,
+              league.lineupLockout == false,
+              !league.starterRequirements.isEmpty
+        else { return false }
+
+        let supportedPositions: Set<String> = ["QB", "RB", "WR", "TE"]
+        let positionNames = league.starterRequirements.map(\.position)
+        guard Set(positionNames).count == positionNames.count,
+              positionNames.allSatisfy({ supportedPositions.contains($0) }),
+              league.starterRequirements.allSatisfy({ requirement in
+                  guard let minimum = requirement.minimum, let maximum = requirement.maximum else {
+                      return false
+                  }
+                  return minimum >= 0 && maximum >= minimum
+              })
+        else { return false }
+
+        let minimumStarters = league.starterRequirements.compactMap(\.minimum).reduce(0, +)
+        let maximumStarters = league.starterRequirements.compactMap(\.maximum).reduce(0, +)
+        guard (minimumStarters ... maximumStarters).contains(starterCount) else { return false }
+
+        switch league.tiebreakerCount ?? 0 {
+        case 0:
+            return league.tiebreakerType == nil
+                || league.tiebreakerType?.lowercased() == "none"
+        case 1:
+            return league.tiebreakerType?.lowercased() == "nonstarter"
+        default:
+            return false
+        }
     }
 
     /// Returns `nil` only for MFL's documented preseason live-scoring gap.
@@ -198,15 +349,77 @@ actor LiveMFLRepository: LeagueRepository {
 
     func submitLineup(_ lineup: LineupSnapshot) async throws {
         let (client, _, workspace) = try requireSession()
+        guard lineup.editState.allowsEditing else {
+            throw RepositoryError.server(
+                "MFL Blitz doesn’t have a complete authoritative lineup state for this week, so nothing was submitted."
+            )
+        }
         let submittedStarterIDs = lineup.starters.map(\.id)
         let submittedTiebreakerIDs = lineup.tiebreakerPlayerIDs
+        let rosterPlayerIDs = lineup.players.map(\.id)
+        let rosterPlayerIDSet = Set(rosterPlayerIDs)
 
-        guard hasUniqueIdentifiers(submittedStarterIDs),
+        guard !rosterPlayerIDs.isEmpty,
+              hasUniqueIdentifiers(rosterPlayerIDs),
+              hasUniqueIdentifiers(submittedStarterIDs),
               hasUniqueIdentifiers(submittedTiebreakerIDs),
-              Set(submittedStarterIDs).isDisjoint(with: submittedTiebreakerIDs)
+              Set(submittedStarterIDs).isSubset(of: rosterPlayerIDSet),
+              Set(submittedTiebreakerIDs).isSubset(of: rosterPlayerIDSet),
+              Set(submittedStarterIDs).isDisjoint(with: submittedTiebreakerIDs),
+              submittedStarterIDs.count == lineup.requiredStarterCount,
+              submittedTiebreakerIDs.count == lineup.requiredTiebreakerCount
         else {
             throw RepositoryError.server(
-                "The lineup contains a duplicate player or uses a starter as a tiebreaker, so it was not submitted."
+                "The lineup has an invalid starter or tiebreaker selection, so it was not submitted."
+            )
+        }
+
+        let hasInvalidPositionCount = lineup.positionRequirements.contains { requirement in
+            let count = lineup.starters.count(where: { $0.position == requirement.position })
+            return count < requirement.minimum || count > requirement.maximum
+        }
+        guard !hasInvalidPositionCount else {
+            throw RepositoryError.server(
+                "The lineup does not satisfy this league’s position limits, so it was not submitted."
+            )
+        }
+
+        let tiebreakerIDs = Set(submittedTiebreakerIDs)
+        guard lineup.players.allSatisfy({ player in
+            !tiebreakerIDs.contains(player.id)
+                || (!player.isStarter && !player.isLocked && player.injuryStatus != .injuredReserve)
+        }) else {
+            throw RepositoryError.server(
+                "Every tiebreaker must be an eligible, unlocked bench player, so the lineup was not submitted."
+            )
+        }
+
+        guard lineup.players.allSatisfy({ player in
+            !player.isLocked
+                || lineup.serverStarterPlayerIDs.contains(player.id) == player.isStarter
+        }) else {
+            throw RepositoryError.server(
+                "A player whose NFL game has started was moved. Refresh to restore the locked player; nothing was submitted."
+            )
+        }
+
+        let preflight = try await client.playerRosterStatus(
+            playerIDs: rosterPlayerIDs,
+            week: lineup.week,
+            franchiseID: workspace.franchiseID,
+            refreshPolicy: .reloadIgnoringCache
+        )
+        let preflightStarterIDs = try Self.verifiedStarterIDs(
+            from: preflight,
+            rosterPlayerIDs: rosterPlayerIDs,
+            franchiseID: workspace.franchiseID
+        )
+        guard containsExactlyTheSameIdentifiers(
+            preflightStarterIDs,
+            Array(lineup.serverStarterPlayerIDs)
+        ) else {
+            throw RepositoryError.server(
+                "Your saved MFL lineup changed after this screen loaded. Refresh to review the latest starters; nothing was submitted."
             )
         }
 
@@ -218,38 +431,20 @@ actor LiveMFLRepository: LeagueRepository {
             )
         )
 
-        let verified = try await client.liveScoring(
+        let verified = try await client.playerRosterStatus(
+            playerIDs: rosterPlayerIDs,
             week: lineup.week,
-            includeBench: true,
+            franchiseID: workspace.franchiseID,
             refreshPolicy: .reloadIgnoringCache
         )
-        guard let serverFranchise = verified.matchups
-            .flatMap(\.franchises)
-            .first(where: { $0.franchiseID == workspace.franchiseID })
-        else {
-            throw RepositoryError.server(
-                "MFL replied, but did not return your lineup for verification. Refresh before trying again."
-            )
-        }
-
-        let serverStarterIDs = serverFranchise.players.filter(\.isStarter).map(\.id)
+        let serverStarterIDs = try Self.verifiedStarterIDs(
+            from: verified,
+            rosterPlayerIDs: rosterPlayerIDs,
+            franchiseID: workspace.franchiseID
+        )
         guard containsExactlyTheSameIdentifiers(serverStarterIDs, submittedStarterIDs) else {
             throw RepositoryError.server(
                 "MFL replied, but its saved starters did not exactly match the submitted lineup. Refresh before trying again."
-            )
-        }
-
-        // MFL's live-scoring feed normally reports only starter/nonstarter. Some
-        // league variants identify a tiebreaker in the raw status; when it does,
-        // require the same exact confirmation as the starter list.
-        let serverTiebreakerIDs = serverFranchise.players
-            .filter { isTiebreakerStatus($0.status) }
-            .map(\.id)
-        if !serverTiebreakerIDs.isEmpty,
-           !containsExactlyTheSameIdentifiers(serverTiebreakerIDs, submittedTiebreakerIDs)
-        {
-            throw RepositoryError.server(
-                "MFL replied, but its saved tiebreakers did not exactly match the submitted lineup. Refresh before trying again."
             )
         }
     }
@@ -591,11 +786,37 @@ actor LiveMFLRepository: LeagueRepository {
         lhs.count == rhs.count && Set(lhs) == Set(rhs)
     }
 
-    private func isTiebreakerStatus(_ status: MFLLivePlayerStatus) -> Bool {
-        status.rawValue
-            .lowercased()
-            .filter(\.isLetter)
-            .contains("tiebreak")
+    static func verifiedStarterIDs(
+        from response: MFLPlayerRosterStatusCollection,
+        rosterPlayerIDs: [String],
+        franchiseID: String
+    ) throws -> [String] {
+        let requestedIDs = Set(rosterPlayerIDs)
+        let statusesByID = Dictionary(
+            grouping: response.statuses.filter { requestedIDs.contains($0.id) },
+            by: \.id
+        )
+        guard requestedIDs.count == rosterPlayerIDs.count,
+              requestedIDs.allSatisfy({ statusesByID[$0]?.count == 1 })
+        else {
+            throw RepositoryError.server(
+                "MFL did not return one unique roster status for every player, so the lineup could not be confirmed."
+            )
+        }
+
+        var starterIDs: [String] = []
+        for playerID in rosterPlayerIDs {
+            guard let status = statusesByID[playerID]?.first,
+                  let assignment = status.rosterFranchise(id: franchiseID),
+                  [.starter, .nonStarter, .injuredReserve, .taxiSquad].contains(assignment.status)
+            else {
+                throw RepositoryError.server(
+                    "MFL returned an incomplete or ambiguous lineup state, so the lineup could not be confirmed."
+                )
+            }
+            if assignment.status == .starter { starterIDs.append(playerID) }
+        }
+        return starterIDs
     }
 
     private struct VerifiedWaiverClaim: Equatable {

@@ -19,7 +19,11 @@ struct ModelDecodingTests {
         #expect(response.league.divisions.map(\.name) == ["North"])
         #expect(response.league.starterCount == 9)
         #expect(response.league.maxWaiverRounds == 8)
+        #expect(response.league.tiebreakerType == "nonstarter")
         #expect(response.league.tiebreakerCount == 1)
+        #expect(response.league.partialLineupsAllowed == false)
+        #expect(response.league.bestLineup == false)
+        #expect(response.league.lineupLockout == false)
         #expect(response.league.starterRequirements[1].minimum == 2)
         #expect(response.league.starterRequirements[1].maximum == 3)
         #expect(response.league.starterRequirements[2].maximum == nil)
@@ -41,6 +45,35 @@ struct ModelDecodingTests {
         #expect(rosters.rosters[0].players[0].salary == Decimal(string: "12.50"))
         #expect(rosters.rosters[1].players[0].status == .injuredReserve)
         #expect(freeAgents.players.map(\.id) == ["17001", "17002"])
+    }
+
+    @Test("Player roster status decodes flexible flags and franchise shapes")
+    func playerRosterStatus() throws {
+        let collection = try decoder.decode(
+            MFLPlayerRosterStatusesResponse.self,
+            from: fixture("player-roster-status")
+        ).playerRosterStatuses
+
+        let starter = try #require(collection[playerID: "12620"])
+        #expect(collection.statuses.count == 5)
+        #expect(starter.isFreeAgent == false)
+        #expect(starter.cannotAdd == nil)
+        #expect(starter.isLocked == nil)
+        #expect(starter.rosterFranchises.count == 1)
+        #expect(starter.rosterFranchise(id: "0001")?.status == .starter)
+        #expect(starter.rosterFranchise(id: "0001")?.isStarter == true)
+
+        let shared = try #require(collection[playerID: "14056"])
+        #expect(shared.isLocked == false)
+        #expect(shared.rosterFranchises.map(\.status) == [.nonStarter, .roster])
+        #expect(collection[playerID: "15001"]?.rosterFranchises.first?.status == .injuredReserve)
+        #expect(collection[playerID: "15002"]?.rosterFranchises.first?.status == .taxiSquad)
+
+        let freeAgent = try #require(collection[playerID: "17001"])
+        #expect(freeAgent.isFreeAgent == true)
+        #expect(freeAgent.cannotAdd == true)
+        #expect(freeAgent.isLocked == true)
+        #expect(freeAgent.rosterFranchises.isEmpty)
     }
 
     @Test("Live matchup handles string, number, and boolean scalars")

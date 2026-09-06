@@ -20,6 +20,10 @@ public struct MFLRostersResponse: Decodable, Equatable, Sendable {
     public let rosters: MFLRosterCollection
 }
 
+public struct MFLPlayerRosterStatusesResponse: Decodable, Equatable, Sendable {
+    public let playerRosterStatuses: MFLPlayerRosterStatusCollection
+}
+
 public struct MFLLiveScoringResponse: Decodable, Equatable, Sendable {
     public let liveScoring: MFLLiveScoring
 }

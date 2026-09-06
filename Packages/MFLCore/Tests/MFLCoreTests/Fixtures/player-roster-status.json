@@ -1,0 +1,49 @@
+{
+  "playerRosterStatuses": {
+    "playerStatus": [
+      {
+        "id": "12620",
+        "is_fa": "0",
+        "roster_franchise": {
+          "franchise_id": "0001",
+          "status": "S"
+        }
+      },
+      {
+        "id": "14056",
+        "is_fa": false,
+        "locked": "0",
+        "roster_franchise": [
+          {
+            "franchise_id": "0001",
+            "status": "NS"
+          },
+          {
+            "franchise_id": "0002",
+            "status": "R"
+          }
+        ]
+      },
+      {
+        "id": "15001",
+        "roster_franchise": {
+          "franchise_id": "0001",
+          "status": "IR"
+        }
+      },
+      {
+        "id": "15002",
+        "roster_franchise": {
+          "franchise_id": "0001",
+          "status": "TS"
+        }
+      },
+      {
+        "id": "17001",
+        "is_fa": "1",
+        "cant_add": 1,
+        "locked": true
+      }
+    ]
+  }
+}

@@ -20,7 +20,7 @@ All league calls use `https://{resolved-host}/{season}/` and include `L={leagueI
 
 | Capability | Request |
 |---|---|
-| Account league/franchise mapping | `export?TYPE=myleagues&YEAR={season}&FRANCHISE_NAMES=1&JSON=1` |
+| Account league/franchise mapping | `export?TYPE=myleagues&YEAR={season}&JSON=1` |
 | Current week | `https://api.myfantasyleague.com/fflnetdynamic{season}/mfl_status.json` |
 | League/capabilities | `export?TYPE=league&JSON=1`; authenticated `TYPE=abilities&DETAILS=1` |
 | Live scores | `export?TYPE=liveScoring&W={week}&DETAILS=1&JSON=1` |
@@ -36,6 +36,8 @@ All league calls use `https://{resolved-host}/{season}/` and include `L={leagueI
 | Board thread | `export?TYPE=messageBoardThread&THREAD={id}&JSON=1` |
 | New board post | `import?TYPE=messageBoard&SUBJECT={subject}&BODY={body}` |
 | Board reply | `import?TYPE=messageBoard&THREAD={id}&BODY={body}` |
+
+`playerRosterStatus` is the authoritative readback for saved starter assignments (`S` and `NS`). MFL documents `locked` only for free-agent acquisition state, not rostered-player lineup deadlines, and does not expose a saved lineup tiebreaker. The app therefore uses NFL game progress only to disable obviously started players, lets MFL enforce the league's final lock rules, and describes tiebreaker submission as sent rather than readback-confirmed.
 
 For a blind bid, `0000` is the no-drop sentinel. Conditional leagues require `ROUND`; `REPLACE=1` means the app must send the complete desired state for that round. MFL offers no idempotency key or dry-run mode.
 

@@ -137,14 +137,16 @@ struct DemoBanner: View {
 }
 
 struct LiveWriteSafetyBanner: View {
+    let message: String
+
     var body: some View {
-        Label("Safety preview · Connected leagues are read-only", systemImage: "lock.shield.fill")
+        Label(message, systemImage: "lock.shield.fill")
             .font(.footnote.weight(.semibold))
             .foregroundStyle(.orange)
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, minHeight: 40)
             .background(Color.orange.opacity(0.12))
-            .accessibilityLabel("Safety preview. Connected leagues are read-only.")
+            .accessibilityLabel(message.replacingOccurrences(of: "·", with: "."))
     }
 }
 

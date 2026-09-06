@@ -18,9 +18,12 @@
     "bbidIncrement": "1.00",
     "bbidConditional": "Yes",
     "maxWaiverRounds": "8",
+    "tiebreaker": "nonstarter",
     "tiebreakerCount": "1",
     "h2h": "YES",
     "partialLineupAllowed": "NO",
+    "bestLineup": "No",
+    "lockout": "No",
     "franchises": {
       "count": "2",
       "franchise": [

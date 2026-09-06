@@ -67,9 +67,12 @@ public struct MFLLeague: Decodable, Equatable, Sendable, Identifiable {
     public let blindBidIncrement: Decimal?
     public let conditionalBlindBidding: Bool?
     public let maxWaiverRounds: Int?
+    public let tiebreakerType: String?
     public let tiebreakerCount: Int?
     public let headToHead: Bool?
     public let partialLineupsAllowed: Bool?
+    public let bestLineup: Bool?
+    public let lineupLockout: Bool?
     public let franchises: [MFLFranchise]
     public let divisions: [MFLDivision]
     /// MFL's authoritative total starter count. This can be greater than the
@@ -99,9 +102,12 @@ public struct MFLLeague: Decodable, Equatable, Sendable, Identifiable {
         case bbidIncrement
         case bbidConditional
         case maxWaiverRounds
+        case tiebreaker
         case tiebreakerCount
         case h2h
         case partialLineupAllowed
+        case bestLineup
+        case lockout
         case franchises
         case divisions
         case starters
@@ -132,9 +138,12 @@ public struct MFLLeague: Decodable, Equatable, Sendable, Identifiable {
         blindBidIncrement = try container.mflDecimalIfPresent(forKey: .bbidIncrement)
         conditionalBlindBidding = try container.mflBoolIfPresent(forKey: .bbidConditional)
         maxWaiverRounds = try container.mflIntIfPresent(forKey: .maxWaiverRounds)
+        tiebreakerType = try container.mflStringIfPresent(forKey: .tiebreaker)
         tiebreakerCount = try container.mflIntIfPresent(forKey: .tiebreakerCount)
         headToHead = try container.mflBoolIfPresent(forKey: .h2h)
         partialLineupsAllowed = try container.mflBoolIfPresent(forKey: .partialLineupAllowed)
+        bestLineup = try container.mflBoolIfPresent(forKey: .bestLineup)
+        lineupLockout = try container.mflBoolIfPresent(forKey: .lockout)
 
         if container.contains(.franchises) {
             let nested = try container.nestedContainer(keyedBy: FranchiseKeys.self, forKey: .franchises)
