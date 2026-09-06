@@ -11,7 +11,7 @@ struct ScoresView: View {
             LazyVStack(spacing: 14) {
                 if model.isDemo { DemoBanner() }
                 if model.workspace?.weekIsConfirmed == false {
-                    Label("MFL’s current week couldn’t be confirmed. Choose a week below.", systemImage: "calendar.badge.exclamationmark")
+                    Label("MFL’s current week couldn’t be confirmed. Choose a week to continue.", systemImage: "calendar.badge.exclamationmark")
                         .font(.footnote).foregroundStyle(.orange)
                         .padding(.horizontal, BlitzMetrics.pagePadding)
                 }
@@ -28,7 +28,9 @@ struct ScoresView: View {
                 }
 
                 HStack {
-                    WeekPicker(selection: weekBinding, range: 1...18)
+                    if model.scores.isLive {
+                        StatusPill(text: "Live", systemImage: "dot.radiowaves.left.and.right", tone: .live)
+                    }
                     Spacer()
                     UpdatedLabel(date: model.scores.lastUpdated, isRefreshing: model.isLoadingScores)
                 }
@@ -103,11 +105,12 @@ struct ScoresView: View {
         .pageBackground()
         .navigationTitle(model.workspace?.leagueName ?? "Scores")
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                if model.scores.isLive {
-                    StatusPill(text: "Live", systemImage: "dot.radiowaves.left.and.right", tone: .live)
-                }
+            ToolbarItem(placement: .topBarLeading) {
                 Button("Settings", systemImage: "gearshape") { showingSettings = true }
+                    .accessibilityIdentifier("scores-settings")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                WeekPicker(selection: weekBinding, range: 1...18)
             }
         }
         .refreshable { await model.refreshAll() }

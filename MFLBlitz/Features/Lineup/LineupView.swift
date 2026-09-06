@@ -308,8 +308,6 @@ private struct LineupReplacementPicker: View {
                             ForEach(bench) { candidateButton($0) }
                         } header: {
                             Text("Bench")
-                        } footer: {
-                            Text("Review & submit to save new starters.")
                         }
                     }
                     if !starters.isEmpty {
@@ -317,8 +315,6 @@ private struct LineupReplacementPicker: View {
                             ForEach(starters) { candidateButton($0) }
                         } header: {
                             Text("Already starting")
-                        } footer: {
-                            Text("Slot swaps save on this device.")
                         }
                     }
                 }
@@ -350,7 +346,7 @@ private struct LineupReplacementPicker: View {
         .accessibilityLabel("\(player.name), \(player.position), \(player.nflTeam), \(detail ?? "Bench"), projected \(player.projectedPoints.pointsText) points\(player.injuryStatus.map { ", \($0.label)" } ?? "")")
         .accessibilityHint(needsFollowUp ? "Choose who fills the vacated position before applying this move."
             : player.isStarter ? "Swap slots with \(request.starter.name). Both players remain starters."
-            : "Replace \(request.starter.name) in your draft. Review and submit to save to MFL.")
+            : "Replace \(request.starter.name). Review and submit your lineup to save.")
         .accessibilityIdentifier("lineup-replacement-\(player.id)")
     }
 }
@@ -387,11 +383,9 @@ private struct LineupVacatedSlotPicker: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(player.name), \(player.position), projected \(player.projectedPoints.pointsText) points. Moves from \(player.isStarter ? "FLEX" : "bench") to \(source?.label ?? "the open position"). \(request.starter.name) moves to \(player.isStarter ? "the other FLEX slot" : "the bench").")
                     .accessibilityHint(player.isStarter ? "Rotates three starters between slots. All remain in your lineup."
-                        : "Completes both moves in your draft. Review and submit to save new starters to MFL.")
+                        : "Completes both moves. Review and submit your lineup to save.")
                     .accessibilityIdentifier("lineup-fill-\(player.id)")
                 }
-            } footer: {
-                Text("Choose to apply to your draft.")
             }
         }
         .listStyle(.insetGrouped)

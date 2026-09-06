@@ -2,6 +2,58 @@ import XCTest
 
 final class MFLBlitzUITests: XCTestCase {
     @MainActor
+    func testScoresToolbarKeepsWeekAndSettingsInCorners() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        let settings = app.navigationBars.buttons["scores-settings"]
+        let week = app.navigationBars.buttons["week-picker"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 3))
+        XCTAssertTrue(week.isHittable)
+        XCTAssertEqual(week.label, "Week 1")
+        XCTAssertLessThan(settings.frame.midX, app.frame.width * 0.25)
+        XCTAssertGreaterThan(week.frame.midX, app.frame.width * 0.6)
+        XCTAssertEqual(app.buttons.matching(identifier: "week-picker").count, 1)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Scores — Settings left, Week right"; screenshot.lifetime = .keepAlways; add(screenshot)
+        settings.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
+        app.buttons["Done"].tap()
+        week.tap()
+        app.buttons["Week 2"].tap()
+        XCTAssertEqual(week.label, "Week 2")
+    }
+
+    @MainActor
+    func testLineupWeekControlShowsSelectedWeek() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        app.tabBars.buttons["Lineup"].tap()
+        let week = app.navigationBars.buttons["week-picker"]
+        XCTAssertTrue(week.waitForExistence(timeout: 3))
+        XCTAssertEqual(week.label, "Week 1")
+        XCTAssertGreaterThan(week.frame.width, 75) // Not an icon-only toolbar button.
+        XCTAssertTrue(week.isHittable)
+        let initial = XCTAttachment(screenshot: app.screenshot())
+        initial.name = "Lineup toolbar — Week 1 visible"; initial.lifetime = .keepAlways; add(initial)
+        for value in [2, 18] {
+            // UIKit sizes native toolbar menus. Exercise both visible parts:
+            // tapping the calendar and tapping the week title must open it.
+            week.coordinate(withNormalizedOffset: CGVector(dx: value == 2 ? 0.2 : 0.8, dy: 0.5)).tap()
+            XCTAssertTrue(app.buttons["Week \(value)"].waitForExistence(timeout: 3))
+            app.buttons["Week \(value)"].tap()
+            XCTAssertTrue(week.waitForExistence(timeout: 3))
+            XCTAssertEqual(week.label, "Week \(value)")
+            XCTAssertGreaterThan(week.frame.width, 75)
+        }
+        let changed = XCTAttachment(screenshot: app.screenshot())
+        changed.name = "Lineup toolbar — Week 18 visible"; changed.lifetime = .keepAlways; add(changed)
+        app.tabBars.buttons["Scores"].tap()
+        XCTAssertEqual(app.buttons["week-picker"].label, "Week 18")
+    }
+
+    @MainActor
     func testStarterCanSwapBetweenRunningBackAndFlexWithoutChangingMembership() throws {
         let app = XCUIApplication()
         app.launch()
@@ -11,6 +63,8 @@ final class MFLBlitzUITests: XCTestCase {
         for _ in 0..<10 where !rb.isHittable { app.swipeUp() }
         rb.tap()
         XCTAssertTrue(app.navigationBars["Replace RB"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.staticTexts["Slot swaps save on this device."].exists)
+        XCTAssertFalse(app.staticTexts["Review & submit to save new starters."].exists)
         XCTAssertTrue(app.buttons["lineup-replacement-15712"].exists) // Bench RB.
         let flex = app.buttons["lineup-replacement-15256"]
         for _ in 0..<8 where !flex.isHittable { app.swipeUp() }
@@ -48,6 +102,7 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertTrue(wr.label.contains("WR → FLEX"))
         wr.tap()
         XCTAssertTrue(app.navigationBars["Fill WR"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.staticTexts["Choose to apply to your draft."].exists)
         XCTAssertTrue(app.staticTexts["Jaylen Waddle → FLEX"].exists)
         XCTAssertFalse(app.staticTexts["Choose a player for Jaylen Waddle’s WR slot."].exists)
         XCTAssertTrue(app.buttons["lineup-fill-15757"].exists) // Bench WR.

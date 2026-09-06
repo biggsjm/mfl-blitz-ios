@@ -179,11 +179,18 @@ struct WeekPicker: View {
                 }
             }
         } label: {
-            Label("Week \(selection)", systemImage: "calendar")
-                .font(.subheadline.weight(.semibold))
-                .frame(minHeight: BlitzMetrics.minimumTapTarget)
+            HStack(spacing: 6) {
+                Image(systemName: "calendar")
+                Text("Week \(selection)")
+            }
+            .font(.subheadline.weight(.semibold))
+            .monospacedDigit()
+            .fixedSize(horizontal: true, vertical: false)
+            .frame(minHeight: BlitzMetrics.minimumTapTarget)
         }
-        .accessibilityHint("Choose another scoring week")
+        .accessibilityLabel("Week \(selection)")
+        .accessibilityIdentifier("week-picker")
+        .accessibilityHint("Choose another week")
     }
 }
 
