@@ -2,6 +2,25 @@
 
 Implemented private-build history through September 6, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.5.1 (20) — September 6, 2026 — owner-feedback fixes
+
+- Move to IR is disabled in Player Detail, Manage roster and review unless the current scoped injury report lists Out/IR. Loading, failed, stale, other-week and unknown designations cannot enable it. Fresh preflight and MFL's final rules still apply.
+- Visible-section refreshes no longer fan out to every main feed. Ordinary watchlist and roster-review reads reuse caches; actual mutation preflight/readback stays fresh. Scoring history loads only after View scoring history is tapped. Default request spacing increases to 1.25 seconds.
+- Cooldowns are scoped to the rejecting server as MFL documents, so a public availability-feed 429 does not automatically block a different league server. Same-host requests stop until Retry-After expires; no host switching or automatic import retries.
+- Trade composer and team-tool destinations now share typed navigation so player research returns to the asset picker or roster moves with selections intact.
+- Compatibility follow-up gives roster menus explicit independent touch targets and stable accessibility identifiers; native tests handle iOS 18 menu/Back-button differences and tap the tiebreaker picker's actual value control. Older-iOS revalidation remains recorded separately in current status.
+- Signed build installed and launched on Josh's iPhone. See [current status](docs/current-status.md) for regression evidence and remaining live-owner checks; reducing request pressure does not eliminate MFL's variable rate limits.
+
+## 0.5.0 (19) — September 6, 2026 — player tools
+
+- Shared official injury, opponent/kickoff and bye context in player details, roster, lineup/replacements and available-player rows. Missing reports are not proof of health; acquisition locks remain separate from lineup locks.
+- League-scored player history, season total/average and recent-form chart. Initially reads four completed weeks, with explicit earlier-page loading; missing scores remain distinct from zero. Opponent points allowed are position totals, not invented per-game averages.
+- MFL watch/unwatch with fresh readback, My Team → Watchlist, waiver filtering and durable uncertain-toggle recovery. Owner-supplied empty/singleton watchlist and abilities responses verified the private formats.
+- Reviewed first-come add/drop and IR/activation through My Team → Manage roster and Transactions → Waivers. Exact owner permissions, supported formats, fresh roster/limits and acquisition eligibility gate writes. Activation may include an explicitly reviewed drop.
+- Roster changes persist a marker before their only import and require exact current-membership readback. A pending move blocks other roster-affecting writes until checked. Refresh preserves lineup, waiver and trade drafts.
+- Contextual player research links in waiver/trade surfaces preserve asset-selection controls. New core/model/native safety and two-week synthetic journeys; [current status](docs/current-status.md) records final test, CI and device evidence.
+- The [approved plan](docs/player-tools-plan.md) retains trading block, calendar/reminders, polls and playoff brackets as the next four features, not part of this increment.
+
 ## 0.4.1 (18) — September 6, 2026
 
 - Board composers use Close. Empty composers close immediately; meaningful content offers Save draft, Discard draft or Keep editing in a centered alert.

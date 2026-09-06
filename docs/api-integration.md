@@ -1,6 +1,6 @@
 # MFL 2026 API integration
 
-Implementation audit: September 6, 2026, **0.4.1 (18)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
+Implementation audit: September 6, 2026, **0.5.1 (20)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
 
 Primary sources: [general API guidance](https://api.myfantasyleague.com/2026/api_info), [request reference](https://api.myfantasyleague.com/2026/api_info?STATE=details), and [sample code](https://api.myfantasyleague.com/2026/api_info?STATE=example).
 
@@ -124,7 +124,7 @@ These are current defaults, not a cache-everything rule. Private read retention 
 | Pending trades / assets / transaction activity | Forced client reads; model-level reuse on recent section visits | Fresh trade preflight/readback; no stale or failed read becomes a confirmed-empty state |
 | Franchise artwork | Bounded 15-minute memory thumbnails; 60-second failure cooldown | Isolated cookieless loader; no disk cache |
 
-The full player directory is shared across tabs. Targeted detailed-player and season-schedule caching are implemented in memory; player-scoring history is still unimplemented. Roster/player pull-to-refresh refreshes volatile roster/ownership state while reusing day-cached league metadata. An explicit team-metadata refresh can bypass that cache. MFL supports incremental `SINCE`, but the app currently refreshes the full public catalog after its daily expiry.
+The full player directory is shared across tabs. Targeted detailed-player and season-schedule caching are implemented in memory; player-scoring history now uses bounded targeted pages and separate memory caching, as detailed below. Roster/player pull-to-refresh refreshes volatile roster/ownership state while reusing day-cached league metadata. An explicit team-metadata refresh can bypass that cache. MFL supports incremental `SINCE`, but the app currently refreshes the full public catalog after its daily expiry.
 
 Version 0.3.2 persists only the public, full player directory in the app's Caches folder, scoped by season and cache-format version. Entries retain their original fetch time across relaunches; corrupt, wrong-season, future-dated, and expired entries cannot be used. Decoding succeeds before saving, writes are atomic and size-bounded, and disk failures do not block fresh reads. Score and lineup lookups now use the same full catalog as waivers/trades, eliminating separate per-roster subset downloads. Concurrent cacheable reads still share one request.
 
@@ -159,3 +159,33 @@ Player Detail now requests optional targeted `DETAILS=1`; live field population 
 MFL expressly forbids browser JavaScript from outside its domains and does not provide permissive CORS. Native `URLSession` is unaffected, which is another reason to remain a genuine native client.
 
 The API does not include raw NFL player statistics or third-party news because of licensing. It also has no documented webhook and no reliable third-party APNs contract. Rich news/play-by-play requires a separate licensed source; push scoring likely requires written MFL coordination plus a minimal backend.
+
+
+## Player tools and roster actions — 0.5.0 / 0.5.1
+
+Owner-feedback follow-up: history reads start only after View scoring history. Main-section pull-to-refresh no longer invokes refreshAll; ordinary watchlist/roster review loads use caches, while mutation preflight and readback remain forced. Requests remain globally spaced, now at least 1.25 seconds in the live repository. HTTP 429 records Retry-After by request/response host, matching MFL's documented per-server limits; another host's cached/allowed data can still load. Requests never switch host to evade a cooldown and failed imports never retry. A public-feed cooldown does not automatically block a different league server.
+
+IR controls use the current action week's matching injury snapshot, not the browsed historical week. Out/IR qualify for the conservative native scope verified for Champion Hall; Questionable, Doubtful, unknown/missing, loading, failed and stale data keep Move to IR disabled. The review has the same gate, followed by a fresh injury read before import. Broader league-specific IR formats still require certification; this is not a claim that the league export provides all IR eligibility rules.
+
+| Data/action | Request | Cache / verification |
+| --- | --- | --- |
+| Injury report | export `injuries&W` | 1-hour memory; public/cookieless; source described as daily |
+| NFL opponent/kickoff | export `nflSchedule&W` | 6-hour memory; public/cookieless; not a live NFL score feed |
+| Bye table | export `nflByeWeeks` | 24-hour memory, season checked; public/cookieless |
+| Player history | export `playerScores&PLAYERS&W` | 1-hour memory; targeted IDs, initially four completed weeks; earlier pages explicit |
+| Season fantasy metrics | `playerScores&W=YTD` / `AVG` | Independent optional reads; missing is not zero |
+| Opponent context | export `pointsAllowed` | 6-hour memory; verified `team.position.points` totals, not averages |
+| Watchlist | export/import `myWatchList` | 60-second memory; incremental ADD/REMOVE, forced readback |
+| Owner permissions | `abilities&DETAILS=1` | 30-second client cache reused for browsing/review, bypassed for mutation preflight |
+| Immediate add/drop | import `fcfsWaiver` | One ADD and optional DROP, or deliberate drop-only |
+| IR | import `ir` | DEACTIVATE or ACTIVATE; optional explicitly reviewed DROP on activation |
+
+Abilities use the owner-verified `abilities.franchise.id` and unique ability IDs WAIVERS, DROP, INJURED_RESERVE with value 1. Descriptions do not grant permissions. The supported initial write path requires one roster per player, league-wide ownership, no salaries/contracts, known positive roster limits and explicit current active/IR statuses. Unknown formats/capabilities stay non-actionable.
+
+FCFS adds additionally require FCFS/BBID_FCFS configuration, fresh free-agent membership, explicit is_fa=true and no existing ownership. MFL documents cant_add/locked as optional restrictions on free agents: omitted or false flags pass this part of preflight; present null, unknown, true or conflicting aliases block it. Omission alone never proves free agency or a lineup unlock. The owner's supplied player 9431 response is rostered to franchise 0008 with status S and correctly cannot pass an add preflight. IR deactivation requires an Out/IR report; MFL enforces final league-specific eligibility, positional limits and deadlines. No reserve move is inferred from the displayed FLEX/starting slot.
+
+Roster reviews load roster, limits and abilities through their normal caches; submission compares that complete reviewed membership/limits against forced-fresh preflight. A device-only scoped marker is saved before the only POST. Exact full membership/status and any explicit drop are read back uncached. A timeout does not cause retry; unresolved changes remain discoverable in My Team with Check status/MFL/acknowledgement. Roster-affecting imports share a repository gate. Acknowledgement clears only the marker, not an MFL move. Successful changes invalidate roster/pool/status/activity caches and refresh existing draft-safe mergers.
+
+Watchlist markers contain only player ID, desired state and time. Roster markers contain the requested move, scope and expected membership. Both survive relaunch; neither is stored in the public player cache. Explicit disconnect removes them. No private history/watchlist response disk cache was added.
+
+Wire evidence and remaining owner verification: [player-tools plan](player-tools-plan.md). Current 2026 completed-game history/points-allowed coverage still needs actual Week 1 observation; fixtures do not close that gate.

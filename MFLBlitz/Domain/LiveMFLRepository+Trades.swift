@@ -74,6 +74,8 @@ extension LiveMFLRepository {
     }
 
     func performTrade(_ command: TradeCommand) async throws -> TradeReceipt {
+        try beginRosterMutation()
+        defer { rosterMutationInFlight = false }
         guard !tradeMutationInFlight else { throw RepositoryError.server("A trade action is already being checked.") }
         tradeMutationInFlight = true
         defer { tradeMutationInFlight = false }

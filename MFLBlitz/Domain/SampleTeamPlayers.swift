@@ -12,14 +12,14 @@ extension DemoLeagueRepository {
             throw RepositoryError.server("That preview team is unavailable.")
         }
         return TeamRosterSnapshot(scope: SampleData.workspace.storageScope, team: team,
-            players: SampleTeamPlayers.roster(franchiseID: franchiseID, lineupWeek: lineupWeek),
+            players: previewRoster(franchiseID: franchiseID, week: lineupWeek),
             lineupWeek: lineupWeek, rosterVerifiedAt: refresh ? Date() : nil)
     }
 
     func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot {
         try Task.checkCancellation()
         let rosters = SampleTeamPlayers.teams.map { team in
-            (team, SampleTeamPlayers.roster(franchiseID: team.id, lineupWeek: SampleData.workspace.week))
+            (team, previewRoster(franchiseID: team.id, week: SampleData.workspace.week))
         }
         var assignments = rosters.compactMap { team, players -> PlayerOwnershipAssignment? in
             guard let player = players.first(where: { $0.id == playerID }) else { return nil }

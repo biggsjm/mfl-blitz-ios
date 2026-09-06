@@ -3,6 +3,7 @@ import Foundation
 enum TeamDetailSection: String, CaseIterable, Hashable, Sendable, Identifiable {
     case roster = "Roster"
     case schedule = "Schedule"
+    case watchlist = "Watchlist"
     var id: Self { self }
 }
 

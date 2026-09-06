@@ -8,19 +8,21 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
-**0.4.1 (18) — My Team and discoverable Board drafts, private owner testing, September 6, 2026.** This is not a public or TestFlight release. See [current status](docs/current-status.md) for the verified code, test and device baseline.
+**0.5.1 (20) — installed private build, September 6, 2026.** Build 20 installed and launched on Josh's iPhone, adding player tools and addressing the owner's IR eligibility and rate-limit feedback. This is not a public or TestFlight release. See [current status](docs/current-status.md) for the verified code, test and device baseline.
 
 Connect mode talks directly to MFL and permits user-reviewed lineup, supported conditional blind-bid, trade, and board actions with readback and no automatic write retries. MFL does not expose saved lineup tiebreakers for confirmation; accepted trades may still need league approval/processing. **Preview Champion Hall** uses sample data and sends nothing to MFL, including its fictional trade offers.
 
 Verification includes core fixtures, app-model regressions, native UI journeys and the two-week synthetic model scenarios—not two real game weeks or a human usability study. Exact current counts and device evidence are recorded in the status document. See [current status and known limits](docs/current-status.md), the [historical performance report](docs/two-week-synthetic-testing.md), and the [Week 1 checklist](docs/week-1-testing.md) before inviting the league.
 
-The current build includes:
+The build additionally includes official injury/kickoff/bye context, on-demand progressive fantasy scoring history, a synced watchlist, reviewed native FCFS add/drop and IR moves. See the [approved feature plan and later queue](docs/player-tools-plan.md). Roster writes require explicit owner capabilities and a supported format; unknown/closed states use MFL. Move to IR remains disabled without a current Out/IR designation. Star toggles sync immediately and are read back for confirmation. Ordinary browsing reuses caches; pull-to-refresh reloads only the visible main section. MFL cooldowns remain enforced per server without moving requests to another host or retrying failed imports.
+
+The app includes:
 
 - a scores-first game-day dashboard with the user's matchup featured and tappable position-by-position live scoring for every matchup;
 - a tap- and swipe-accessible lineup editor with league-aware bench/starter/FLEX replacements and rotations, projections, validation, review, and saved-starter receipts;
 - explicit Week N calendar controls on Scores and Lineup, Settings at the upper left of Scores, and an original crossing-play-route Lineup icon;
 - an ordered conditional-FAAB queue with search, useful sorting, bid/drop editing, budget checks, reordering, and explicit full-queue confirmation;
-- a native My Team tab with your franchise logo/initials, read-only roster and season schedule, plus a prominent Transactions entry and trade attention badge;
+- a native My Team tab with your franchise logo/initials, roster, schedule and watchlist, with a separate Manage roster workflow, plus a prominent Transactions entry and trade attention badge;
 - shared player details with identity, current ownership, available matching-week metrics and optional biography, linked from rosters, Lineup and matchup cells;
 - team and league season timelines with published opponents, configured week bounds, clear future/playoff states and matchup browsing that preserves lineup edits and the selected week;
 - a Transactions hub inside My Team with Waivers, Trades, and Activity; native player/pick/FAAB offers, acceptance, decline, withdrawal, and explicitly separate counteroffers;
@@ -42,7 +44,7 @@ The current build includes:
 
 First: owner-led live Week 1 validation, MFL client registration/User-Agent confirmation, accessibility/device checks, and Apple/TestFlight preparation. Week 2 invitations depend on those gates, not just automated tests.
 
-The initial **My Team, schedule and read-only player-detail slice is implemented**. Tabs are Scores / Lineup / My Team / Standings / Board. Full player history, additional player links/actions in waiver/trade screens, and complete supported-device/accessibility validation remain. Existing waiver search is reused; there is no extra Players tab or new global search destination. See the [remaining execution plan](docs/roadmap.md).
+**My Team, schedules and player tools 1–5 are implemented**. Tabs are Scores / Lineup / My Team / Standings / Board. The next approved queue is trading block, calendar/reminders, polls and playoff brackets. Complete supported-device/accessibility and real game-week validation remain. Existing waiver search is reused; there is no extra Players tab or new global search destination. See the [remaining execution plan](docs/roadmap.md).
 
 ## Why this app
 
@@ -68,7 +70,7 @@ MFLCore (local Swift package)
     ├── HTTPS login + device-only Keychain session-cookie authorization
     ├── tolerant DTO decoding + body-level error checks
     ├── request spacing + response caching
-    └── lineup, waiver, trade, and message-board imports
+    └── lineup, waiver, trade, board, watchlist, FCFS and IR imports
 
 App-owned storage
     ├── device-only Keychain: session, scoped drafts, unconfirmed-action markers
@@ -113,6 +115,7 @@ Do not run overlapping jobs on one simulator. See [contributing](CONTRIBUTING.md
 | Document | Purpose |
 | --- | --- |
 | [Current status](docs/current-status.md) | Shipped build, evidence, known limits and release gates |
+| [Player tools 1–5](docs/player-tools-plan.md) | Approved availability, research, watchlist, add/drop and IR plan; later features |
 | [Roadmap](docs/roadmap.md) / [Changelog](CHANGELOG.md) | Remaining execution plan / implemented release history |
 | [Product brief](docs/product-brief.md) | Priorities, current navigation and design principles |
 | [API integration](docs/api-integration.md) / [MFLCore](Packages/MFLCore/README.md) | Endpoints, cache policies, implementation boundaries |

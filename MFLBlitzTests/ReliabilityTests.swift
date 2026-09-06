@@ -20,6 +20,9 @@ actor ReliabilityRepository: LeagueRepository {
     var week = 1
     var expired = false
     var scoreLoads = 0
+    var lineupLoads = 0
+    var boardLoads = 0
+    var standingsLoads = 0
     var waiverLoads = 0
     var tradeLoads = 0
     var activityLoads = 0
@@ -44,6 +47,7 @@ actor ReliabilityRepository: LeagueRepository {
         var result = SampleData.scores; result.week = week; return result
     }
     func loadLineup(week: Int) async throws -> LineupSnapshot {
+        lineupLoads += 1
         var result = testLineup; result.week = week; return result
     }
     func submitLineup(_ lineup: LineupSnapshot) async throws {
@@ -62,8 +66,8 @@ actor ReliabilityRepository: LeagueRepository {
     func submitWaivers(_ claims: [WaiverClaim], replacing baseline: [WaiverClaim]) async throws {
         submittedClaims = claims; testWaivers.claims = claims
     }
-    func loadStandings() async throws -> [StandingRow] { SampleData.standings }
-    func loadBoard() async throws -> [BoardThread] { SampleData.board }
+    func loadStandings() async throws -> [StandingRow] { standingsLoads += 1; return SampleData.standings }
+    func loadBoard() async throws -> [BoardThread] { boardLoads += 1; return SampleData.board }
     func loadThread(id: String) async throws -> BoardThread { SampleData.board[0] }
     func postMessage(subject: String?, body: String, threadID: String?) async throws {}
     func signOut() async {}
@@ -111,6 +115,34 @@ actor TestGate {
 
 @MainActor
 struct ReliabilityTests {
+    @Test("Visible-section refreshes do not reload unrelated feeds or replace an edited lineup")
+    func scopedRefreshBudget() async throws {
+        let repository = ReliabilityRepository()
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore())
+        await model.signIn(credentials: LoginCredentials())
+        let beforeScores = await repository.scoreLoads, beforeLineups = await repository.lineupLoads
+        let beforeWaivers = await repository.waiverLoads, beforeBoard = await repository.boardLoads
+        let beforeStandings = await repository.standingsLoads
+        let replacement = try #require(model.replacementRequest(for: "14073"))
+        #expect(model.replaceStarter(replacement, with: "15712"))
+        let drafted = model.lineup
+        await model.refreshLineup()
+        #expect(await repository.lineupLoads == beforeLineups + 1)
+        #expect(await repository.scoreLoads == beforeScores)
+        #expect(await repository.waiverLoads == beforeWaivers)
+        #expect(await repository.boardLoads == beforeBoard)
+        #expect(await repository.standingsLoads == beforeStandings)
+        #expect(model.lineup.starters.map(\.id) == drafted.starters.map(\.id))
+        await model.refreshScores()
+        await model.refreshBoard()
+        await model.refreshStandings()
+        #expect(await repository.scoreLoads == beforeScores + 1)
+        #expect(await repository.boardLoads == beforeBoard + 1)
+        #expect(await repository.standingsLoads == beforeStandings + 1)
+        #expect(await repository.lineupLoads == beforeLineups + 1)
+        #expect(await repository.waiverLoads == beforeWaivers)
+    }
+
     @Test("Replacement drafts survive restart without submitting, and old-account pickers cannot act")
     func replacementDraftRecovery() async throws {
         let store = MemoryPrivateStore()

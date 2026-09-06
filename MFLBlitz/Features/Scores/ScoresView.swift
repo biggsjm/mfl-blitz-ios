@@ -124,7 +124,7 @@ struct ScoresView: View {
                 WeekPicker(selection: weekBinding, range: 1...18)
             }
         }
-        .refreshable { await model.refreshAll() }
+        .refreshable { await model.refreshScores() }
         .sheet(isPresented: $showingSettings) { SettingsView() }
     }
 

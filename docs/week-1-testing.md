@@ -1,13 +1,13 @@
 # Week 1 owner test and Week 2 go/no-go
 
-Updated September 6, 2026 for **0.4.1 (18)**. See [current status](current-status.md) for test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
+Updated September 6, 2026 for **0.5.1 (20)**, installed and launched on Josh's iPhone. Build 20 addresses the IR eligibility and cooldown issues reported on build 19. See [current status](current-status.md) for delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
 ## Already observed
 
 - Josh reported successfully submitting a lineup and seeing Week 1 projections.
-- Build 0.4.1 (18)'s Board revision is installed on Josh's phone; its launch check was blocked by the device relocking. The final pre-merge compatibility rebuild still needs reinstall when the phone is reachable. Build 0.4.0 (17) had installed/launched successfully. Josh reported the My Team screen looked good; its detailed update timer was then simplified. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse. Full schedule comparison remains unchecked below.
+- Builds 0.5.0 (19) and 0.5.1 (20) installed and launched on Josh's phone September 6; the latter contains the IR and request-pressure fixes. Delivery/launch is not a complete live workflow audit. Josh previously reported the My Team screen looked good; its detailed update timer was then simplified. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse. Full schedule comparison remains unchecked below.
 - Core, app-model and native UI checks passed as described in [current status](current-status.md). Four synthetic managers completed two accelerated weeks; those are not actual Week 1 results.
 
 ## Before kickoff
@@ -40,7 +40,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 - [ ] Search stays below Waivers / Trades / Activity and survives section changes. Loading is centered; a failed read is not an empty pool/history. Retry respects MFL's cooldown.
 - [ ] Build two conditional rounds, edit amount/drop, reorder alternatives and review the complete queue. When you intend to submit, compare every saved round on MFL. Remove/clear/cancel only requests you intend to remove.
 - [ ] Check the $0 minimum for league 41333/2026. It is an owner-confirmed fallback only when MFL omits the rule; explicit MFL data wins. Make a real $0 bid only for a claim you actually want.
-- [ ] Compare the displayed explicit future blind-bid event with MFL. Missing dates are not guessed. First-come adds and unsupported formats/windows use the MFL link.
+- [ ] Compare the displayed explicit future blind-bid event with MFL. Missing dates are not guessed. Supported first-come adds use the native roster-move review; unsupported formats/windows retain the MFL link.
 - [ ] Compare Activity/recent waiver results with MFL: added/dropped player names, bid amounts and trade direction; no “Player 0” or ID-sized dollar amounts. These are recent processed acquisitions, not the complete unsuccessful-bid report.
 
 ### Trades and drafts
@@ -77,10 +77,27 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 Do not invite the league until P0 [release gates](roadmap.md) are complete: live Week 1 evidence, intended-write verification, regression/manual usability checks, production MFL registration/exact User-Agent, Apple signing/TestFlight/privacy/review setup, safe support/security reporting and Josh's go-ahead. Unsupported formats must be clearly excluded from the release scope with a usable MFL fallback.
 
-My Team, initial read-only player detail and fantasy schedules are included in the 0.4.0 private build and need the live comparisons above. Full player history, native FCFS/IR/taxi management, notifications, widgets and Live Activities remain unavailable and must not be advertised as implemented.
+My Team, player detail and fantasy schedules are included and need the live comparisons above. The 0.5.0 player-tools increment adds progressive fantasy history, watchlists, native FCFS and IR for supported formats; use the checks below before considering those live-owner certified. Taxi management, notifications, widgets and Live Activities remain unavailable.
 
 ## Record findings safely
 
 For each open check, record **build, device/OS, selected week, timestamp/time zone, expected behavior, observed result, pass/fail and follow-up issue**. Compare sensitive receipts inside MFL; do not publish cookies, credentials, private messages, trade terms, bids or authenticated payloads. Sanitized screenshots and synthetic reproductions belong in public issues; sensitive security details require a private channel.
 
 A complete game-week result is not recorded yet. Keep unchecked items unchecked until observed; dates and aggregate automated test counts do not close them.
+
+
+## Player tools 1–5 — intentional owner checks
+
+Do these only for moves you actually intend. Automated journeys use Preview, not the live league.
+
+- [ ] Compare an Out/Questionable player, opponent, local kickoff and bye against MFL. An absent report is not proof of health; NFL schedule is not a live score feed.
+- [ ] After Week 1 completes, compare one player's points/zero/missing week, season total and average. Earlier history loads only on request. Current empty preseason values should stay absent.
+- [ ] Compare opponent position points-allowed totals with MFL; these are not per-game averages or forecasts.
+- [ ] Star/unstar a player and confirm MFL's watchlist, My Team Watchlist and the waiver filter agree after reload. Preserve unrelated saved players.
+- [ ] In an open first-come window, review an intended add (and necessary drop), cancel once, then submit only the intended move. Verify membership, lineup/waiver draft conflicts, free-agent pool and Activity.
+- [ ] Verify locked/unavailable players and unsupported/closed capabilities cannot be submitted as immediate adds.
+- [ ] Confirm Move to IR is disabled for players without Out/IR, including Questionable, and while the injury report is unavailable. Check both Player Detail and Manage roster. Compare an eligible player's designation to MFL before an intended move.
+- [ ] Compare ordinary browsing and section refresh after the build-20 traffic changes. If MFL returns 429, honor its wait; note the screen/build without repeated retries. No claim of immunity to MFL's variable limits is made.
+- [ ] For an actually eligible Out/IR player, compare capacity, review Move to IR and verify on MFL. Later activate, including an explicit reviewed drop only if needed. No starter or FLEX position should imply eligibility.
+- [ ] For any unconfirmed action, use Check status/MFL rather than retrying the import. Resolve the notice before disconnecting or making another roster-affecting move.
+- [ ] Verify the updated build does not alter existing unsent lineup/waiver/trade drafts simply through research navigation.

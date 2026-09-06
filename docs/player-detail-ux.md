@@ -1,12 +1,12 @@
 # Player and team detail
 
-Status: **Initial implementation — 0.4.0 (17)**, September 6, 2026. See [current status](current-status.md) for final build/test evidence and [roadmap](roadmap.md) for remaining work.
+Status: **Extended player tools — installed private build 0.5.1 (20)**, September 6, 2026. See [current status](current-status.md) for build/test evidence and [roadmap](roadmap.md) for remaining work.
 
 ## Navigation and action boundaries
 
 Tabs are **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. Its native tab icon is a 26-point franchise thumbnail, with initials fallback and a visible label. Lineup remains the dedicated editor.
 
-My Team places a labeled **Transactions** entry above read-only **Roster / Schedule** sections. Waivers / Trades / Activity, existing available-player search, saved drafts and reviewed writes stay in Transactions. The trade-specific attention badge appears on the tab and entry. Other teams never display the owner's transaction inbox.
+My Team places a labeled **Transactions** entry above **Roster / Schedule / Watchlist** sections. **Manage roster** opens separate reviewed add/drop/IR workflows. Waivers / Trades / Activity, existing available-player search, saved drafts and reviewed writes stay in Transactions. The trade-specific attention badge appears on the tab and entry. Other teams never display the owner's transaction inbox.
 
 | Surface | Implemented player/team entry | Action preserved |
 | --- | --- | --- |
@@ -16,9 +16,9 @@ My Team places a labeled **Transactions** entry above read-only **Roster / Sched
 | Standings | Team row → team roster | Official order and owner names |
 | Schedule matchup | Team identity → that team's Schedule | Route-local week, not lineup selection |
 
-Player links from waiver candidates, trade terms and asset pickers remain follow-up work. In those pickers, selecting assets must stay the primary action; picks, FAAB and unknown tokens must never become player links. Activity and board prose are not parsed to guess IDs. A contextual Propose trade shortcut must not overwrite an existing draft.
+Waiver candidates link by canonical identity; trade terms and asset pickers provide separate information controls. Their modal navigation stacks register the same scoped destinations. In those pickers, selecting assets must stay the primary action; picks, FAAB and unknown tokens must never become player links. Activity and board prose are not parsed to guess IDs. A contextual Propose trade shortcut must not overwrite an existing draft.
 
-## Read-only team roster
+## Team roster
 
 Current membership comes from `rosters(FRANCHISE)` **without a week**. A separate batched `playerRosterStatus(P,W,F)` read supplies assignments for the explicitly labeled action week. This does not claim historical roster membership.
 
@@ -32,7 +32,7 @@ Current membership comes from `rosters(FRANCHISE)` **without a week**. A separat
 
 ## Initial Player Detail
 
-The page includes canonical identity, current league ownership/status, exact-matching-week available projection/points/stat line, and supplied biography. It is read-only and creates no new write path.
+The page includes canonical identity, current league ownership/status, exact-matching-week available projection/points/stat line, and supplied biography. It also includes official availability, progressive history and a watch star. Applicable owner/free-agent actions open a separate roster review; they never submit from an identity tap.
 
 Ownership can contain multiple franchise assignments and acquisition availability for the signed-in franchise simultaneously. Acquisition locks are not lineup locks. Missing ownership is not a free agent. Team names link back to the shared team destination.
 
@@ -54,12 +54,9 @@ Targeted `players(PLAYERS,DETAILS=1)` enriches basic identity with optional jers
 
 Implemented regressions cover canonical routes, current-roster requests, generic/unknown assignment states, multiple ownership, missing optional fields, invalid dates, matching-week metrics, cache request counts, refresh errors and stale-session completion. Native journeys cover team/roster/player navigation, action separation and draft-safe return; final evidence lives in [current status](current-status.md).
 
-Still remaining:
+Player history, waiver/trade links and reviewed roster actions are implemented in [player tools 1–5](player-tools-plan.md). Still remaining:
 
-1. Validate a suitable official scoring-history endpoint and cache progressive player/week results. Do not fetch 18 forced full-week results on first open.
-2. Add player links in waiver/trade surfaces, register destinations inside their modal navigation stacks, and test search/selection/scroll restoration.
-3. Add contextual reviewed actions only through existing mutation workflows and draft-conflict handling.
-4. Complete manual accessibility, smaller-screen/iPad and older-supported-OS validation.
-5. Verify optional live biography population; any licensed news/images/stats require source/rights review.
+1. Complete manual accessibility, smaller-screen/iPad and older-supported-OS validation.
+2. Verify optional live biography population; any licensed news/images/stats require source/rights review.
 
 No Players tab, new global search destination, full-player directory screen or second lineup editor is introduced. This increment does not close Week 1 live validation or Week 2 distribution gates.

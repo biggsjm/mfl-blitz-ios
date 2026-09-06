@@ -60,6 +60,10 @@ public struct MFLLeague: Decodable, Equatable, Sendable, Identifiable {
     public let rosterSize: Int?
     public let injuredReserveSize: Int?
     public let taxiSquadSize: Int?
+    public let rostersPerPlayer: Int?
+    public let playerLimitUnit: String?
+    public let usesSalaries: Bool?
+    public let usesContractYear: Bool?
     public let scorePrecision: Int?
     public let currentWaiverType: String?
     public let blindBidSeasonLimit: Decimal?
@@ -95,6 +99,7 @@ public struct MFLLeague: Decodable, Equatable, Sendable, Identifiable {
         case rosterSize
         case injuredReserve
         case taxiSquad
+        case rostersPerPlayer, playerLimitUnit, usesSalaries, usesContractYear
         case precision
         case currentWaiverType
         case bbidSeasonLimit
@@ -131,6 +136,10 @@ public struct MFLLeague: Decodable, Equatable, Sendable, Identifiable {
         rosterSize = try container.mflIntIfPresent(forKey: .rosterSize)
         injuredReserveSize = try container.mflIntIfPresent(forKey: .injuredReserve)
         taxiSquadSize = try container.mflIntIfPresent(forKey: .taxiSquad)
+        rostersPerPlayer = try container.mflIntIfPresent(forKey: .rostersPerPlayer)
+        playerLimitUnit = try container.mflStringIfPresent(forKey: .playerLimitUnit)
+        usesSalaries = try container.mflBoolIfPresent(forKey: .usesSalaries)
+        usesContractYear = try container.mflBoolIfPresent(forKey: .usesContractYear)
         scorePrecision = try container.mflIntIfPresent(forKey: .precision)
         currentWaiverType = try container.mflStringIfPresent(forKey: .currentWaiverType)
         blindBidSeasonLimit = try container.mflDecimalIfPresent(forKey: .bbidSeasonLimit)
@@ -392,6 +401,7 @@ public struct MFLRosterStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct MFLRosterPlayer: Decodable, Equatable, Sendable, Identifiable {
     public let id: String
     public let status: MFLRosterStatus
+    public let hasExplicitStatus: Bool
     public let salary: Decimal?
     public let contractYear: Int?
     public let contractStatus: String?
@@ -407,6 +417,7 @@ public struct MFLRosterPlayer: Decodable, Equatable, Sendable, Identifiable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.mflRequiredString(forKey: .id)
+        hasExplicitStatus = try container.mflStringIfPresent(forKey: .status).map { !$0.isEmpty } ?? false
         status = MFLRosterStatus(
             rawValue: try container.mflStringIfPresent(forKey: .status) ?? MFLRosterStatus.roster.rawValue
         )

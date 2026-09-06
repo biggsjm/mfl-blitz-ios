@@ -54,6 +54,10 @@ final class AppModel {
     var boardThreads: [BoardThread] = []
     var transactions = TransactionsModel()
     var seasonSchedule = SeasonScheduleModel()
+    var playerTools = PlayerToolsModel()
+    var pendingRosterChange: PendingRosterAction?
+    var rosterChangeError: String?
+    var rosterRevision = 0
     var scopedScoreInspection: UUID?
     var selectedWeek = 1
     var isBusy = false
@@ -287,6 +291,52 @@ final class AppModel {
 
         if generation == sessionGeneration, !failures.isEmpty && !Task.isCancelled {
             notice = .error(refreshFailureMessage(for: failures))
+        }
+    }
+
+    /// Pull-to-refresh affects the visible section, not every league feed.
+    func refreshLineup() async {
+        guard !isLoadingLineup, !isBusy else { return }
+        let generation = sessionGeneration, requestedWeek = selectedWeek, revision = weekLoadGeneration
+        isLoadingLineup = true
+        defer { if generation == sessionGeneration, revision == weekLoadGeneration { isLoadingLineup = false } }
+        do {
+            let fresh = try await repository.loadLineup(week: requestedWeek)
+            guard generation == sessionGeneration, revision == weekLoadGeneration, selectedWeek == requestedWeek else { return }
+            mergeLineup(fresh); lineupRevision &+= 1
+        } catch {
+            guard generation == sessionGeneration, revision == weekLoadGeneration else { return }
+            handleSessionError(error)
+            notice = .error(error.localizedDescription)
+        }
+    }
+
+    func refreshBoard() async {
+        guard !isLoadingBoard, !isBusy else { return }
+        let generation = sessionGeneration
+        isLoadingBoard = true
+        defer { if generation == sessionGeneration { isLoadingBoard = false } }
+        do {
+            let fresh = try await repository.loadBoard()
+            guard generation == sessionGeneration else { return }
+            boardThreads = fresh
+        } catch {
+            guard generation == sessionGeneration else { return }
+            handleSessionError(error); notice = .error(error.localizedDescription)
+        }
+    }
+
+    func refreshStandings() async {
+        guard !isRefreshing, !isBusy else { return }
+        let generation = sessionGeneration, refreshID = beginRefreshing()
+        defer { endRefreshing(refreshID) }
+        do {
+            let fresh = try await repository.loadStandings()
+            guard generation == sessionGeneration else { return }
+            standings = fresh
+        } catch {
+            guard generation == sessionGeneration else { return }
+            handleSessionError(error); notice = .error(error.localizedDescription)
         }
     }
 
@@ -833,13 +883,15 @@ final class AppModel {
     }
 
     func signOut() async {
-        guard !isBusy, !transactions.isBusy else { return }
+        guard !isBusy, !transactions.isBusy, !playerTools.isChangingWatchList else { return }
         if !isDemo, let workspace {
             do {
                 try privateStore.remove("drafts.\(workspace.storageScope)")
                 try privateStore.remove("board.pending.\(workspace.storageScope)")
                 try privateStore.remove("trade.draft.\(workspace.storageScope)")
                 try privateStore.remove("trade.pending.\(workspace.storageScope)")
+                try privateStore.remove("roster.pending.\(workspace.storageScope)")
+                try privateStore.remove("watch-action.\(workspace.storageScope)")
                 try privateStore.remove("session")
             } catch { notice = .error(error.localizedDescription); return }
         }
@@ -891,6 +943,8 @@ final class AppModel {
     }
 
     private func resetContent(for week: Int) {
+        pendingRosterChange = nil; rosterChangeError = nil; rosterRevision += 1
+        playerTools.reset(scope: workspace?.storageScope)
         transactions = TransactionsModel()
         seasonSchedule.invalidateSession()
         seasonSchedule = SeasonScheduleModel()
@@ -939,6 +993,9 @@ final class AppModel {
     }
 
     private func configureTransactions() {
+        pendingRosterChange = nil; rosterChangeError = nil
+        rosterRevision += 1
+        playerTools.reset(scope: workspace?.storageScope)
         scopedScoreInspection = nil
         transactions = TransactionsModel(repository: repository, workspace: workspace, privateStore: privateStore, isDemo: isDemo)
         seasonSchedule.invalidateSession()
@@ -990,8 +1047,109 @@ final class AppModel {
         try await readForBrowsing { try await $0.loadPlayerDetail(playerID: playerID, refresh: refresh) }
     }
 
+    func loadPlayerAvailability(week: Int, refresh: Bool = false) async {
+        await playerTools.loadAvailability(week: week, refresh: refresh) {
+            try await self.readForBrowsing { try await $0.loadPlayerAvailability(week: week, refresh: refresh) }
+        }
+    }
+
+    func loadPlayerResearch(playerID: String, beforeWeek: Int?, contextWeek: Int) async throws -> PlayerResearchPage {
+        try await readForBrowsing {
+            try await $0.loadPlayerResearch(playerID: playerID, beforeWeek: beforeWeek, contextWeek: contextWeek)
+        }
+    }
+
+    func loadWatchList(refresh: Bool = false) async {
+        await playerTools.loadWatchList(refresh: refresh) {
+            try await self.readForBrowsing { repository in
+                let snapshot = try await repository.loadWatchList(refresh: refresh)
+                return snapshot.pending == nil ? snapshot : try await repository.reconcileWatchList()
+            }
+        }
+    }
+
+    func setWatched(playerID: String, isWatched: Bool) async {
+        await playerTools.changeWatchList(playerID: playerID, isWatched: isWatched) {
+            try await self.readForBrowsing { try await $0.setWatched(playerID: playerID, isWatched: isWatched) }
+        }
+    }
+
+    func acknowledgeWatchList() async {
+        do {
+            try await readForBrowsing { try await $0.acknowledgeWatchList() }
+            await loadWatchList(refresh: true)
+        } catch { notice = .error(error.localizedDescription) }
+    }
+
     func loadSeasonSchedule() async throws -> SeasonScheduleSnapshot {
         try await readForBrowsing { try await $0.loadSeasonSchedule() }
+    }
+
+    func loadRosterActionContext() async throws -> RosterActionContext {
+        try await readForBrowsing { try await $0.loadRosterActionContext() }
+    }
+
+    func loadPendingRosterChange() async {
+        do {
+            pendingRosterChange = try await readForBrowsing { try await $0.pendingRosterAction() }
+            rosterChangeError = nil
+        } catch {
+            if !(error is CancellationError) { rosterChangeError = "Couldn’t check pending roster changes. Pull to retry." }
+        }
+    }
+
+    func performRosterAction(_ request: RosterActionRequest, reviewed: RosterActionContext) async throws -> RosterActionReceipt {
+        guard !isBusy, !transactions.isBusy else { throw RepositoryError.server("Wait for the current change to finish.") }
+        isBusy = true
+        let generation = sessionGeneration
+        defer { if generation == sessionGeneration { isBusy = false } }
+        do {
+            let receipt = try await readForBrowsing { try await $0.performRosterAction(request, reviewed: reviewed) }
+            await loadPendingRosterChange()
+            guard generation == sessionGeneration else { throw CancellationError() }
+            if receipt.confirmed {
+                isBusy = false
+                await rosterDidChange()
+            }
+            return receipt
+        } catch {
+            if generation == sessionGeneration { await loadPendingRosterChange() }
+            throw error
+        }
+    }
+
+    func checkRosterChange() async {
+        guard !isBusy, !transactions.isBusy else { return }
+        isBusy = true
+        let generation = sessionGeneration
+        defer { if generation == sessionGeneration { isBusy = false } }
+        do {
+            let receipt = try await readForBrowsing { try await $0.reconcileRosterAction() }
+            rosterChangeError = receipt.confirmed ? nil : receipt.message
+            pendingRosterChange = try await readForBrowsing { try await $0.pendingRosterAction() }
+            if receipt.confirmed { isBusy = false; await rosterDidChange() }
+        } catch {
+            if generation == sessionGeneration { rosterChangeError = "Couldn’t confirm the move. Check your roster on MFL." }
+        }
+    }
+
+    func acknowledgeRosterChange() async {
+        guard !isBusy else { return }
+        do {
+            try await readForBrowsing { try await $0.acknowledgeRosterAction() }
+            pendingRosterChange = nil; rosterChangeError = nil
+            await rosterDidChange()
+        } catch { if !(error is CancellationError) { rosterChangeError = error.localizedDescription } }
+    }
+
+    private func rosterDidChange() async {
+        rosterRevision += 1
+        // Existing mergers preserve unsent lineup/waiver drafts and surface
+        // conflicts. Trades refresh assets without deleting a saved draft.
+        await refreshAll(showSpinner: false)
+        await transactions.refresh()
+        await transactions.refreshActivity()
+        await loadWatchList(refresh: true)
     }
 
     func loadMatchupScores(week: Int, refresh: Bool = false) async throws -> ScoresSnapshot {

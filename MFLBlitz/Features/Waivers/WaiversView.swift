@@ -7,6 +7,7 @@ struct WaiversView: View {
     @State private var sort = CandidateSort.projection
     @State private var editingClaim: WaiverClaim?
     @State private var showingReview = false
+    @State private var watchedOnly = false
 
     private enum CandidateSort: String, CaseIterable, Identifiable {
         case trending = "Trending"
@@ -20,6 +21,11 @@ struct WaiversView: View {
     var body: some View {
         let candidates = filteredCandidates
         List {
+            Section {
+                NavigationLink(value: model.browseScope.map { TeamToolsRoute(scope: $0, destination: .rosterMoves) }) {
+                    Label("First-come add/drop & IR", systemImage: "person.crop.circle.badge.plus")
+                }
+            }
             if model.isLoadingWaivers {
                 ProgressView("Loading waivers…")
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -166,6 +172,10 @@ struct WaiversView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Transactions")
+        .task(id: "\(model.workspace?.storageScope ?? "none")|\(model.waivers.projectionWeek ?? model.currentWeek)") {
+            await model.loadPlayerAvailability(week: model.waivers.projectionWeek ?? model.currentWeek)
+            await model.loadWatchList()
+        }
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -206,6 +216,10 @@ struct WaiversView: View {
 
     private var filterControls: some View {
         VStack(spacing: 10) {
+            Toggle(isOn: $watchedOnly) { Label("Watchlist only", systemImage: "star") }
+                .font(.subheadline)
+                .disabled(model.playerTools.watchList == nil)
+                .accessibilityIdentifier("waivers-watchlist-filter")
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(["All", "QB", "RB", "WR", "TE"], id: \.self) { item in
@@ -263,6 +277,7 @@ struct WaiversView: View {
         model.waivers.candidates
             .filter { candidate in
                 (position == "All" || candidate.position == position)
+                    && (!watchedOnly || model.playerTools.watchList?.playerIDs.contains(candidate.id) == true)
                     && (searchText.isEmpty || candidate.name.localizedCaseInsensitiveContains(searchText) || candidate.nflTeam.localizedCaseInsensitiveContains(searchText))
             }
             .sorted { lhs, rhs in
@@ -356,6 +371,7 @@ private struct ClaimRow: View {
 }
 
 private struct WaiverCandidateRow: View {
+    @Environment(AppModel.self) private var model
     let candidate: WaiverCandidate
     let hasClaim: Bool
     let canAdd: Bool
@@ -365,6 +381,7 @@ private struct WaiverCandidateRow: View {
     var body: some View {
         HStack(spacing: 12) {
             PositionBadge(position: candidate.position)
+            identityLink {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(candidate.name).font(.body.weight(.semibold))
@@ -377,6 +394,9 @@ private struct WaiverCandidateRow: View {
                 Text(showTrends ? "\(candidate.nflTeam) · \(candidate.rosteredPercent)% rostered · +\(candidate.trend)%" : candidate.nflTeam)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                PlayerAvailabilityCaption(playerID: candidate.id, nflTeam: candidate.nflTeam,
+                    week: model.waivers.projectionWeek ?? model.currentWeek)
+            }
             }
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: 2) {
@@ -402,6 +422,16 @@ private struct WaiverCandidateRow: View {
             )
         }
         .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder private func identityLink<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        if let scope = model.browseScope {
+            NavigationLink(value: PlayerRoute(scope: scope, playerID: candidate.id,
+                inspectedWeek: model.waivers.projectionWeek ?? model.currentWeek)) { content() }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("waiver-player-\(candidate.id)")
+                .accessibilityHint("Opens player details without changing your waiver requests")
+        } else { content() }
     }
 }
 

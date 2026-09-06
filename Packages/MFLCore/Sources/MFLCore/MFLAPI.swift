@@ -269,6 +269,13 @@ public enum MFLExportEndpoint: String, CaseIterable, Sendable {
     case schedule
     case calendar
     case transactions
+    case injuries
+    case nflSchedule
+    case nflByeWeeks
+    case playerScores
+    case pointsAllowed
+    case myWatchList
+    case abilities
 }
 
 public enum MFLImportEndpoint: String, CaseIterable, Sendable {
@@ -277,6 +284,9 @@ public enum MFLImportEndpoint: String, CaseIterable, Sendable {
     case tradeProposal
     case tradeResponse
     case messageBoard
+    case myWatchList
+    case fcfsWaiver
+    case ir
 }
 
 public struct MFLAPIRequestBuilder: Sendable {

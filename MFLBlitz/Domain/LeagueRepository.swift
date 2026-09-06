@@ -38,10 +38,36 @@ protocol LeagueRepository: Sendable {
     func loadTeamRoster(franchiseID: String, lineupWeek: Int?, refresh: Bool) async throws -> TeamRosterSnapshot
     func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot
     func loadSeasonSchedule() async throws -> SeasonScheduleSnapshot
+    func loadPlayerAvailability(week: Int, refresh: Bool) async throws -> PlayerAvailabilitySnapshot
+    func loadPlayerResearch(playerID: String, beforeWeek: Int?, contextWeek: Int) async throws -> PlayerResearchPage
+    func loadWatchList(refresh: Bool) async throws -> WatchListSnapshot
+    func setWatched(playerID: String, isWatched: Bool) async throws -> WatchListSnapshot
+    func reconcileWatchList() async throws -> WatchListSnapshot
+    func acknowledgeWatchList() async throws
+    func loadRosterActionContext() async throws -> RosterActionContext
+    func performRosterAction(_ request: RosterActionRequest, reviewed: RosterActionContext) async throws -> RosterActionReceipt
+    func reconcileRosterAction() async throws -> RosterActionReceipt
+    func acknowledgeRosterAction() async throws
+    func pendingRosterAction() async throws -> PendingRosterAction?
     func signOut() async
 }
 
 extension LeagueRepository {
+    func loadRosterActionContext() async throws -> RosterActionContext { throw RepositoryError.server("Roster actions are unavailable.") }
+    func performRosterAction(_ request: RosterActionRequest, reviewed: RosterActionContext) async throws -> RosterActionReceipt { throw RepositoryError.server("Roster actions are unavailable.") }
+    func reconcileRosterAction() async throws -> RosterActionReceipt { throw RepositoryError.server("Check your roster on MFL.") }
+    func acknowledgeRosterAction() async throws { throw RepositoryError.server("Check your roster on MFL.") }
+    func pendingRosterAction() async throws -> PendingRosterAction? { nil }
+    func loadPlayerAvailability(week: Int, refresh: Bool) async throws -> PlayerAvailabilitySnapshot {
+        throw RepositoryError.server("Player availability is unavailable.")
+    }
+    func loadPlayerResearch(playerID: String, beforeWeek: Int?, contextWeek: Int) async throws -> PlayerResearchPage {
+        throw RepositoryError.server("Player research is unavailable.")
+    }
+    func loadWatchList(refresh: Bool) async throws -> WatchListSnapshot { throw RepositoryError.server("Watchlist unavailable.") }
+    func setWatched(playerID: String, isWatched: Bool) async throws -> WatchListSnapshot { throw RepositoryError.server("Watchlist changes are unavailable.") }
+    func reconcileWatchList() async throws -> WatchListSnapshot { try await loadWatchList(refresh: true) }
+    func acknowledgeWatchList() async throws { throw RepositoryError.server("Watchlist changes are unavailable.") }
     func loadTeams(refresh: Bool) async throws -> [TeamSummary] {
         throw RepositoryError.server("Team details are unavailable in this session.")
     }

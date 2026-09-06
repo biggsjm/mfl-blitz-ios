@@ -6,6 +6,19 @@ import Testing
 @testable import MFLCore
 
 struct RefreshCoordinationTests {
+    @Test("A public-feed cooldown does not block a different league server; neither host is retried")
+    func hostScopedCooldown() async throws {
+        let transport = RefreshTransport(rateLimitFirst: true, retryHeader: "65")
+        let client = try client(transport)
+        await #expect(throws: (any Error).self) { try await client.injuries(week: 1) }
+        await #expect(throws: (any Error).self) { try await client.injuries(week: 1) }
+        #expect(await transport.calls == 1)
+        #expect(try await client.projectedScores(week: 1).scoresByPlayerID["101"] == 2)
+        #expect(await transport.calls == 2)
+        await #expect(throws: (any Error).self) { try await client.nflByeWeeks() }
+        #expect(await transport.calls == 2)
+    }
+
     @Test("Malformed Retry-After values use a finite cooldown without automatic retries", arguments: ["inf", "nan", "-10", "1e100"])
     func malformedCooldown(header: String) async throws {
         let transport = RefreshTransport(rateLimitFirst: true, retryHeader: header)

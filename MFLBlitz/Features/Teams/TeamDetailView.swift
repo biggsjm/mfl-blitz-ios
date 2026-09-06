@@ -30,7 +30,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
                     .padding(.horizontal, 16).padding(.bottom, 8)
             }
             Picker("Team section", selection: $section) {
-                ForEach(TeamDetailSection.allCases) { Text($0.rawValue).tag($0) }
+                ForEach(TeamDetailSection.allCases.filter { isOwnTeam || $0 != .watchlist }) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
@@ -40,6 +40,8 @@ struct TeamDetailView<ScheduleContent: View>: View {
             if section == .roster {
                 rosterContent
                     .task(id: rosterKey) { await loadRoster(refresh: false) }
+            } else if section == .watchlist && isOwnTeam {
+                WatchListView()
             } else {
                 scheduleContent(franchiseID)
             }
@@ -47,6 +49,9 @@ struct TeamDetailView<ScheduleContent: View>: View {
         .pageBackground()
         .navigationTitle(isOwnTeam ? "My Team" : team.name)
         .navigationBarTitleDisplayMode(.inline)
+        .task(id: "\(headerKey)|availability|\(assignmentWeek ?? model.currentWeek)") {
+            await model.loadPlayerAvailability(week: assignmentWeek ?? model.currentWeek)
+        }
         .task(id: headerKey) {
             guard let workspace = model.workspace else { detailModel.invalidate(); return }
             await detailModel.loadHeader(scope: workspace.storageScope, franchiseID: franchiseID) {
@@ -57,7 +62,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
 
     private var isOwnTeam: Bool { model.workspace?.franchiseID == franchiseID }
     private var headerKey: String { "\(model.workspace?.storageScope ?? "none")|\(franchiseID)" }
-    private var rosterKey: String { "\(headerKey)|\(assignmentWeek.map(String.init) ?? "none")" }
+    private var rosterKey: String { "\(headerKey)|\(assignmentWeek.map(String.init) ?? "none")|\(model.rosterRevision)" }
     private var assignmentWeek: Int? {
         guard let workspace = model.workspace else { return nil }
         return workspace.lineupWeek ?? (workspace.weekIsConfirmed ? model.currentWeek : nil)
@@ -99,9 +104,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
     }
 
     private var transactionsLink: some View {
-        NavigationLink {
-            TransactionsView().environment(model.transactions)
-        } label: {
+        NavigationLink(value: model.browseScope.map { TeamToolsRoute(scope: $0, destination: .transactions) }) {
             HStack(spacing: 12) {
                 Image(systemName: "arrow.triangle.swap").font(.title3).foregroundStyle(Color.blitzNavy)
                     .frame(width: 42, height: 42)
@@ -132,6 +135,12 @@ struct TeamDetailView<ScheduleContent: View>: View {
 
     private var rosterContent: some View {
         List {
+            if isOwnTeam {
+                PendingRosterChangeSection()
+                Section {
+                    NavigationLink("Manage roster", value: model.browseScope.map { TeamToolsRoute(scope: $0, destination: .rosterMoves) })
+                }
+            }
             if model.isDemo { DemoBanner().listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
             if let message = detailModel.errorMessage {
                 Section {
@@ -186,6 +195,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
         .listStyle(.insetGrouped)
         .refreshable { await loadRoster(refresh: true) }
         .accessibilityIdentifier("team-roster")
+        .task(id: headerKey) { if isOwnTeam { await model.loadPendingRosterChange() } }
     }
 
     @ViewBuilder
@@ -193,7 +203,11 @@ struct TeamDetailView<ScheduleContent: View>: View {
         if let workspace = model.workspace {
             NavigationLink(value: PlayerRoute(scope: LeagueBrowseScope(workspace: workspace),
                 playerID: player.id, inspectedWeek: assignmentWeek)) {
-                PlayerIdentityView(player: player.identity, subtitle: contractSummary(player))
+                VStack(alignment: .leading, spacing: 6) {
+                    PlayerIdentityView(player: player.identity, subtitle: contractSummary(player))
+                    PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.identity.nflTeam ?? "",
+                        week: assignmentWeek ?? model.currentWeek)
+                }
             }
             .accessibilityIdentifier("roster-player-\(player.id)")
         } else {

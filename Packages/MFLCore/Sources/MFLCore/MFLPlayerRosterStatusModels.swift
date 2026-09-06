@@ -24,9 +24,12 @@ public struct MFLPlayerRosterStatus: Decodable, Equatable, Sendable, Identifiabl
     public let id: String
     public let isFreeAgent: Bool?
     public let cannotAdd: Bool?
-    /// MFL does not include this flag for every kind of player state; `nil`
-    /// means unknown and must not be treated as unlocked.
+    /// Missing for many states. Only a confirmed free-agent response can use
+    /// MFL's documented omission of restriction flags; use canAddImmediately.
     public let isLocked: Bool?
+    /// Acquisition status only, never a lineup-lock or permission override.
+    /// Callers must also refresh owner abilities, league rules and the FA pool.
+    public let canAddImmediately: Bool
     public let rosterFranchises: [MFLPlayerRosterFranchise]
 
     private enum CodingKeys: String, CodingKey {
@@ -61,6 +64,18 @@ public struct MFLPlayerRosterStatus: Decodable, Equatable, Sendable, Identifiabl
                 forKey: .rosterFranchiseCamel
             )
         }
+        // MFL documents cant_add/locked as optional restrictions on is_fa.
+        // Omitted restrictions are permitted only with explicit FA identity.
+        // Present null/unknown/conflicting aliases must never grant an add.
+        func flagsMatch(_ keys: [CodingKeys], expected: Bool) throws -> Bool {
+            for key in keys where container.contains(key) {
+                guard try container.mflBoolIfPresent(forKey: key) == expected else { return false }
+            }
+            return true
+        }
+        canAddImmediately = try isFreeAgent == true && rosterFranchises.isEmpty
+            && flagsMatch([.isFreeAgent, .isFreeAgentCamel], expected: true)
+            && flagsMatch([.cannotAdd, .cannotAddCamel, .locked, .isLocked], expected: false)
     }
 
     public func rosterFranchise(id franchiseID: String) -> MFLPlayerRosterFranchise? {

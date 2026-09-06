@@ -10,7 +10,7 @@ xcodebuild build -project MFLBlitz.xcodeproj -scheme MFLBlitz -destination 'gene
 xcodebuild -showdestinations -project MFLBlitz.xcodeproj -scheme MFLBlitz
 xcodebuild test -project MFLBlitz.xcodeproj -scheme MFLBlitz \
   -destination 'platform=iOS Simulator,id=YOUR_SIMULATOR_UDID' \
-  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+  -parallel-testing-enabled NO -collect-test-diagnostics never CODE_SIGNING_ALLOWED=NO
 ```
 
 Replace the destination with an installed simulator. Run simulator jobs serially and coordinate the build/install owner when multiple tasks share a checkout. If stale build metadata prevents package signing, use a new temporary `--scratch-path` instead of deleting unrelated build data. A compiler/runner failure is not a passing test. Core tests do not replace app/UI, manual accessibility or live-owner validation.
@@ -19,11 +19,13 @@ Replace the destination with an installed simulator. Run simulator jobs serially
 
 - Never commit credentials, cookies, private league content, real bid/trade values or raw authenticated payloads. Use synthetic fixtures and scoped staging; preserve other tasks' uncommitted work.
 - Give every new MFL response shape a sanitized decoder fixture/test. Every mutation change needs stale-preflight and ambiguous-outcome coverage and must not add blind retry.
-- Automated UI final-action journeys must explicitly enter and verify offline preview first. No real lineup, waiver, trade or board mutation is a smoke test; live checks require the owner's intended action and consenting participants where relevant.
+- Automated UI final-action journeys must explicitly enter and verify offline preview first. No real lineup, waiver, trade, board, watchlist or roster mutation is a smoke test; live checks require the owner's intended action and consenting participants where relevant.
 - Sheet/modal changes must test the very first action and close/reopen behavior, not just model state. Preserve identifiable trade action payloads, explicit view identity, Cancel rollback and late-autosave guards.
 - Keep browsing routes separate from the active lineup week/draft. Player identity taps must not replace Start/Replace/Add/Select actions.
 - My Team regressions live in `MyTeamNavigationTests`, `TeamPlayerDetailTests`, `SchedulePresentationTests` and MFLCore `ScheduleTests`. Run native roster/player/current-future schedule journeys as well as the existing lineup/trade suite when changing shared routes. Keep whole-season schedule reads shared; do not fan out player scoring for every week.
 - Validate large text, VoiceOver labels/action separation, light/dark appearance and native navigation after UI changes. Record incomplete manual checks honestly.
+
+Player-tools regressions live in core `PlayerToolsTests`, app `PlayerToolsSafetyTests` and native `PlayerToolsUITests`. Roster DTOs may retain legacy read defaults, but write preflight requires explicit statuses. Do not broaden ability matching to descriptions/substrings; use exact owner-scoped IDs. Keep FCFS player locks distinct from lineup locks. Preserve the device-only markers before POST and never replay uncertain imports.
 
 ## Documentation and releases
 

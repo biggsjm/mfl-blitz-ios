@@ -81,7 +81,7 @@ struct BoardView: View {
         .sheet(item: $composerMode) { mode in
             MessageComposerView(mode: mode)
         }
-        .refreshable { await model.refreshAll() }
+        .refreshable { await model.refreshBoard() }
     }
 
     private func replySubject(_ threadID: String) -> String {

@@ -1,6 +1,11 @@
 import SwiftUI
 import MFLCore
 
+private enum TradeComposerRoute: Hashable {
+    case assets(teamID: String)
+    case review
+}
+
 /// A fresh presentation identity and immutable rollback snapshot for each edit.
 struct TradeComposerSession: Identifiable {
     let id = UUID()
@@ -71,15 +76,24 @@ struct TradeComposerView: View {
                     }
                 }
                 Section {
-                    NavigationLink {
-                        TradeProposalReviewView(draft: draft) { isClosing = true; dismiss() }
-                    } label: {
+                    NavigationLink(value: TradeComposerRoute.review) {
                         Label("Review offer", systemImage: "list.clipboard").font(.headline).frame(minHeight: 44)
                     }
                     .disabled(!trades.canAct || trades.validationMessage(for: draft) != nil)
                     .accessibilityIdentifier("trade-review-offer")
                 } footer: {
                     Text(trades.validationMessage(for: draft) ?? "Ready for review. Your draft has not been sent.")
+                }
+            }
+            .leagueBrowseDestinations()
+            .navigationDestination(for: TradeComposerRoute.self) { route in
+                switch route {
+                case .assets(let teamID):
+                    if let team = trades.team(teamID) {
+                        TradeAssetPicker(team: team, selected: teamID == trades.ownerID ? $draft.giving : $draft.receiving)
+                    }
+                case .review:
+                    TradeProposalReviewView(draft: draft) { isClosing = true; dismiss() }
                 }
             }
             .navigationTitle(draft.countering == nil ? "Build a trade" : "Counteroffer")
@@ -116,16 +130,16 @@ struct TradeComposerView: View {
         Section {
             ForEach(trades.assets(selection.wrappedValue, teamID: teamID)) { asset in
                 HStack {
-                    TradeAssetRow(asset: asset)
+                    HStack { TradeAssetRow(asset: asset); Spacer(); TradePlayerResearchLink(asset: asset) }
                     Spacer()
                     Button("Remove \(asset.name)", systemImage: "minus.circle") { selection.wrappedValue.remove(asset.id) }
                         .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44).disabled(trades.isBusy)
                 }
             }
             if let team = trades.team(teamID) {
-                NavigationLink {
-                    TradeAssetPicker(team: team, selected: selection)
-                } label: { Label("Choose assets", systemImage: "plus.circle").frame(minHeight: 44) }
+                NavigationLink(value: TradeComposerRoute.assets(teamID: team.id)) {
+                    Label("Choose assets", systemImage: "plus.circle").frame(minHeight: 44)
+                }
                     .accessibilityIdentifier(teamID == trades.ownerID ? "trade-choose-send" : "trade-choose-receive")
             } else { Text("Choose a trading partner first.").foregroundStyle(.secondary) }
         } header: { Text(title) }
@@ -150,6 +164,7 @@ private struct TradeAssetPicker: View {
                 if !assets.isEmpty {
                     Section(kind == .player ? "Players" : "Draft picks") {
                         ForEach(assets) { asset in
+                            HStack {
                             Button {
                                 var updated = selected
                                 if updated.contains(asset.id) { updated.remove(asset.id) } else { updated.insert(asset.id) }
@@ -167,6 +182,8 @@ private struct TradeAssetPicker: View {
                             .buttonStyle(.plain)
                             .accessibilityLabel("\(asset.name), \(asset.detail), \(selected.contains(asset.id) ? "selected" : "not selected")")
                             .accessibilityIdentifier("trade-asset-\(asset.id)")
+                            TradePlayerResearchLink(asset: asset)
+                            }
                         }
                     }
                 }

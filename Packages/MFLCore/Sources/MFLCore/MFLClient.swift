@@ -105,7 +105,7 @@ public actor MFLClient {
     private var cookie: MFLAuthenticationCookie?
     private var leagueHost: MFLAPIHost?
     private var nextRequestInstant: ContinuousClock.Instant?
-    private var rateLimitedUntil: Date?
+    private var rateLimitedUntil: [String: Date] = [:]
     private var cache: [CacheKey: CacheEntry] = [:]
     private var sharedReads: [CacheKey: (id: UUID, task: Task<MFLStoredResponse, Error>)] = [:]
     private var readVersions: [CacheKey: UUID] = [:]
@@ -520,7 +520,101 @@ public actor MFLClient {
         return response.pendingWaivers
     }
 
+    // MARK: Player availability and research
+
+    public func injuries(week: Int, refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLInjuries {
+        try validateWeek(week)
+        let response = try await export(MFLInjuriesResponse.self, endpoint: .injuries, host: .api,
+            leagueID: nil, parameters: ["W": String(week)], ttl: 3_600, refreshPolicy: refreshPolicy)
+        guard response.injuries.week == nil || response.injuries.week == week else { throw MFLCoreError.invalidResponse }
+        return response.injuries
+    }
+
+    public func nflSchedule(week: Int, refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLNFLSchedule {
+        try validateWeek(week)
+        let response = try await export(MFLNFLScheduleResponse.self, endpoint: .nflSchedule, host: .api,
+            leagueID: nil, parameters: ["W": String(week)], ttl: 21_600, refreshPolicy: refreshPolicy)
+        guard response.nflSchedule.week == nil || response.nflSchedule.week == week else { throw MFLCoreError.invalidResponse }
+        return response.nflSchedule
+    }
+
+    public func nflByeWeeks(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLByeWeeks {
+        let response = try await export(MFLByeWeeksResponse.self, endpoint: .nflByeWeeks, host: .api,
+            leagueID: nil, parameters: [:], ttl: 86_400, refreshPolicy: refreshPolicy)
+        guard response.nflByeWeeks.year == nil || response.nflByeWeeks.year == configuration.league.season else {
+            throw MFLCoreError.invalidResponse
+        }
+        return response.nflByeWeeks
+    }
+
+    public func playerScores(playerIDs: [String], period: MFLPlayerScorePeriod,
+                             refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLPlayerScores {
+        guard !playerIDs.isEmpty, playerIDs.count <= 100, Set(playerIDs).count == playerIDs.count else {
+            throw MFLCoreError.invalidRequest("Choose between one and 100 unique players.")
+        }
+        try playerIDs.forEach(validateIdentifier)
+        if case .week(let week) = period { try validateWeek(week) }
+        let response = try await export(MFLPlayerScoresResponse.self, endpoint: .playerScores,
+            host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
+            parameters: ["W": period.parameter, "PLAYERS": playerIDs.sorted().joined(separator: ",")],
+            ttl: 3_600, refreshPolicy: refreshPolicy)
+        guard response.playerScores.period == nil || response.playerScores.period?.uppercased() == period.parameter else {
+            throw MFLCoreError.invalidResponse
+        }
+        return response.playerScores
+    }
+
+    public func pointsAllowed(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLJSONValue {
+        try await export(MFLJSONValue.self, endpoint: .pointsAllowed, host: try await resolvedLeagueHost(),
+            leagueID: configuration.league.leagueID, parameters: [:], ttl: 21_600, refreshPolicy: refreshPolicy)
+    }
+
+    public func watchList(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLWatchList {
+        try await export(MFLWatchList.self, endpoint: .myWatchList, host: try await resolvedLeagueHost(),
+            leagueID: configuration.league.leagueID, parameters: [:], ttl: 60, refreshPolicy: refreshPolicy)
+    }
+
+    public func abilities(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLJSONValue {
+        try await export(MFLJSONValue.self, endpoint: .abilities, host: try await resolvedLeagueHost(),
+            leagueID: configuration.league.leagueID, parameters: ["DETAILS": "1"], ttl: 30, refreshPolicy: refreshPolicy)
+    }
+
     // MARK: Writes
+
+    @discardableResult
+    public func updateWatchList(playerID: String, isWatched: Bool) async throws -> MFLMutationResult {
+        try validateIdentifier(playerID)
+        defer { invalidate([.myWatchList]) }
+        return try await performImport(endpoint: .myWatchList, parameters: [isWatched ? "ADD" : "REMOVE": playerID])
+    }
+
+    @discardableResult
+    public func addDrop(addPlayerID: String?, dropPlayerID: String?) async throws -> MFLMutationResult {
+        guard addPlayerID != nil || dropPlayerID != nil else { throw MFLCoreError.invalidRequest("Choose a player to add or drop.") }
+        if let addPlayerID { try validateIdentifier(addPlayerID) }
+        if let dropPlayerID { try validateIdentifier(dropPlayerID) }
+        guard addPlayerID == nil || addPlayerID != dropPlayerID else {
+            throw MFLCoreError.invalidRequest("The same player cannot be added and dropped.")
+        }
+        var parameters: [String: String] = [:]
+        parameters["ADD"] = addPlayerID
+        parameters["DROP"] = dropPlayerID
+        defer { invalidate([.rosters, .playerRosterStatus, .freeAgents, .league, .transactions]) }
+        return try await performImport(endpoint: .fcfsWaiver, parameters: parameters)
+    }
+
+    @discardableResult
+    public func moveInjuredReserve(playerID: String, activate: Bool, dropPlayerID: String? = nil) async throws -> MFLMutationResult {
+        try validateIdentifier(playerID)
+        if let dropPlayerID { try validateIdentifier(dropPlayerID) }
+        guard dropPlayerID != playerID, activate || dropPlayerID == nil else {
+            throw MFLCoreError.invalidRequest("This injured-reserve move is invalid.")
+        }
+        var parameters = [activate ? "ACTIVATE" : "DEACTIVATE": playerID]
+        parameters["DROP"] = dropPlayerID
+        defer { invalidate([.rosters, .playerRosterStatus, .freeAgents, .league, .transactions]) }
+        return try await performImport(endpoint: .ir, parameters: parameters)
+    }
 
     @discardableResult
     public func submitLineup(_ submission: MFLLineupSubmission) async throws -> MFLMutationResult {
@@ -731,7 +825,7 @@ public actor MFLClient {
             host: host,
             leagueID: leagueID,
             parameters: parameters,
-            cookie: cookie
+            cookie: [.injuries, .nflSchedule, .nflByeWeeks].contains(endpoint) ? nil : cookie
         )
         let version = UUID()
         readVersions[key] = version
@@ -847,11 +941,20 @@ public actor MFLClient {
     }
 
     private func send(_ request: URLRequest) async throws -> MFLHTTPResponse {
-        try checkRateLimit()
+        try checkRateLimit(for: request)
         try await waitForRequestSlot()
-        try checkRateLimit()
+        try checkRateLimit(for: request)
         do {
-            return try await transport.send(request)
+            let response = try await transport.send(request)
+            if response.statusCode == 429 {
+                let deadline = Date().addingTimeInterval(max(1, retryAfter(response) ?? 90))
+                // MFL documents throttling per server. Never redirect a league
+                // request to evade it; pause only the host that rejected it.
+                for host in [request.url?.host, response.url?.host].compactMap({ $0?.lowercased() }) {
+                    rateLimitedUntil[host] = max(rateLimitedUntil[host] ?? .distantPast, deadline)
+                }
+            }
+            return response
         } catch is CancellationError {
             throw CancellationError()
         } catch let error as MFLCoreError {
@@ -861,8 +964,8 @@ public actor MFLClient {
         }
     }
 
-    private func checkRateLimit() throws {
-        if let deadline = rateLimitedUntil, deadline > Date() {
+    private func checkRateLimit(for request: URLRequest) throws {
+        if let host = request.url?.host?.lowercased(), let deadline = rateLimitedUntil[host], deadline > Date() {
             throw MFLCoreError.rateLimited(retryAfter: deadline.timeIntervalSinceNow)
         }
     }
@@ -877,14 +980,14 @@ public actor MFLClient {
         nextRequestInstant = clock.now.advanced(by: configuration.minimumRequestInterval)
     }
 
-    private func validateHTTP(_ response: MFLHTTPResponse) throws {
-        if response.statusCode == 429 {
-            let retryAfter = response.value(forHeader: "Retry-After").flatMap(TimeInterval.init).flatMap {
+    private func retryAfter(_ response: MFLHTTPResponse) -> TimeInterval? {
+        response.value(forHeader: "Retry-After").flatMap(TimeInterval.init).flatMap {
                 $0.isFinite && $0 >= 0 && $0 < Double(Int.max) / 2 ? $0 : nil
-            }
-            rateLimitedUntil = Date().addingTimeInterval(max(1, retryAfter ?? 90))
-            throw MFLCoreError.rateLimited(retryAfter: retryAfter)
         }
+    }
+
+    private func validateHTTP(_ response: MFLHTTPResponse) throws {
+        if response.statusCode == 429 { throw MFLCoreError.rateLimited(retryAfter: retryAfter(response)) }
         guard (200 ... 299).contains(response.statusCode) else {
             let message = MFLAPIErrorEnvelope.message(in: response.data)
             if response.statusCode == 401 || response.statusCode == 403 {
