@@ -59,7 +59,11 @@ struct StandingsView: View {
                 }
                 .accessibilityIdentifier("standings-order-info")
                 .accessibilityHint("Shows how MyFantasyLeague orders tied teams")
-                .popover(isPresented: $showingOrderInfo) {
+                .popover(
+                    isPresented: $showingOrderInfo,
+                    attachmentAnchor: .rect(.bounds),
+                    arrowEdge: .top
+                ) {
                     standingsOrderInfo
                 }
             }
@@ -100,8 +104,7 @@ struct StandingsView: View {
             }
         }
         .frame(idealWidth: 340, idealHeight: 300)
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .presentationCompactAdaptation(.popover)
     }
 
     private var divisions: [String] {
