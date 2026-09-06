@@ -510,7 +510,7 @@ public actor MFLClient {
             parameters: parameters,
             cookie: cookie
         )
-        let response = try await send(request)
+        let response = try await sendFollowingSafeExportRedirect(request)
         try validateHTTP(response)
         try detectAPIError(in: response.data)
 
@@ -519,6 +519,37 @@ public actor MFLClient {
             cache[key] = CacheEntry(data: response.data, expiresAt: Date().addingTimeInterval(ttl))
         }
         return decoded
+    }
+
+    /// MFL routes league exports from `api.myfantasyleague.com` to the
+    /// league's current `wwwXX` host with an HTTP redirect. URLSession is
+    /// deliberately configured not to follow redirects automatically so a
+    /// cookie can never hitch a ride to an unvalidated destination. For GET
+    /// exports only, validate the destination, preserve the exact path/query,
+    /// remove authentication, and make one explicit follow-up request.
+    private func sendFollowingSafeExportRedirect(_ request: URLRequest) async throws -> MFLHTTPResponse {
+        let response = try await send(request)
+        guard (300 ... 399).contains(response.statusCode) else { return response }
+
+        guard request.httpMethod == "GET",
+              let originalURL = request.url,
+              let location = response.value(forHeader: "Location"),
+              let redirectedURL = URL(string: location, relativeTo: originalURL)?.absoluteURL,
+              redirectedURL.path == originalURL.path,
+              redirectedURL.query == originalURL.query
+        else {
+            throw MFLCoreError.unexpectedRedirect
+        }
+        _ = try MFLAPIHost(redirectedURL.absoluteString)
+
+        var redirectedRequest = request
+        redirectedRequest.url = redirectedURL
+        redirectedRequest.setValue(nil, forHTTPHeaderField: "Cookie")
+        let redirectedResponse = try await send(redirectedRequest)
+        guard !(300 ... 399).contains(redirectedResponse.statusCode) else {
+            throw MFLCoreError.unexpectedRedirect
+        }
+        return redirectedResponse
     }
 
     private func performImport(

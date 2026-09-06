@@ -12,7 +12,7 @@ https://api.myfantasyleague.com/{season}/login
 
 The form contains `USERNAME`, `PASSWORD`, and `XML=1`. A successful XML response contains `MFL_USER_ID`; subsequent requests send it as the `MFL_USER_ID` cookie. Logout is local cookie deletion. The alternate `APIKEY` works only for restricted exports, not imports, so it cannot power lineup, waiver, or message-board writes.
 
-Resolve the current host from the requested league export's validated `baseURL`. MFL warns that leagues can move between `wwwXX` hosts, so a host is scoped to a session. Resolve before writes and do not follow a cross-host redirect for a mutation. Multi-league account discovery through `TYPE=myleagues` is planned but is not part of version 0.1.
+Resolve the current host from the requested league export's validated `baseURL`. MFL currently redirects this GET from `api.myfantasyleague.com` to the league's `wwwXX` host. The client follows that redirect manually only after validating HTTPS, the MFL domain, and an unchanged path/query; it strips the session cookie from the redirected discovery request. Login and mutation redirects remain blocked. MFL warns that leagues can move between hosts, so a host is scoped to a session. Multi-league account discovery through `TYPE=myleagues` is planned but is not part of version 0.1.
 
 ## Priority endpoint map
 

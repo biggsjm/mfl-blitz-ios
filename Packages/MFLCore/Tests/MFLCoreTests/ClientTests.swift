@@ -9,13 +9,21 @@ import Testing
 struct ClientTests {
     @Test("Host discovery runs once and read responses are cached")
     func discoveryAndCaching() async throws {
+        let redirectedLeagueURL = "https://www42.myfantasyleague.com/2026/export?JSON=1&L=41366&TYPE=league"
         let transport = StubTransport(responses: [
+            MFLHTTPResponse(
+                data: Data(),
+                statusCode: 302,
+                headers: ["Location": redirectedLeagueURL],
+                url: URL(string: "https://api.myfantasyleague.com/2026/export?JSON=1&L=41366&TYPE=league")
+            ),
             .json(try fixtureData("league"), url: "https://www42.myfantasyleague.com/2026/export"),
             .json(try fixtureData("rosters"), url: "https://www42.myfantasyleague.com/2026/export"),
         ])
         let client = MFLClient(
             configuration: try configuration(host: nil),
-            transport: transport
+            transport: transport,
+            authenticationCookie: try MFLAuthenticationCookie(value: "saved-cookie")
         )
 
         let first = try await client.rosters()
@@ -23,10 +31,43 @@ struct ClientTests {
         let requests = await transport.recordedRequests()
 
         #expect(first == second)
-        #expect(requests.count == 2)
+        #expect(requests.count == 3)
         #expect(requests[0].url?.host == "api.myfantasyleague.com")
-        #expect(requests[1].url?.host == "www42.myfantasyleague.com")
-        #expect(requests[1].url?.query?.contains("TYPE=rosters") == true)
+        #expect(requests[0].value(forHTTPHeaderField: "Cookie") == "MFL_USER_ID=saved-cookie")
+        #expect(requests[1].url?.absoluteString == redirectedLeagueURL)
+        #expect(requests[1].value(forHTTPHeaderField: "Cookie") == nil)
+        #expect(requests[2].url?.host == "www42.myfantasyleague.com")
+        #expect(requests[2].url?.query?.contains("TYPE=rosters") == true)
+        #expect(requests[2].value(forHTTPHeaderField: "Cookie") == "MFL_USER_ID=saved-cookie")
+    }
+
+    @Test("Export redirects reject non-MFL destinations")
+    func unsafeExportRedirect() async throws {
+        let transport = StubTransport(responses: [
+            MFLHTTPResponse(
+                data: Data(),
+                statusCode: 302,
+                headers: [
+                    "Location": "https://example.com/2026/export?JSON=1&L=41366&TYPE=league"
+                ]
+            )
+        ])
+        let client = MFLClient(
+            configuration: try configuration(host: nil),
+            transport: transport,
+            authenticationCookie: try MFLAuthenticationCookie(value: "saved-cookie")
+        )
+
+        do {
+            _ = try await client.discoverLeagueHost()
+            Issue.record("Expected the untrusted export redirect to be rejected")
+        } catch let error as MFLCoreError {
+            guard case .invalidHost = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+        }
+        #expect(await transport.recordedRequests().count == 1)
     }
 
     @Test("Login cookie is manually sent on the next mutation")

@@ -161,7 +161,9 @@ private struct SignInSheet: View {
                     TextField("League ID", text: $credentials.leagueID)
                         .keyboardType(.numberPad)
                         .focused($focus, equals: .league)
-                    Stepper("Season \(credentials.season)", value: $credentials.season, in: 2020...Calendar.current.component(.year, from: Date()))
+                    Stepper(value: $credentials.season, in: 2020...Calendar.current.component(.year, from: Date())) {
+                        Text(verbatim: "Season \(credentials.season)")
+                    }
                 }
 
                 Section {
