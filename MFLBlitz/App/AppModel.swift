@@ -50,8 +50,11 @@ final class AppModel {
         processesAt: nil
     )
     var standings: [StandingRow] = []
+    var teams: [TeamSummary] = []
     var boardThreads: [BoardThread] = []
     var transactions = TransactionsModel()
+    var seasonSchedule = SeasonScheduleModel()
+    var scopedScoreInspection: UUID?
     var selectedWeek = 1
     var isBusy = false
     var isRefreshing = false
@@ -889,6 +892,9 @@ final class AppModel {
 
     private func resetContent(for week: Int) {
         transactions = TransactionsModel()
+        seasonSchedule.invalidateSession()
+        seasonSchedule = SeasonScheduleModel()
+        scopedScoreInspection = nil
         waiverReadError = nil; lastWaiverRefresh = nil; lastFullRefresh = nil
         isLoadingScores = false; isLoadingLineup = false
         isLoadingWaivers = false; isLoadingBoard = false
@@ -907,6 +913,7 @@ final class AppModel {
             processesAt: nil
         )
         standings = []
+        teams = []
         boardThreads = []
         lineupRevision &+= 1
     }
@@ -914,6 +921,7 @@ final class AppModel {
     private func installDemoContent() {
         isDemo = true
         workspace = SampleData.workspace
+        teams = []
         configureTransactions()
         selectedWeek = SampleData.workspace.week
         scores = SampleData.scores
@@ -931,7 +939,66 @@ final class AppModel {
     }
 
     private func configureTransactions() {
+        scopedScoreInspection = nil
         transactions = TransactionsModel(repository: repository, workspace: workspace, privateStore: privateStore, isDemo: isDemo)
+        seasonSchedule.invalidateSession()
+        seasonSchedule = SeasonScheduleModel(loader: { [weak self] in
+            guard let self else { throw CancellationError() }
+            return try await self.loadSeasonSchedule()
+        })
+    }
+
+    var browseScope: LeagueBrowseScope? { workspace.map(LeagueBrowseScope.init(workspace:)) }
+
+    // Destination-local reads must never change selectedWeek, scores or a draft.
+    // Reject both successful and failed replies from a replaced account/session.
+    private func readForBrowsing<Value: Sendable>(
+        _ operation: @Sendable (any LeagueRepository) async throws -> Value
+    ) async throws -> Value {
+        try Task.checkCancellation()
+        guard let scope = browseScope else { throw RepositoryError.missingSession }
+        let generation = sessionGeneration
+        let activeRepository = repository
+        do {
+            let value = try await operation(activeRepository)
+            try Task.checkCancellation()
+            guard generation == sessionGeneration, browseScope == scope else { throw CancellationError() }
+            return value
+        } catch {
+            guard generation == sessionGeneration, browseScope == scope, !Task.isCancelled else {
+                throw CancellationError()
+            }
+            throw error
+        }
+    }
+
+    func loadTeams(refresh: Bool = false) async throws -> [TeamSummary] {
+        let generation = sessionGeneration
+        let result = try await readForBrowsing { try await $0.loadTeams(refresh: refresh) }
+        guard generation == sessionGeneration, !Task.isCancelled else { throw CancellationError() }
+        teams = result
+        return result
+    }
+
+    func loadTeamRoster(franchiseID: String, lineupWeek: Int? = nil, refresh: Bool = false) async throws -> TeamRosterSnapshot {
+        try await readForBrowsing {
+            try await $0.loadTeamRoster(franchiseID: franchiseID, lineupWeek: lineupWeek, refresh: refresh)
+        }
+    }
+
+    func loadPlayerDetail(playerID: String, refresh: Bool = false) async throws -> PlayerDetailSnapshot {
+        try await readForBrowsing { try await $0.loadPlayerDetail(playerID: playerID, refresh: refresh) }
+    }
+
+    func loadSeasonSchedule() async throws -> SeasonScheduleSnapshot {
+        try await readForBrowsing { try await $0.loadSeasonSchedule() }
+    }
+
+    func loadMatchupScores(week: Int, refresh: Bool = false) async throws -> ScoresSnapshot {
+        try await readForBrowsing {
+            if refresh { return try await $0.refreshScores(week: week) }
+            return try await $0.loadScores(week: week)
+        }
     }
 
     private func beginRefreshing() -> Int {

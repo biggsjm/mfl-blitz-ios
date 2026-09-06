@@ -57,6 +57,8 @@ struct ScoresView: View {
                         .padding(.top, 44)
                         .padding(.horizontal, BlitzMetrics.pagePadding)
                     }
+                    seasonScheduleLink
+                        .padding(.horizontal, BlitzMetrics.pagePadding)
                 } else {
                     if let featured = model.scores.featuredMatchup {
                         NavigationLink {
@@ -74,9 +76,18 @@ struct ScoresView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Around the league")
-                            .font(.title3.bold())
-                            .padding(.horizontal, BlitzMetrics.pagePadding)
+                        ViewThatFits(in: .horizontal) {
+                            HStack {
+                                Text("Around the league").font(.title3.bold()).fixedSize()
+                                Spacer(minLength: 12)
+                                seasonScheduleLink.fixedSize()
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Around the league").font(.title3.bold())
+                                seasonScheduleLink
+                            }
+                        }
+                        .padding(.horizontal, BlitzMetrics.pagePadding)
 
                         LazyVGrid(columns: columns, spacing: 12) {
                             ForEach(model.scores.matchups.filter {
@@ -122,6 +133,18 @@ struct ScoresView: View {
             get: { model.selectedWeek },
             set: { week in Task { await model.changeWeek(to: week) } }
         )
+    }
+
+    @ViewBuilder
+    private var seasonScheduleLink: some View {
+        if let scope = model.browseScope {
+            NavigationLink(value: ScheduleRoute(scope: scope)) {
+                Label("Season schedule", systemImage: "calendar")
+                    .font(.subheadline.weight(.medium))
+                    .frame(minHeight: 44)
+            }
+            .accessibilityIdentifier("scores-season-schedule")
+        }
     }
 }
 

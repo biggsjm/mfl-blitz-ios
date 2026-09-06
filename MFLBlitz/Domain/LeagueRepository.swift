@@ -34,10 +34,26 @@ protocol LeagueRepository: Sendable {
     func reconcileTradeAction() async throws -> TradeReceipt
     func acknowledgeUnconfirmedTrade() async throws
     func loadTransactionActivity() async throws -> [TransactionActivity]
+    func loadTeams(refresh: Bool) async throws -> [TeamSummary]
+    func loadTeamRoster(franchiseID: String, lineupWeek: Int?, refresh: Bool) async throws -> TeamRosterSnapshot
+    func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot
+    func loadSeasonSchedule() async throws -> SeasonScheduleSnapshot
     func signOut() async
 }
 
 extension LeagueRepository {
+    func loadTeams(refresh: Bool) async throws -> [TeamSummary] {
+        throw RepositoryError.server("Team details are unavailable in this session.")
+    }
+    func loadTeamRoster(franchiseID: String, lineupWeek: Int?, refresh: Bool) async throws -> TeamRosterSnapshot {
+        throw RepositoryError.server("This roster is unavailable in this session.")
+    }
+    func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot {
+        throw RepositoryError.server("Player details are unavailable in this session.")
+    }
+    func loadSeasonSchedule() async throws -> SeasonScheduleSnapshot {
+        throw RepositoryError.server("The season schedule is unavailable in this session.")
+    }
     func loadTrades() async throws -> TradeSnapshot { TradeSnapshot() }
     func performTrade(_ command: TradeCommand) async throws -> TradeReceipt { throw RepositoryError.server("Trades are unavailable in this session.") }
     func pendingTradeAction() async throws -> PendingTradeAction? { nil }

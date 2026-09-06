@@ -39,4 +39,5 @@ jobs:
           -project MFLBlitz.xcodeproj
           -scheme MFLBlitz
           -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
+          -parallel-testing-enabled NO
           CODE_SIGNING_ALLOWED=NO

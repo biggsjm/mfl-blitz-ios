@@ -3,6 +3,10 @@ import SwiftUI
 struct MatchupDetailView: View {
     @Environment(AppModel.self) private var model
     let matchupID: String
+    var snapshot: ScoresSnapshot? = nil
+    var refreshError: String? = nil
+    var isRefreshingSnapshot = false
+    var refreshAction: (@MainActor () async -> Void)? = nil
 
     @State private var benchIsExpanded = false
 
@@ -10,19 +14,19 @@ struct MatchupDetailView: View {
         ScrollView {
             if let matchup {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    if let message = model.scoreRefreshError {
+                    if let message = snapshot == nil ? model.scoreRefreshError : refreshError {
                         Label(message, systemImage: "wifi.exclamationmark")
                             .font(.footnote).foregroundStyle(.orange)
                     }
                     MatchupFreshnessLabel(
-                        date: model.scores.lastUpdated,
-                        isRefreshing: model.isRefreshing
+                        date: displayScores.lastUpdated,
+                        isRefreshing: snapshot == nil ? model.isLoadingScores : isRefreshingSnapshot
                     )
 
                     MatchupDetailHeader(
                         matchup: matchup,
                         isDemo: model.isDemo,
-                        scorePrecision: model.scores.scorePrecision
+                        scorePrecision: displayScores.scorePrecision
                     )
 
                     sectionHeading(
@@ -52,7 +56,7 @@ struct MatchupDetailView: View {
                         ForEach(positions(for: matchup, showingBench: false), id: \.self) { position in
                             PositionComparisonCard(
                                 position: position,
-                                scorePrecision: model.scores.scorePrecision,
+                                scorePrecision: displayScores.scorePrecision,
                                 awayTeam: matchup.away,
                                 homeTeam: matchup.home,
                                 awayPlayers: players(
@@ -76,7 +80,7 @@ struct MatchupDetailView: View {
                                 ForEach(positions(for: matchup, showingBench: true), id: \.self) { position in
                                     PositionComparisonCard(
                                         position: position,
-                                        scorePrecision: model.scores.scorePrecision,
+                                        scorePrecision: displayScores.scorePrecision,
                                         awayTeam: matchup.away,
                                         homeTeam: matchup.home,
                                         awayPlayers: players(
@@ -115,7 +119,7 @@ struct MatchupDetailView: View {
                             ForEach(positionsForUnclassifiedPlayers(in: matchup), id: \.self) { position in
                                 PositionComparisonCard(
                                     position: position,
-                                    scorePrecision: model.scores.scorePrecision,
+                                    scorePrecision: displayScores.scorePrecision,
                                     awayTeam: matchup.away,
                                     homeTeam: matchup.home,
                                     awayPlayers: players(
@@ -156,7 +160,7 @@ struct MatchupDetailView: View {
             }
         }
         .pageBackground()
-        .navigationTitle("Week \(model.scores.week) Matchup")
+        .navigationTitle("Week \(displayScores.week) Matchup")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if matchup?.status.isLive == true {
@@ -169,13 +173,19 @@ struct MatchupDetailView: View {
                 }
             }
         }
-        .refreshable { await model.refreshScores() }
+        .refreshable {
+            if let refreshAction { await refreshAction() }
+            else { await model.refreshScores() }
+        }
+        .environment(\.browsedScoringWeek, displayScores.week)
         .accessibilityIdentifier("matchup-detail")
     }
 
     private var matchup: Matchup? {
-        model.scores.matchups.first(where: { $0.id == matchupID })
+        displayScores.matchups.first(where: { $0.id == matchupID })
     }
+
+    private var displayScores: ScoresSnapshot { snapshot ?? model.scores }
 
     private func sectionHeading(title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -317,7 +327,7 @@ private struct MatchupDetailHeader: View {
                 .offset(x: -10, y: 18)
                 .accessibilityHidden(true)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilitySummary)
     }
 
@@ -352,18 +362,23 @@ private struct MatchupDetailHeader: View {
 }
 
 private struct MatchupHeaderTeam: View {
+    @Environment(AppModel.self) private var model
     let team: MatchupTeam
     let isLeading: Bool
     let scorePrecision: Int
 
     var body: some View {
         VStack(spacing: 7) {
-            TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 48, artworkURLs: team.artworkURLs)
-            Text(team.name)
-                .font(.subheadline.weight(.semibold))
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .frame(minHeight: 38, alignment: .top)
+            teamIdentityLink {
+                VStack(spacing: 7) {
+                    TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 48, artworkURLs: team.artworkURLs)
+                    Text(team.name)
+                        .font(.subheadline.weight(.semibold))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .frame(minHeight: 38, alignment: .top)
+                }
+            }
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(team.score.pointsText(precision: scorePrecision))
                     .font(.system(size: 32, weight: .black, design: .rounded))
@@ -380,6 +395,16 @@ private struct MatchupHeaderTeam: View {
                 .foregroundStyle(.white.opacity(0.62))
         }
         .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private func teamIdentityLink<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        if let scope = model.browseScope {
+            NavigationLink(value: TeamRoute(scope: scope, franchiseID: team.id)) { content() }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(team.name), roster and schedule")
+                .accessibilityIdentifier("matchup-team-\(team.id)")
+        } else { content() }
     }
 }
 
@@ -549,6 +574,8 @@ private struct TeamPositionStack: View {
 private enum MatchupSide { case away, home }
 
 private struct MatchupPlayerCell: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.browsedScoringWeek) private var inspectedWeek
     let player: MatchupPlayer?
     let teamName: String
     let side: MatchupSide
@@ -560,43 +587,45 @@ private struct MatchupPlayerCell: View {
     var body: some View {
         Group {
             if let player {
-                VStack(alignment: alignment, spacing: 4) {
-                    Text(player.name)
-                        .font(.subheadline.weight(.semibold))
-                        .multilineTextAlignment(side == .away ? .leading : .trailing)
-                        .lineLimit(2)
-
-                    if let livePoints = player.livePoints {
-                        Text(livePoints.pointsText(precision: scorePrecision))
-                            .font(.title3.weight(.black).monospacedDigit())
-                            .contentTransition(.numericText())
-                    } else {
-                        Text("—")
-                            .font(.title3.weight(.black))
-                            .accessibilityLabel("Score unavailable")
-                    }
-
-                    Label(gameStateLabel(for: player), systemImage: gameStateIcon(for: player))
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(gameStateColor(for: player))
-
-                    Text("\(player.position) · \(player.nflTeam)")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
-
-                    if let statLine = player.statLine?.trimmingCharacters(in: .whitespacesAndNewlines),
-                       !statLine.isEmpty
-                    {
-                        Text(statLine)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                playerIdentityLink(player) {
+                    VStack(alignment: alignment, spacing: 4) {
+                        Text(player.name)
+                            .font(.subheadline.weight(.semibold))
                             .multilineTextAlignment(side == .away ? .leading : .trailing)
-                            .lineLimit(3)
+                            .lineLimit(2)
+
+                        if let livePoints = player.livePoints {
+                            Text(livePoints.pointsText(precision: scorePrecision))
+                                .font(.title3.weight(.black).monospacedDigit())
+                                .contentTransition(.numericText())
+                        } else {
+                            Text("—")
+                                .font(.title3.weight(.black))
+                                .accessibilityLabel("Score unavailable")
+                        }
+
+                        Label(gameStateLabel(for: player), systemImage: gameStateIcon(for: player))
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(gameStateColor(for: player))
+
+                        Text("\(player.position) · \(player.nflTeam)")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.secondary)
+
+                        if let statLine = player.statLine?.trimmingCharacters(in: .whitespacesAndNewlines),
+                           !statLine.isEmpty
+                        {
+                            Text(statLine)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(side == .away ? .leading : .trailing)
+                                .lineLimit(3)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: frameAlignment)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(accessibilityLabel(for: player))
                 }
-                .frame(maxWidth: .infinity, alignment: frameAlignment)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(accessibilityLabel(for: player))
             } else {
                 Text("—")
                     .font(.title3)
@@ -605,6 +634,18 @@ private struct MatchupPlayerCell: View {
                     .accessibilityHidden(true)
             }
         }
+    }
+
+    @ViewBuilder
+    private func playerIdentityLink<Content: View>(_ player: MatchupPlayer, @ViewBuilder content: () -> Content) -> some View {
+        if let scope = model.browseScope {
+            NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: inspectedWeek)) {
+                content()
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("matchup-player-\(player.id)-\(side)")
+            .accessibilityHint("Opens player details")
+        } else { content() }
     }
 
     private func gameStateLabel(for player: MatchupPlayer) -> String {

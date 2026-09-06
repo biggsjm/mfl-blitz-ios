@@ -1,6 +1,6 @@
 # MFL 2026 API integration
 
-Implementation audit: September 6, 2026, **0.3.7 (16)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
+Implementation audit: September 6, 2026, **0.4.0 (17)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
 
 Primary sources: [general API guidance](https://api.myfantasyleague.com/2026/api_info), [request reference](https://api.myfantasyleague.com/2026/api_info?STATE=details), and [sample code](https://api.myfantasyleague.com/2026/api_info?STATE=example).
 
@@ -28,8 +28,9 @@ All league calls use `https://{resolved-host}/{season}/` and include `L={leagueI
 | League/capabilities | `export?TYPE=league&JSON=1`; authenticated `TYPE=abilities&DETAILS=1` |
 | Live scores | `export?TYPE=liveScoring&W={week}&DETAILS=1&JSON=1` |
 | League-scored projections | `export?TYPE=projectedScores&W={week}&JSON=1` |
+| Fantasy season schedule | `export?TYPE=schedule&JSON=1`; omit `W` and `F` for the entire season |
 | Final results | `export?TYPE=weeklyResults&W={week}&JSON=1` |
-| Roster | `export?TYPE=rosters&FRANCHISE={id}&W={week}&JSON=1` |
+| Roster | `export?TYPE=rosters&FRANCHISE={id}&JSON=1`; optional `W={week}`, omitted for current team membership |
 | Player lineup state | `export?TYPE=playerRosterStatus&P={ids}&W={week}&F={franchise}&JSON=1` |
 | Submit lineup | `import?TYPE=lineup&W={week}&STARTERS={ids}&TIEBREAKERS={ids}` |
 | Free agents | `export?TYPE=freeAgents&POSITION={position}&JSON=1` |
@@ -112,6 +113,8 @@ These are current defaults, not a cache-everything rule. Private read retention 
 | --- | --- | --- |
 | Full public player directory | 24-hour disk entry plus validated decoded memory reuse, scoped by season/version | Original fetch time survives relaunch; invalid/expired data is rejected; no private payloads/headers on disk |
 | Stable league configuration | 24-hour memory cache | Auth restoration verifies freshly; waiver balance display imposes 60-second maximum age; bid preflight bypasses cache |
+| Targeted player biography | Separate 24-hour memory cache, keyed by requested IDs/details | Ownership refresh does not re-download biography or basic catalog |
+| Fantasy season schedule | One shared 15-minute season/league/session snapshot, plus request sharing | Explicit refresh reloads schedule; no per-team or per-week scoring fan-out |
 | Pregame league projections | 15-minute memory cache, league/week scoped | Missing values remain nil; not a live forecast |
 | Live scoring | 90-second memory TTL and one foreground scoreboard/detail poller | Completed weeks use forced `weeklyResults`; foreground lifecycle and read guards prevent duplicate pollers |
 | Rosters / player roster status / free agents | 30 / 15 / 60-second memory TTLs | Mutation preflight/readback bypass cache |
@@ -119,7 +122,7 @@ These are current defaults, not a cache-everything rule. Private read retention 
 | Pending trades / assets / transaction activity | Forced client reads; model-level reuse on recent section visits | Fresh trade preflight/readback; no stale or failed read becomes a confirmed-empty state |
 | Franchise artwork | Bounded 15-minute memory thumbnails; 60-second failure cooldown | Isolated cookieless loader; no disk cache |
 
-The full player directory is shared across tabs; targeted detailed-player caching and season schedule/player-history caching are future design work, not existing persistent stores. MFL supports incremental `SINCE`, but the app currently refreshes the full public catalog after its daily expiry.
+The full player directory is shared across tabs. Targeted detailed-player and season-schedule caching are implemented in memory; player-scoring history is still unimplemented. Roster/player pull-to-refresh refreshes volatile roster/ownership state while reusing day-cached league metadata. An explicit team-metadata refresh can bypass that cache. MFL supports incremental `SINCE`, but the app currently refreshes the full public catalog after its daily expiry.
 
 Version 0.3.2 persists only the public, full player directory in the app's Caches folder, scoped by season and cache-format version. Entries retain their original fetch time across relaunches; corrupt, wrong-season, future-dated, and expired entries cannot be used. Decoding succeeds before saving, writes are atomic and size-bounded, and disk failures do not block fresh reads. Score and lineup lookups now use the same full catalog as waivers/trades, eliminating separate per-roster subset downloads. Concurrent cacheable reads still share one request.
 
@@ -143,9 +146,11 @@ The request gate rechecks spacing after suspension to prevent resume bursts. Con
 
 The app currently supplies `MFL Blitz/0.1 (com.biggsjm.MFLBlitz)` on sign-in/restore. MFLCore separately defaults to `MFL Blitz/1.0`. Neither string proves registration; confirm production registration and configure the exact approved identity before distribution. Do not change it simply to match the marketing version without considering registered-client identity.
 
-No fantasy season schedule endpoint/decoder/repository method or Player Detail aggregation exists yet. League season bounds are decoded but the current week picker remains `1...18`. Planned schedule/history views require validated official schemas, bounded shared reads, explicit missing states and browsing selections independent of `AppModel.selectedWeek`; see [schedule](schedule-ux.md) and [player](player-detail-ux.md) proposals.
+Version 0.4.0 implements the official whole-season `schedule` export, flexible week/matchup/participant decoding, shared timelines and route-local matchup scoring. Configured season bounds drive those timelines; the separate existing Scores/Lineup week picker still uses `1...18`. Schedule `result=T` without a score is not a final tie. Missing opponents are not guessed byes; repeated pairs never select an arbitrary scoring game. See the [schedule contract](schedule-ux.md).
 
-MFLCore exposes optional player bio and targeted `DETAILS=1`, but live population still needs validation. A whole-week `weeklyResults` response is not proof of complete player season history. Current lineup/waiver placeholder fields must not be reused as opponent, kickoff or season-total facts. Board HTML currently receives plain-text tag/entity cleanup and is rendered with native Text; richer HTML and safe link handling are unfinished.
+Team rosters always read current membership without `W`; explicit week-specific starter/bench assignments are a separate batched `playerRosterStatus` read. Generic R/ROSTER membership is not inferred to mean Bench. Player Detail aggregates canonical identity, current-franchise acquisition status, potentially multiple ownership assignments, matching-week available metrics and optional supplied biography. Missing bio/status can fail independently, while auth/cancellation propagate. Old-account completions are rejected. Browsing changes no lineup week, draft or trade terms; see [player detail](player-detail-ux.md).
+
+Player Detail now requests optional targeted `DETAILS=1`; live field population still varies and needs owner validation. A whole-week `weeklyResults` response is not proof of complete player season history. Current lineup/waiver placeholder fields must not be reused as opponent, kickoff or season-total facts. Board HTML currently receives plain-text tag/entity cleanup and is rendered with native Text; richer HTML and safe link handling are unfinished.
 
 MFL expressly forbids browser JavaScript from outside its domains and does not provide permissive CORS. Native `URLSession` is unaffected, which is another reason to remain a genuine native client.
 

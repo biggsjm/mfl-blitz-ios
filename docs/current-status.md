@@ -1,57 +1,62 @@
 # Current app status
 
-Audited September 6, 2026. This is the implementation/evidence snapshot; [roadmap](roadmap.md) is the remaining execution plan. Design proposals do not describe installed features.
+Audited September 6, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Installed baseline
+## Current private build
 
-- **MFL Blitz 0.3.7 (16)**, app commit [`e779e4b`](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b), on `main` and installed/launched on Josh's iPhone.
-- **Private owner testing**, not a published App Store/TestFlight release. No production MFL client registration or Week 2 invitation readiness has been confirmed.
-- Current tabs: **Scores / Lineup / Transactions / Standings / Board**. Settings is upper-left on Scores; Scores and Lineup share a labeled Week N control.
-- Connected mode performs real MFL reads and explicitly reviewed writes. Champion Hall preview is synthetic; preview offers, owners, dates and transactions are not live offers or commitments.
+- **MFL Blitz 0.4.0 (17): My Team.** Implemented, tested, signed, installed and launched on Josh's iPhone on September 6. Includes the final concise schedule update label.
+- Previous installed baseline: **0.3.7 (16), [e779e4b](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b)**. The documentation baseline was merged in [PR #1](https://github.com/biggsjm/mfl-blitz-ios/pull/1).
+- **Private owner testing**, not an App Store/TestFlight release. Production MFL registration and Week 2 invitation readiness remain unconfirmed.
+- Tabs: **Scores / Lineup / My Team / Standings / Board**. Transactions is prominently available inside My Team, above Roster / Schedule. Settings remains upper-left on Scores; Scores and Lineup retain Week N controls.
+- Connected mode performs real reads and explicitly reviewed writes. Champion Hall preview uses synthetic data, offers, owners and schedules; its actions send nothing to MFL.
 
-## Shipped workflows
+## Implemented workflows
 
-| Area | Current behavior | Important boundary |
+| Area | Behavior | Important boundary |
 | --- | --- | --- |
-| Scores | Featured matchup, all league matchups, player-by-player detail, league-derived FLEX, foreground refresh and final-result reconciliation | No background push/Live Activity; projections are pregame, not a live win forecast |
-| Lineup | Bench and eligible starter replacements, FLEX rotations, saved drafts, exact review and starter readback | MFL stores starter IDs, not named FLEX placements; tiebreaker saved state cannot be read back |
-| Waivers | Available-player search, supported conditional blind-bid queue, round order, budget/minimum checks, full-queue review and partial-save recovery | Native FCFS/classic/non-conditional formats not implemented; MFL remains fallback; processed results are not a full failed-bid audit |
-| Trades | Create/Resume, private drafts, Cancel/rollback, blank-save disabled, exact proposal/response review, separate counters | Counter does not close original; acceptance can await MFL processing; uncertain outcomes never trigger blind retries |
-| Standings | Official overall/division order, owner names, artwork, anchored info popover | No team roster/schedule drill-through yet; missing owner name is not guessed |
-| Board | Native threads, posts/replies, drafts and exact-post readback | Plain-text HTML cleanup, not rich HTML rendering or a separate chat service |
-| Storage/network | Device-only Keychain sessions/drafts/markers, bounded reconnect, shared daily public catalog, private memory caches | No persistent private response/offline cache, analytics or application backend |
+| Scores | Featured/all matchups, positional/FLEX detail, foreground refresh and final reconciliation | No background push; projections are not live win forecasts |
+| Lineup | League-aware bench/starter/FLEX replacements and rotations, saved drafts, review and starter readback | MFL stores starter IDs, not FLEX placements; saved tiebreakers cannot be read back |
+| My Team / team pages | Franchise logo/initials, owner/record, roster and schedule; own-team Transactions entry and trade badge | Read-only roster; another team never shows your inbox as theirs |
+| Player Detail | Canonical identity, current ownership/status, matching-week available metrics and optional supplied biography | No complete season history, external imagery/news, guessed opponent or placeholder season totals |
+| Season schedule | Shared team/league timelines, configured bounds, current/future/final/unset states and route-local matchup scoring | Ambiguous doubleheaders never select an arbitrary scoring game; missing opponents are not guessed byes |
+| Waivers | Available-player search, conditional blind bids, round order/budget/minimum checks, review and partial-save recovery | Native FCFS/classic/non-conditional formats remain unsupported; MFL fallback |
+| Trades | Create/Resume, private drafts, Cancel/rollback, blank-save disabled, exact proposal/response review and separate counters | Counter leaves original open; acceptance can await MFL processing; no blind retries |
+| Standings | Official overall/division order, owners, artwork, anchored info and team drill-through | Missing owners not guessed; current record is not a projected record |
+| Board | Native threads/posts/replies, drafts and exact-post readback | Plain-text cleanup, not rich HTML or a proprietary chat service |
+| Storage/network | Device-only Keychain sessions/drafts/markers, daily public catalog and private memory caches | No private offline response store, analytics or backend |
 
-The current [trade release](trade-inbox-ux.md) also fixes first-presentation response state: tapping Decline or Withdraw must show that action's review, never a default Accept review. Every composer opening receives a new view identity and rollback snapshot so canceled edits cannot reappear from reused sheet state.
+Team/player/season reads have session-generation and canonical-route checks. Browsing never changes the active lineup draft, shared scoring week or saved trade terms. Current schedule detail replaces the scoreboard poller while visible; future weeks do not poll. League metadata and public player data remain cached during roster/player refresh.
 
 ## Verification evidence
 
-| Evidence | Result and scope |
-| --- | --- |
-| Build-16 local app suite, September 6 | **96 test functions / 121 executions**, zero failures, skipped tests or runtime warnings; full app unit suite plus five native trade journeys on iPhone 17 Pro / iOS 27 simulator, Xcode 27 beta |
-| Native journeys in that run | `testDecliningPreviewOfferOpensDeclineReviewFirst`, `testEmptyTradeInboxMakesCreatingAndResumingObvious`, `testTradeActionStaysVisibleWithLargeText`, `testTradeDraftPersistsAndRequiresReview`, `testTransactionsReviewsIncomingOfferWithoutAccepting` |
-| MFLCore documentation-audit rerun, September 6 | **62 tests / 9 suites passed** in a fresh temporary build directory; no live network writes |
-| App-commit GitHub CI | [`e779e4b` CI](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/34046368810) passed both core and iOS jobs, including app build and full app/UI test command |
-| Earlier 0.3.3 audit | 62 core tests, 78 app functions and 11 UI journeys; four synthetic managers through two accelerated weeks. Historical benchmark/methodology in [synthetic report](two-week-synthetic-testing.md) |
-| Earlier 0.3.5 lineup verification | 92 functions / 117 executions, including five lineup UI journeys; [starter/FLEX contract](lineup-starter-swaps.md) |
-| Device evidence | Build 16 installed/launched; earlier authenticated read-only checks confirmed projections, artwork, owner names, catalog reuse and tradable assets. Counts are dated observations, not guarantees about future league data |
-| Owner feedback | Josh reported successful lineup submission and visible projections. Full actual Week 1 scoring/processing and cooperating-owner trade validation remain open |
+- **MFLCore:** 68 tests in 10 suites passed in a fresh temporary build directory, including schedule wire/request/cache/auth regressions.
+- **Full native regression:** 147 app/UI functions / 173 executions passed, including all 22 native UI journeys, with zero failures or reported runtime warnings on iPhone 17 Pro / iOS 27 simulator.
+- **Final follow-up:** all 126 app unit functions plus the current-schedule native journey passed (127 functions / 153 executions), after concise freshness, duplicate-source-ID safety and final-results rollover adjustments. This adds one freshness test to the full-suite baseline. MFLCore remains 68 tests / 10 suites.
+- **Coverage:** cache request budgets, stale-account completion, multiple ownership, schedule bounds/duplicates and four synthetic managers across two accelerated weeks. My Team → roster → player → future matchup preserves an edited lineup; current Week 1 matchup → player preserves a separate Week 2 selection. Standings → team → league schedule, maximum Dynamic Type Transactions access, lineup arrows and standings information also passed.
+- **Visual inspection:** actual native screenshots reviewed for My Team roster/schedule, player ownership/projection, future-matchup missing-score behavior, league schedule, lineup action separation, tab artwork and large-text trade access. Default-size Light and Dark appearances verified; complete manual accessibility/device coverage remains open.
+- **Physical device:** signed 0.4.0 (17) installed and launched successfully after Josh unlocked the phone. Josh also reported the My Team screen looked good and supplied a live schedule screenshot; that observation does not certify all opponent data or a full game week.
+- **GitHub:** merge requires both core and iOS checks for this increment, independently of the previous baseline. Check the repository's [CI history](https://github.com/biggsjm/mfl-blitz-ios/actions/workflows/ci.yml) for the commit-specific result.
 
-Local build-16 evidence bundle: `Test-MFLBlitz-2026.09.06_11-37-54--0500.xcresult` (development artifact, not committed). The documentation audit's initial core run was blocked by sandbox caches, then an existing build bundle's signing metadata. A fresh `--scratch-path` build passed; those failed build attempts are not counted as tests passed.
+Development artifacts are outside the repository. Intermediate failures were corrected before final verification: a test fixture initially rejected empty synthetic credentials; a root accessibility identifier hid child identifiers; the beta simulator briefly exposed duplicate tab entries. A synthetic own-team scoring-ID mismatch also required preview-only detail lookup coverage. These earlier failed runs are not counted as passing final tests.
 
-Native QA explicitly enters preview and never sends real offers, accepts trades or modifies the league. Two-week model simulations exercise production model/repository code against in-memory data, not two real calendar weeks or human participants. Local build-16 UI coverage is five trade journeys, not a claim that the entire UI suite was rerun locally for that build. Repository CI independently runs core, app build and app/UI jobs; inspect [GitHub Actions](https://github.com/biggsjm/mfl-blitz-ios/actions) for commit-specific results.
+All native QA explicitly enters preview and performs no live lineup, waiver, trade or board writes. Synthetic managers/weeks are automated scenarios, not human participants or real elapsed game weeks.
 
-## Known gaps and data limits
+## Historical baseline and owner evidence
 
-- **No My Team tab, team roster/detail, fantasy season schedule, or shared Player Detail yet.** The [schedule](schedule-ux.md) and [player](player-detail-ux.md) documents are coordinated proposals. Their final tabs retain Lineup; they do not add a Players tab/global directory.
-- Existing waiver search covers available players only. A full-player search is not a committed requirement.
-- The week picker still uses `1...18`; future schedule work must use decoded league season bounds and route-scoped data rather than changing the lineup's selected week while browsing.
-- Live lineup model `opponent` is a dash and `gameTime` is a placeholder date. Its field named `seasonPoints` is populated from a weekly live score, not a season total. Waiver season points/rostered percentage/trend are zero placeholders (not exposed as real metrics in current waiver UI). Do not reuse them as verified Player Detail data.
-- Optional bio fields exist in MFLCore, but their live population and reliable player season-history coverage still need verification. No headshot/news/licensed raw-stat feed is integrated.
-- Broad league-format certification, multi-league switching, native FCFS/IR/taxi/commissioner management, rich HTML/links, private offline snapshots, diagnostics export and iPad split-view remain unfinished.
-- Accessibility foundations and selected large-text tests exist; a complete manual accessibility/device/OS audit is not recorded.
-- API-client registration is unconfirmed. The app sends `MFL Blitz/0.1 (com.biggsjm.MFLBlitz)`; the package's default is a separate sample string. Neither should be treated as proof of production registration.
-- GitHub private vulnerability reporting was checked and **disabled** on September 6. Establish a safe private contact/reporting route before wider distribution; never post secrets in an issue.
+- Build 16: 96 local app/UI functions / 121 executions; full app unit suite plus five trade journeys, zero failures/runtime warnings. Its [app CI](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/34046368810) passed core and iOS jobs.
+- Earlier build 0.3.3 benchmarks and methods remain in the [synthetic report](two-week-synthetic-testing.md); [starter/FLEX behavior](lineup-starter-swaps.md) retains its versioned evidence.
+- Josh reported successful lineup submission and visible projections. Earlier authenticated read-only device checks confirmed team artwork, owners, catalog reuse and tradable assets.
+- Complete actual Week 1 scoring/rollover/processing and consenting-owner trade validation remain open. Dated counts do not guarantee future league data.
 
-## Next decision
+## Known gaps and next work
 
-Complete the [owner Week 1 checklist](week-1-testing.md) and P0 [release gates](roadmap.md) before a Week 2 invitation. Player/team/schedule implementation is the next coordinated product increment, not a substitute for those gates. This documentation update changes no app code, version, installed build, or live league state.
+- Full player scoring history still needs a verified endpoint and progressive cache. Do not issue 18 forced full-week reads on first open.
+- Add player links/actions in waiver/trade surfaces with independent asset-selection controls, modal destinations and search/scroll/draft restoration. Existing waiver search remains available-player-only; no Players tab/global directory is introduced.
+- Season timelines use league bounds, but the separate Scores/Lineup week picker still uses 1…18.
+- Optional live biography fields vary. No headshots/news/licensed raw-stat feed, ADP, verified injury/opponent/kickoff enrichment or reliable season totals are integrated.
+- Legacy live Lineup `opponent`/game-time and Lineup/Waiver `seasonPoints`/trend/rostered-percent placeholders are not reused as player research facts.
+- Broad league-format certification, multi-league switching, native FCFS/IR/taxi/commissioner management, rich board HTML, private offline snapshots, diagnostics export and iPad split-view remain unfinished.
+- Full manual VoiceOver/Voice Control/Switch Control, contrast, small-screen/iPad and older-supported-OS validation remain release gates.
+- MFL client registration is unconfirmed. The app still supplies `MFL Blitz/0.1 (com.biggsjm.MFLBlitz)`; do not change a registered-client identity merely to match a marketing version.
+- GitHub private vulnerability reporting was disabled at the September 6 audit. Establish a safe private reporting route before wider distribution.
+- Apple/App Store Connect/TestFlight setup, actual Week 1 evidence and Josh's invitation decision remain open. Follow the [owner checklist](week-1-testing.md) and P0 [release gates](roadmap.md); My Team does not replace them.

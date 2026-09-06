@@ -2,7 +2,7 @@
 
 Effective September 6, 2026
 
-Implementation reviewed against private build **0.3.7 (16)**. Proposed player/team/schedule features do not add any data flows to this installed build.
+Implementation reviewed against private build **0.4.0 (17)**. Team/player browsing and the fantasy season schedule read directly from MFL and use memory-only private caches.
 
 MFL Blitz is an independent, open-source iOS client for MyFantasyLeague. It has no advertising, analytics, tracking, crash-reporting, or proprietary chat service.
 
@@ -11,10 +11,11 @@ MFL Blitz is an independent, open-source iOS client for MyFantasyLeague. It has 
 - Your MFL username, password, league ID, and season are sent directly from your device to MyFantasyLeague over HTTPS when you sign in.
 - Your password is used only for that login request. MFL Blitz does not persist it.
 - The MFL session value is stored in this device’s Keychain, accessible while unlocked and not synchronized to iCloud Keychain or migrated to another device. It is used to reconnect after app termination; your password is never saved.
-- League information requested from MFL can include rosters, scores, standings, owner names, pending waiver bids, trade offers and comments, tradable assets, transaction history, and message-board content. API responses are cached only in memory. Owner names are displayed only as provided by MFL for your authenticated session; the app does not look up owners elsewhere.
+- League information requested from MFL can include rosters, player ownership/status and optional biography, fantasy season schedules, scores, standings, owner names, pending waiver bids, trade offers and comments, tradable assets, transaction history, and message-board content. API responses are cached only in memory. Owner names are displayed only as provided by MFL for your authenticated session; the app does not look up owners elsewhere.
 - The public NFL player directory is the exception: a season-specific copy is kept in the app’s disposable Caches folder for up to 24 hours and reused after reopening. It contains public player data, not credentials, owner details, private league data, or response headers. iOS may remove it; the next successful download replaces it.
+- Targeted player biographies have a separate 24-hour memory cache; they are not added to the persisted public directory. Schedule, roster and player browsing is scoped to the current account/league, and late responses from an old session cannot populate the new account.
 - Lineup drafts, queued waiver edits, board and trade drafts, and unconfirmed-action markers are stored in the same device-only Keychain, scoped to season, league, and franchise. Trade drafts and markers include offer terms, optional comments, expiration, and identifying information needed to verify the action. Markers prevent an interrupted send from being automatically repeated after relaunch.
-- Team icons and logos use the HTTPS artwork URLs supplied by your league. Images may be hosted by MFL or an external website. Artwork requests use a separate session that sends no account cookie or credentials, accepts no image-host cookies, and has no disk cache. Small, static thumbnails are cached only in memory.
+- Team icons and logos use the HTTPS artwork URLs supplied by your league. Images may be hosted by MFL or an external website. Artwork requests use a separate session that sends no account cookie or credentials, accepts no image-host cookies, and has no disk cache. Small, static thumbnails are cached only in memory, including the signed-in team logo displayed in the My Team tab.
 
 No MFL account or league data is sent to the developer or to an MFL Blitz server. Apple and MyFantasyLeague may process network or platform data under their own policies. Artwork hosts also receive your IP address and the requested image URL under their own policies; they do not receive your MFL sign-in or other league API responses.
 

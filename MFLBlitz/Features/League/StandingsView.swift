@@ -31,7 +31,7 @@ struct StandingsView: View {
                     Section(division) {
                         StandingsColumnHeader()
                         ForEach(rows(in: division)) { row in
-                            StandingTeamRow(row: row)
+                            teamLink(row)
                         }
                     }
                 }
@@ -39,7 +39,7 @@ struct StandingsView: View {
                 Section {
                     StandingsColumnHeader()
                     ForEach(model.standings.sorted(using: KeyPathComparator(\.rank))) { row in
-                        StandingTeamRow(row: row)
+                        teamLink(row)
                     }
                 } header: {
                     Text("League")
@@ -111,6 +111,19 @@ struct StandingsView: View {
         Array(Set(model.standings.map(\.division))).sorted()
     }
 
+    @ViewBuilder
+    private func teamLink(_ row: StandingRow) -> some View {
+        if let scope = model.browseScope {
+            NavigationLink(value: TeamRoute(scope: scope, franchiseID: row.id)) {
+                StandingTeamRow(row: row)
+            }
+            .accessibilityIdentifier("standings-team-\(row.id)")
+            .accessibilityHint("Opens this team’s roster and schedule")
+        } else {
+            StandingTeamRow(row: row)
+        }
+    }
+
     private func rows(in division: String) -> [StandingRow] {
         model.standings.filter { $0.division == division }.sorted(using: KeyPathComparator(\.rank))
     }
@@ -118,7 +131,7 @@ struct StandingsView: View {
 
 private struct StandingsColumnHeader: View {
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Text("Team")
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("W–L")
@@ -126,6 +139,8 @@ private struct StandingsColumnHeader: View {
             Text("PF")
                 .frame(width: 54, alignment: .trailing)
         }
+        // Match the native disclosure space on the tappable rows below.
+        .padding(.trailing, 22)
         .font(.caption2.weight(.semibold))
         .foregroundStyle(.secondary)
         .textCase(.uppercase)
@@ -147,7 +162,7 @@ private struct StandingTeamRow: View {
                 HStack(spacing: 5) {
                     Text(row.name)
                         .font(.subheadline.weight(row.isUser ? .bold : .medium))
-                        .lineLimit(1)
+                        .lineLimit(2)
                     if row.isUser {
                         Text("YOU")
                             .font(.system(size: 9, weight: .black))

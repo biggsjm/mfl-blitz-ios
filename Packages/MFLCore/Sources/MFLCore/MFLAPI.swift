@@ -266,6 +266,7 @@ public enum MFLExportEndpoint: String, CaseIterable, Sendable {
     case pendingTrades
     case assets
     case weeklyResults
+    case schedule
     case calendar
     case transactions
 }

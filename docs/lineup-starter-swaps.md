@@ -1,6 +1,6 @@
 # Starter and FLEX swaps — 0.3.5 (13)
 
-Still implemented in **0.3.7 (16)**. The versioned evidence below records when this behavior shipped; [current status](current-status.md) and the [live checklist](week-1-testing.md) track latest validation. Proposed player/team navigation does not create a second lineup editor or change this submission contract.
+Still implemented in **0.4.0 (17)**. The versioned evidence below records when this behavior shipped; [current status](current-status.md) and the [live checklist](week-1-testing.md) track latest validation. My Team's read-only roster does not create a second lineup editor or change this submission contract. Lineup identity taps now open Player Detail separately from Start/Replace; browsing preserves the lineup week and draft.
 
 The replacement picker includes eligible bench players and other starters. It separates them into **Bench** and **Already starting**, sorts each group by projection, and labels each starter's current slot.
 

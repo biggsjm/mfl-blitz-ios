@@ -2,6 +2,16 @@
 
 Implemented private-build history through September 6, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.4.0 (17) — September 6, 2026
+
+- My Team replaces only the center Transactions tab, with a native team-logo/initials icon, visible Transactions entry and preserved trade badge. Dedicated Lineup stays one tap away.
+- Shared read-only team rosters and Player Detail: canonical identity, current ownership/status, available matching-week metrics and optional MFL biography. Lineup arrows remain independent actions.
+- Team and league season schedules use one shared cached export, configured season bounds, explicit future/unset states and route-local matchup scoring. Browsing does not change lineup drafts or the Scores/Lineup week.
+- Concise schedule freshness ("Updated just now" / "Updated 2 min ago") without seconds.
+- Contextual links from Standings, lineup identity, matchup players/teams and schedule participants; no new global search or second lineup editor.
+- Regression coverage for caches, old-session results, draft isolation, duplicate matchups and native navigation. Corrected propagated accessibility identifiers, standings column spacing and synthetic player detail coverage.
+- Updated status, remaining plan, API/cache/privacy notes, feature contracts and owner checklist. Full history and additional waiver/trade player links remain planned; see [current verification](docs/current-status.md).
+
 ## 0.3.7 (16) — September 6, 2026
 
 [`e779e4b`](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b)
@@ -44,6 +54,6 @@ Implemented private-build history through September 6, 2026. The [roadmap](docs/
 - **0.2 / initial builds:** foreground scores/final reconciliation, secure session and scoped draft restoration, conditional-waiver and board verification, anchored standings info, direct lineup controls, matchup drill-down and verified lineup submission.
 - Initial foundation: SwiftUI five-tab app, original branding, Champion Hall preview, MFLCore, login/host redirect handling and year formatting. Preseason scoring unavailability no longer prevents account entry; connected writes are not mislabeled as safety preview.
 
-## Documentation reconciliation
+## September 6 documentation baseline — before 0.4.0
 
-Updated release status, remaining plan, API/cache/storage descriptions, privacy/security and contributor guidance; consolidated the agreed but unimplemented My Team/schedule/player-detail directions. This is documentation-only and does not increment the installed app version.
+Updated release status, remaining plan, API/cache/storage descriptions, privacy/security and contributor guidance; consolidated the agreed but unimplemented My Team/schedule/player-detail directions. That earlier documentation-only update did not increment the app version; 0.4.0 subsequently implements the initial My Team slice.

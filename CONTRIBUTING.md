@@ -22,6 +22,7 @@ Replace the destination with an installed simulator. Run simulator jobs serially
 - Automated UI final-action journeys must explicitly enter and verify offline preview first. No real lineup, waiver, trade or board mutation is a smoke test; live checks require the owner's intended action and consenting participants where relevant.
 - Sheet/modal changes must test the very first action and close/reopen behavior, not just model state. Preserve identifiable trade action payloads, explicit view identity, Cancel rollback and late-autosave guards.
 - Keep browsing routes separate from the active lineup week/draft. Player identity taps must not replace Start/Replace/Add/Select actions.
+- My Team regressions live in `MyTeamNavigationTests`, `TeamPlayerDetailTests`, `SchedulePresentationTests` and MFLCore `ScheduleTests`. Run native roster/player/current-future schedule journeys as well as the existing lineup/trade suite when changing shared routes. Keep whole-season schedule reads shared; do not fan out player scoring for every week.
 - Validate large text, VoiceOver labels/action separation, light/dark appearance and native navigation after UI changes. Record incomplete manual checks honestly.
 
 ## Documentation and releases
