@@ -281,6 +281,7 @@ public struct MFLPlayerCatalog: Decodable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         timestamp = try container.mflIntIfPresent(forKey: .timestamp)
         players = try container.mflArray(of: MFLPlayer.self, forKey: .player)
+        guard Set(players.map(\.id)).count == players.count else { throw MFLCoreError.invalidResponse }
     }
 }
 

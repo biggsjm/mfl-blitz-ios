@@ -6,6 +6,19 @@ import Testing
 @testable import MFLCore
 
 struct TradeTests {
+    @Test("Malformed trade expiration is rejected instead of becoming a never-expiring actionable offer", arguments: ["inf", "nan", "not-a-date", "1e100", "-1"])
+    func invalidExpiration(value: String) throws {
+        let json = "{\"pendingTrades\":{\"pendingTrade\":{\"trade_id\":\"1\",\"offeredto\":\"0002\",\"will_give_up\":\"101\",\"will_receive\":\"201\",\"expires\":\"\(value)\"}}}"
+        #expect(throws: (any Error).self) { try MFLResponseDecoder().decode(MFLPendingTradesResponse.self, from: Data(json.utf8)) }
+    }
+
+    @Test("Zero and missing expiration remain valid no-expiration sentinels", arguments: ["", "0"])
+    func noExpiration(value: String) throws {
+        let json = "{\"pendingTrades\":{\"pendingTrade\":{\"trade_id\":\"1\",\"offeredto\":\"0002\",\"will_give_up\":\"101\",\"will_receive\":\"201\",\"expires\":\"\(value)\"}}}"
+        let response = try MFLResponseDecoder().decode(MFLPendingTradesResponse.self, from: Data(json.utf8))
+        #expect(response.pendingTrades.offers.first?.expires == nil)
+    }
+
     @Test("Pending trade direction, trailing commas and singleton/array containers are preserved", arguments: [true, false])
     func pending(singleton: Bool) throws {
         let trade = #"{"trade_id":"0009","offeringteam":"0002","offeredto":"0001","will_give_up":"101,FP_0002_2027_1,","will_receive":"201,BB_10.50,","comments":"A & B","expires":"2000000000"}"#

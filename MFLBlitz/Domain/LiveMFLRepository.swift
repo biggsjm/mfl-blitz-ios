@@ -240,7 +240,7 @@ actor LiveMFLRepository: LeagueRepository {
                 away: awayTeam,
                 home: homeTeam,
                 isUserMatchup: away.franchiseID == workspace.franchiseID || home.franchiseID == workspace.franchiseID,
-                status: isCompleted ? .final : gameStatus(for: [away, home])
+                status: isCompleted ? .final : Self.gameStatus(for: [away, home])
             )
         }
 
@@ -1073,15 +1073,19 @@ actor LiveMFLRepository: LeagueRepository {
         )
     }
 
-    private func gameStatus(for franchises: [MFLLiveFranchise]) -> GameStatus {
-        if franchises.contains(where: { $0.playersCurrentlyPlaying > 0 }) {
+    nonisolated static func gameStatus(for franchises: [MFLLiveFranchise]) -> GameStatus {
+        let starters = franchises.flatMap(\.players).filter(\.isStarter)
+        // Some exports omit aggregate counts. A reported starter clock can
+        // still prove a game is underway; an absent clock cannot.
+        if franchises.contains(where: { $0.playersCurrentlyPlaying > 0 }) || starters.contains(where: {
+            $0.hasReportedGameSecondsRemaining && (1..<3_600).contains($0.gameSecondsRemaining)
+        }) {
             return .live("In progress")
         }
         if franchises.contains(where: { $0.playersYetToPlay > 0 }) {
             return .pregame(nil)
         }
         // Missing clocks/zero preseason totals are not evidence of a final game.
-        let starters = franchises.flatMap(\.players).filter(\.isStarter)
         if !starters.isEmpty, starters.allSatisfy({ $0.hasReportedGameSecondsRemaining && $0.gameSecondsRemaining == 0 }) {
             return .final
         }

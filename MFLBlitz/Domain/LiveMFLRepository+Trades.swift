@@ -174,7 +174,7 @@ extension LiveMFLRepository {
             }
         }
         if confirmed { try privateStore.remove("trade.pending.\(workspace.storageScope)") }
-        return TradeReceipt(confirmed: confirmed, message: confirmed ? message : "MFL hasn’t confirmed the outcome yet. Check the trade on MFL; do not send it again.")
+        return TradeReceipt(confirmed: confirmed, message: confirmed ? message : "MFL hasn’t confirmed the outcome yet. Check the trade on MFL; do not send it again.", snapshot: fresh)
     }
 
     func acknowledgeUnconfirmedTrade() async throws {

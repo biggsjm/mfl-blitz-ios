@@ -1,8 +1,20 @@
 import Foundation
+import MFLCore
 import Testing
 @testable import MFLBlitz
 
 struct ScoringAndCacheTests {
+    @Test("Player clocks distinguish live, pregame, final and unknown when team-level live counts are absent", arguments: [1_800, 3_600, 0, -1])
+    func playerClockFallback(seconds: Int) throws {
+        let clock = seconds < 0 ? "" : ",\"gameSecondsRemaining\":\"\(seconds)\""
+        let json = "{\"id\":\"0001\",\"players\":{\"player\":[{\"id\":\"101\",\"status\":\"starter\"\(clock)},{\"id\":\"102\",\"status\":\"nonstarter\",\"gameSecondsRemaining\":\"1800\"}]}}"
+        let team = try JSONDecoder().decode(MFLLiveFranchise.self, from: Data(json.utf8))
+        let status = LiveMFLRepository.gameStatus(for: [team])
+        #expect(status.isLive == (seconds == 1_800))
+        if seconds == 0 { #expect(status == .final) }
+        if seconds == 3_600 || seconds < 0 { #expect(status == .pregame(nil)) }
+    }
+
     @Test("Scoring and editing share stable FLEX assignments regardless of response ordering")
     func consistentFlex() {
         let lineup = SampleData.lineup

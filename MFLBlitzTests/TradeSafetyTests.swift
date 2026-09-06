@@ -4,6 +4,23 @@ import Testing
 @testable import MFLBlitz
 
 struct TradeSafetyTests {
+    @Test("A trade response reuses authoritative readback instead of downloading the inbox twice")
+    @MainActor func responseRequestBudget() async throws {
+        let transport = MutationFixtureTransport()
+        await transport.seedTrade()
+        let repository = try await connected(transport)
+        let workspace = try await repository.loadWorkspace()
+        let model = TransactionsModel(repository: repository, workspace: workspace, privateStore: MemoryPrivateStore())
+        await model.refresh()
+        let offer = try #require(model.snapshot.offers.first)
+        #expect(await model.perform(.respond(offer, .accept, comments: "")))
+        #expect(model.snapshot.offers.isEmpty && model.readError == nil)
+        #expect(await transport.imports == ["tradeResponse"])
+        // Initial inbox, fresh preflight, authoritative readback. No fourth read.
+        #expect(await transport.requestCounts["pendingTrades"] == 3)
+        #expect(await transport.requestCounts["assets"] == 3)
+    }
+
     private func connected(_ transport: MutationFixtureTransport, store: MemoryPrivateStore = MemoryPrivateStore()) async throws -> LiveMFLRepository {
         try store.encode(SavedSession(cookie: "synthetic-cookie", season: 2026, leagueID: "41333", franchiseID: "0001"), key: "session")
         let repository = LiveMFLRepository(privateStore: store, transport: transport, requestInterval: .zero)

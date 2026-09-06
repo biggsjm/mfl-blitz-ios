@@ -78,6 +78,8 @@ struct PendingTradeAction: Codable, Sendable {
 struct TradeReceipt: Sendable {
     var confirmed: Bool
     var message: String
+    /// The authoritative readback can also update the inbox without another request.
+    var snapshot: TradeSnapshot? = nil
 }
 
 struct TransactionActivity: Identifiable, Sendable {

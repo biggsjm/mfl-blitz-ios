@@ -53,8 +53,15 @@ public struct MFLPendingTrade: Equatable, Sendable, Identifiable {
               Set(giving).count == giving.count, Set(receiving).count == receiving.count else { throw MFLCoreError.invalidResponse }
         comments = text("comments") ?? ""
         description = text("description") ?? ""
-        expires = text("expires", "willExpire").flatMap(TimeInterval.init).flatMap { $0 > 0 ? Date(timeIntervalSince1970: $0) : nil }
-        timestamp = text("timestamp").flatMap(TimeInterval.init).map(Date.init(timeIntervalSince1970:))
+        func date(_ raw: String?, zeroMeansNone: Bool = false) throws -> Date? {
+            guard let raw else { return nil }
+            guard let seconds = TimeInterval(raw), seconds.isFinite,
+                  seconds >= 0, seconds < Double(Int.max) else { throw MFLCoreError.invalidResponse }
+            if zeroMeansNone && seconds == 0 { return nil }
+            return Date(timeIntervalSince1970: seconds)
+        }
+        expires = try date(text("expires", "willExpire"), zeroMeansNone: true)
+        timestamp = try date(text("timestamp"))
         status = text("status")
     }
 }

@@ -10,6 +10,8 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 This is a private Week 1 testing build with a tested MFL API foundation. The app includes an interactive **Champion Hall** preview based on league `41333`. Connect mode talks directly to MFL. Lineup submission, supported conditional blind-bid queues, and board posts are enabled with server readback and no automatic write retries. MFL accepts lineup tiebreakers but does not expose their saved state for confirmation. Fixture tests do not replace live league validation: follow the [Week 1 checklist](docs/week-1-testing.md) before inviting the league.
 
+The [0.3.3 performance audit and two-week synthetic-manager scenarios](docs/two-week-synthetic-testing.md) document cache/request improvements, bug fixes, test coverage, and remaining live-testing limits.
+
 The current build includes:
 
 - a scores-first game-day dashboard with the user's matchup featured and tappable position-by-position live scoring for every matchup;

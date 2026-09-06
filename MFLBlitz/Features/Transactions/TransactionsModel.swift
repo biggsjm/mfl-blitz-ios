@@ -140,7 +140,11 @@ final class TransactionsModel {
                 draft = nil
                 if !isDemo, let workspace { try privateStore.remove("trade.draft.\(workspace.storageScope)") }
             }
-            do { snapshot = try await repository.loadTrades(); readError = nil }
+            do {
+                if let fresh = receipt.snapshot { snapshot = fresh }
+                else { snapshot = try await repository.loadTrades() }
+                readError = nil
+            }
             catch { readError = "Trade action checked, but the list couldn’t refresh. Pull to retry." }
             return receipt.confirmed
         } catch {
@@ -163,7 +167,8 @@ final class TransactionsModel {
             }
             pending = try await repository.pendingTradeAction()
             notice = receipt.message
-            snapshot = try await repository.loadTrades()
+            if let fresh = receipt.snapshot { snapshot = fresh }
+            else { snapshot = try await repository.loadTrades() }
             readError = nil
         } catch { notice = "The outcome still couldn’t be verified. Check MFL before sending anything again." }
     }

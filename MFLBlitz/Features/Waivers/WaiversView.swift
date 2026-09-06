@@ -18,6 +18,7 @@ struct WaiversView: View {
     }
 
     var body: some View {
+        let candidates = filteredCandidates
         List {
             if model.isLoadingWaivers {
                 ProgressView("Loading waivers…")
@@ -131,7 +132,7 @@ struct WaiversView: View {
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
                     .listRowBackground(Color.clear)
 
-                ForEach(filteredCandidates) { candidate in
+                ForEach(candidates) { candidate in
                     let hasClaim = model.waivers.claims.contains(where: { $0.player.id == candidate.id })
                     WaiverCandidateRow(
                         candidate: candidate,
@@ -157,7 +158,7 @@ struct WaiversView: View {
             } header: {
                 Text("Available players")
             } footer: {
-                if filteredCandidates.isEmpty && !model.isLoadingWaivers && model.waiverReadError == nil {
+                if candidates.isEmpty && !model.isLoadingWaivers && model.waiverReadError == nil {
                     Text("No players match these filters.")
                 }
             }

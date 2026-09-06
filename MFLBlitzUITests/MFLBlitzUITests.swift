@@ -2,6 +2,73 @@ import XCTest
 
 final class MFLBlitzUITests: XCTestCase {
     @MainActor
+    func testTwoWeekManagerJourneyInOfflinePreview() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let preview = app.buttons["Preview Champion Hall"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        preview.tap()
+        // Explicitly verify offline mode before exercising a final submit button.
+        XCTAssertTrue(app.staticTexts["Preview mode. Changes stay on this device."].waitForExistence(timeout: 3))
+        for week in 1...2 {
+            app.tabBars.buttons["Lineup"].tap()
+            if week == 2 {
+                app.buttons["Week 1"].tap()
+                app.buttons["Week 2"].tap()
+            }
+            let replace = app.buttons["lineup-replace-15256"]
+            for _ in 0..<10 where !replace.isHittable { app.swipeUp() }
+            XCTAssertTrue(replace.isHittable)
+            replace.tap()
+            XCTAssertTrue(app.navigationBars["Replace FLEX"].waitForExistence(timeout: 3))
+            XCTAssertTrue(app.staticTexts["lineup-replacement-starter-projection"].exists)
+            app.buttons["lineup-replacement-15757"].tap()
+            if week == 2 {
+                XCTAssertTrue(app.staticTexts["Choose one bench tiebreaker before submitting changes"].firstMatch.exists)
+                XCTAssertFalse(app.buttons["Review & submit lineup"].isEnabled)
+                let tiebreaker = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Bench tiebreaker")).firstMatch
+                for _ in 0..<10 where !tiebreaker.isHittable { app.swipeUp() }
+                XCTAssertTrue(tiebreaker.isHittable)
+                tiebreaker.tap()
+                app.buttons["Kyler Murray · QB"].tap()
+            }
+            app.buttons["Review & submit lineup"].tap()
+            let submit = app.buttons["lineup-confirm-submit"]
+            XCTAssertTrue(submit.waitForExistence(timeout: 3))
+            XCTAssertTrue(submit.isEnabled && submit.isHittable)
+            let review = XCTAttachment(screenshot: app.screenshot())
+            review.name = "Synthetic manager Week \(week) lineup review"; review.lifetime = .keepAlways; add(review)
+            submit.tap()
+            XCTAssertTrue(app.alerts["All set"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["Demo lineup saved on this device."].exists)
+            app.alerts.buttons["OK"].tap()
+            XCTAssertFalse(app.buttons["Review & submit lineup"].exists)
+
+            app.tabBars.buttons["Scores"].tap()
+            let matchup = app.buttons["matchup-0001-0008"]
+            XCTAssertTrue(matchup.waitForExistence(timeout: 3))
+            matchup.tap()
+            XCTAssertTrue(app.navigationBars["Week \(week) Matchup"].waitForExistence(timeout: 3))
+            let flex = app.staticTexts["position-FLEX"]
+            for _ in 0..<12 where !flex.isHittable { app.swipeUp() }
+            XCTAssertTrue(flex.isHittable)
+            app.navigationBars.buttons.firstMatch.tap()
+
+            app.tabBars.buttons["Transactions"].tap()
+            app.segmentedControls.buttons["Waivers"].tap()
+            XCTAssertTrue(app.textFields["waiver-search"].waitForExistence(timeout: 3))
+            app.segmentedControls.buttons["Trades"].tap()
+            XCTAssertTrue(app.buttons["trade-new"].waitForExistence(timeout: 3))
+            app.segmentedControls.buttons["Activity"].tap()
+            XCTAssertTrue(app.staticTexts["$3.00 bid"].waitForExistence(timeout: 3))
+            app.tabBars.buttons["Standings"].tap()
+            XCTAssertTrue(app.buttons["standings-order-info"].waitForExistence(timeout: 3))
+            app.tabBars.buttons["Board"].tap()
+            XCTAssertTrue(app.buttons["New thread"].waitForExistence(timeout: 3))
+        }
+    }
+
+    @MainActor
     func testFlexReplacementShowsLeagueEligiblePositions() throws {
         let app = XCUIApplication()
         app.launch()

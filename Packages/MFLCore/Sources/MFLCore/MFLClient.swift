@@ -699,6 +699,7 @@ public actor MFLClient {
            cached.fetchedAt <= Date(),
            maximumAge.map({ Date().timeIntervalSince(cached.fetchedAt) < $0 }) ?? true
         {
+            if let players = cached.players as? Value { return players }
             return try responseDecoder.decode(type, from: cached.data)
         }
 
@@ -711,6 +712,7 @@ public actor MFLClient {
                 return try await export(type, endpoint: endpoint, host: host, leagueID: leagueID,
                     parameters: parameters, ttl: ttl, refreshPolicy: .reloadIgnoringCache, maximumAge: maximumAge)
             }
+            if readVersions[key] == read.id, let players = cache[key]?.players as? Value { return players }
             return try responseDecoder.decode(type, from: value.data)
         }
         let request = try requestBuilder.makeExportRequest(
@@ -727,19 +729,33 @@ public actor MFLClient {
         let value: MFLStoredResponse
         if refreshPolicy == .useCache, ttl > 0 {
             let task = Task {
+                let value: MFLStoredResponse
+                let decoded: Value
                 if let stored = await persistentStore?.read(),
                    stored.isFresh(key: persistentKey, ttl: min(ttl, 86_400)),
-                   (try? self.responseDecoder.decode(type, from: stored.data)) != nil {
+                   let storedValue = try? self.responseDecoder.decode(type, from: stored.data) {
                     #if DEBUG
                     print("[MFL cache] public player directory: disk hit")
                     #endif
-                    return stored
+                    value = stored
+                    decoded = storedValue
+                } else {
+                    let data = try await self.exportData(request)
+                    // Do not publish malformed responses to either cache.
+                    decoded = try self.responseDecoder.decode(type, from: data)
+                    #if DEBUG
+                    if persistentStore != nil { print("[MFL cache] public player directory: downloaded") }
+                    #endif
+                    value = MFLStoredResponse(key: persistentKey, data: data)
                 }
-                let data = try await self.exportData(request)
-                #if DEBUG
-                if persistentStore != nil { print("[MFL cache] public player directory: downloaded") }
-                #endif
-                return MFLStoredResponse(key: persistentKey, data: data)
+                // The read belongs to all waiters, not the caller that started
+                // it. Publish before checking any individual caller's cancellation.
+                if self.readVersions[key] == version {
+                    self.cache[key] = CacheEntry(data: value.data, fetchedAt: value.fetchedAt,
+                        expiresAt: value.fetchedAt.addingTimeInterval(ttl), players: decoded as? MFLPlayersResponse)
+                    await persistentStore?.write(value)
+                }
+                return value
             }
             sharedReads[key] = (version, task)
             defer { if sharedReads[key]?.id == version { sharedReads[key] = nil } }
@@ -750,9 +766,12 @@ public actor MFLClient {
             value = MFLStoredResponse(key: persistentKey, data: try await exportData(request))
         }
         try Task.checkCancellation()
+        if refreshPolicy == .useCache, readVersions[key] == version,
+           let players = cache[key]?.players as? Value { return players }
         let decoded = try responseDecoder.decode(type, from: value.data)
-        if ttl > 0, readVersions[key] == version {
-            cache[key] = CacheEntry(data: value.data, fetchedAt: value.fetchedAt, expiresAt: value.fetchedAt.addingTimeInterval(ttl))
+        if refreshPolicy == .reloadIgnoringCache, ttl > 0, readVersions[key] == version {
+            cache[key] = CacheEntry(data: value.data, fetchedAt: value.fetchedAt,
+                expiresAt: value.fetchedAt.addingTimeInterval(ttl), players: decoded as? MFLPlayersResponse)
             await persistentStore?.write(value)
         }
         return decoded
@@ -849,7 +868,9 @@ public actor MFLClient {
 
     private func validateHTTP(_ response: MFLHTTPResponse) throws {
         if response.statusCode == 429 {
-            let retryAfter = response.value(forHeader: "Retry-After").flatMap(TimeInterval.init)
+            let retryAfter = response.value(forHeader: "Retry-After").flatMap(TimeInterval.init).flatMap {
+                $0.isFinite && $0 >= 0 && $0 < Double(Int.max) / 2 ? $0 : nil
+            }
             rateLimitedUntil = Date().addingTimeInterval(max(1, retryAfter ?? 90))
             throw MFLCoreError.rateLimited(retryAfter: retryAfter)
         }
@@ -1023,6 +1044,9 @@ private struct CacheEntry: Sendable {
     let data: Data
     let fetchedAt: Date
     let expiresAt: Date
+    // Immutable, typed catalog shares the raw entry's exact expiry/invalidation.
+    // Keeping this decoded avoids parsing thousands of players on every tab.
+    let players: MFLPlayersResponse?
 }
 
 private final class MFLLoginXMLDelegate: NSObject, XMLParserDelegate, @unchecked Sendable {

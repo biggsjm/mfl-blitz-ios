@@ -48,6 +48,10 @@ Test a FLEX RB → WR or TE draft swap, cancel once, then select and review. Ver
 
 ## Implementation evidence
 
+### Performance and simulated managers — 0.3.3 (11)
+
+See the [two-week synthetic-manager report](two-week-synthetic-testing.md) for four test profiles, accelerated game-week journeys, request/decoding optimizations, and bug fixes. These scenarios never contact the real league and do not replace the kickoff/processing checks above. Native UI coverage includes the Week 2 bench-tiebreaker requirement: submit remains unavailable until a valid nonstarter is chosen.
+
 ### Daily cache and scoring slots — 0.3.2 (10)
 
 - Open the app, allow data to load, close it, and reopen. The public player directory should reuse its original daily download; league membership is still verified. Tests cover disk-store recreation, expiry without extending the fetch date, future dates, wrong seasons, corrupt files, forced refreshes, and private-response isolation.
