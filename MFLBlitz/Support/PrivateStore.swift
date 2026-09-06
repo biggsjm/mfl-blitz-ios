@@ -86,6 +86,7 @@ struct LineupDraft: Codable, Equatable, Sendable {
     var starters: Set<String>
     var tiebreakers: [String]
     var submittedTiebreakers: [String] = []
+    var startingAssignments: [LineupSlotAssignment]? = nil
 }
 
 struct BoardDraft: Codable, Equatable, Sendable {

@@ -2,6 +2,78 @@ import XCTest
 
 final class MFLBlitzUITests: XCTestCase {
     @MainActor
+    func testStarterCanSwapBetweenRunningBackAndFlexWithoutChangingMembership() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        app.tabBars.buttons["Lineup"].tap()
+        let rb = app.buttons["lineup-replace-14073"]
+        for _ in 0..<10 where !rb.isHittable { app.swipeUp() }
+        rb.tap()
+        XCTAssertTrue(app.navigationBars["Replace RB"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["lineup-replacement-15712"].exists) // Bench RB.
+        let flex = app.buttons["lineup-replacement-15256"]
+        for _ in 0..<8 where !flex.isHittable { app.swipeUp() }
+        XCTAssertTrue(flex.isHittable)
+        XCTAssertTrue(flex.label.contains("FLEX → RB"))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "RB replacements — bench and FLEX starters"; screenshot.lifetime = .keepAlways; add(screenshot)
+        flex.tap()
+        XCTAssertTrue(app.navigationBars["Lineup"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Review & submit lineup"].exists) // Same starters, only local slots change.
+        let moved = app.buttons["lineup-replace-15256"]
+        for _ in 0..<8 where !moved.isHittable { app.swipeDown() }
+        moved.tap()
+        XCTAssertTrue(app.navigationBars["Replace RB"].waitForExistence(timeout: 3))
+        let reverse = app.buttons["lineup-replacement-14073"]
+        for _ in 0..<8 where !reverse.isHittable { app.swipeUp() }
+        XCTAssertTrue(reverse.label.contains("FLEX → RB"))
+        reverse.tap()
+        XCTAssertTrue(app.navigationBars["Lineup"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Review & submit lineup"].exists)
+    }
+
+    @MainActor
+    func testCrossPositionStarterMoveCanCancelThenFillWithoutSubmitting() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        app.tabBars.buttons["Lineup"].tap()
+        let flex = app.buttons["lineup-replace-15256"]
+        for _ in 0..<10 where !flex.isHittable { app.swipeUp() }
+        flex.tap()
+        let wr = app.buttons["lineup-replacement-15284"]
+        for _ in 0..<10 where !wr.isHittable { app.swipeUp() }
+        XCTAssertTrue(wr.isHittable)
+        XCTAssertTrue(wr.label.contains("WR → FLEX"))
+        wr.tap()
+        XCTAssertTrue(app.navigationBars["Fill WR"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Jaylen Waddle → FLEX"].exists)
+        XCTAssertFalse(app.staticTexts["Choose a player for Jaylen Waddle’s WR slot."].exists)
+        XCTAssertTrue(app.buttons["lineup-fill-15757"].exists) // Bench WR.
+        XCTAssertTrue(app.buttons["lineup-fill-16080"].exists) // WR currently in the other FLEX slot.
+        XCTAssertTrue(app.buttons["lineup-fill-15757"].label.contains("Javonte Williams moves to the bench"))
+        XCTAssertTrue(app.buttons["lineup-fill-16080"].label.contains("Javonte Williams moves to the other FLEX slot"))
+        XCTAssertFalse(app.buttons["lineup-fill-15712"].exists) // Cannot put an RB in WR.
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Cross-position move — fill WR before applying"; screenshot.lifetime = .keepAlways; add(screenshot)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.navigationBars["Lineup"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Review & submit lineup"].exists)
+        for _ in 0..<10 where !flex.isHittable { app.swipeUp() }
+        flex.tap()
+        for _ in 0..<10 where !wr.isHittable { app.swipeUp() }
+        wr.tap()
+        app.buttons["lineup-fill-15757"].tap()
+        XCTAssertTrue(app.navigationBars["Lineup"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Review & submit lineup"].waitForExistence(timeout: 3))
+        app.buttons["Review & submit lineup"].tap()
+        XCTAssertTrue(app.navigationBars["Review lineup"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["lineup-confirm-submit"].isEnabled)
+        app.buttons["Cancel"].tap() // Offline draft only; no league submissions.
+    }
+
+    @MainActor
     func testLineupPlayIconKeepsLabelAndSelection() throws {
         let app = XCUIApplication()
         app.launch()

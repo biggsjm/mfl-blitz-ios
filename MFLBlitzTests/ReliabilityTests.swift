@@ -46,7 +46,11 @@ actor ReliabilityRepository: LeagueRepository {
     func loadLineup(week: Int) async throws -> LineupSnapshot {
         var result = testLineup; result.week = week; return result
     }
-    func submitLineup(_ lineup: LineupSnapshot) async throws { testLineup = lineup }
+    func submitLineup(_ lineup: LineupSnapshot) async throws {
+        testLineup = lineup
+        testLineup.serverStarterPlayerIDs = Set(lineup.starters.map(\.id))
+        testLineup.preferredStartingAssignments = nil // MFL does not store presentation slots.
+    }
     func loadWaivers() async throws -> WaiverSnapshot {
         waiverLoads += 1
         if let waiverReadFailure { throw waiverReadFailure }

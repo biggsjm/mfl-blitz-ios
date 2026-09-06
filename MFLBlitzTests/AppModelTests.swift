@@ -37,7 +37,7 @@ struct AppModelTests {
         #expect(model.lineupValidationMessage == "Choose 1 more starter")
     }
 
-    @Test("Replacement picker filters the bench by the starter's exact position",
+    @Test("Fixed-position replacement picker includes eligible bench players and starters",
           arguments: ["QB", "RB", "WR", "TE"])
     func replacementPositions(position: String) throws {
         let model = AppModel(repository: DemoLeagueRepository())
@@ -45,7 +45,7 @@ struct AppModelTests {
         let request = try #require(model.replacementRequest(for: starter.id))
         let candidates = model.replacementCandidates(for: request)
         #expect(!candidates.isEmpty)
-        #expect(candidates.allSatisfy { $0.position == position && !$0.isStarter && !$0.isLocked && $0.injuryStatus != .injuredReserve })
+        #expect(candidates.allSatisfy { $0.position == position && !$0.isLocked && $0.injuryStatus != .injuredReserve })
         #expect(!candidates.contains { $0.id == starter.id })
         #expect(model.lineup == SampleData.lineup) // Opening/canceling does not edit.
     }
@@ -78,11 +78,11 @@ struct AppModelTests {
         model.lineup.players[lockedIndex].isLocked = true
         let missingIndex = try #require(model.lineup.players.firstIndex { $0.id == "16596" })
         model.lineup.players[missingIndex].projectedPoints = nil
-        #expect(model.replacementCandidates(for: request).map(\.id) == ["17047", "16596"])
+        #expect(model.replacementCandidates(for: request).filter { !$0.isStarter }.map(\.id) == ["17047", "16596"])
         #expect(!model.replaceStarter(request, with: "15712"))
         #expect(!model.replaceStarter(request, with: "16222"))
         let otherStarter = try #require(model.lineup.players.first { $0.id == "13319" })
-        #expect(!model.replaceStarter(request, with: otherStarter.id))
+        #expect(model.replacementCandidates(for: request).contains { $0.id == otherStarter.id })
         // A kickoff while the picker is open must invalidate the outgoing player too.
         model.lineup.players[1].isLocked = true
         #expect(model.replacementCandidates(for: request).isEmpty)

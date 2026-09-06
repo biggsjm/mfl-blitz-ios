@@ -23,6 +23,9 @@ final class AppModel {
         let slotLabel: String
         let week: Int
         fileprivate let sessionGeneration: Int
+        fileprivate let assignments: [LineupSlotAssignment]
+        fileprivate let positionRequirements: [LineupPositionRequirement]
+        fileprivate let requiredStarterCount: Int
     }
 
     var phase: Phase = .onboarding
@@ -394,7 +397,8 @@ final class AppModel {
     func replacementRequest(for starterID: String) -> LineupReplacementRequest? {
         guard let slot = lineup.startingSlots.first(where: { $0.id == starterID }) else { return nil }
         let request = LineupReplacementRequest(starter: slot.player, slotLabel: slot.label, week: lineup.week,
-                                               sessionGeneration: sessionGeneration)
+            sessionGeneration: sessionGeneration, assignments: lineup.startingAssignments,
+            positionRequirements: lineup.positionRequirements, requiredStarterCount: lineup.requiredStarterCount)
         return replaceableStarter(for: request) == nil ? nil : request
     }
 
@@ -402,10 +406,18 @@ final class AppModel {
         guard let starter = replaceableStarter(for: request) else { return [] }
         let positions = lineup.replacementPositions(for: starter.id)
         let playersByID = Dictionary(grouping: lineup.players, by: \.id)
-        return lineup.bench.filter {
-            positions.contains($0.position) && !$0.isLocked && $0.injuryStatus != .injuredReserve
-                && playersByID[$0.id]?.count == 1
-        }.sorted { lhs, rhs in
+        return sortReplacementPlayers(lineup.players.filter { player in
+            guard player.id != starter.id, !player.isLocked, player.injuryStatus != .injuredReserve,
+                  playersByID[player.id]?.count == 1 else { return false }
+            if player.isStarter {
+                return lineup.hasValidStarterPositions && lineup.isEligible(player, forSlot: request.slotLabel)
+            }
+            return positions.contains(player.position)
+        })
+    }
+
+    private func sortReplacementPlayers(_ players: [LineupPlayer]) -> [LineupPlayer] {
+        players.sorted { lhs, rhs in
             // Unpublished projections sort after every published value, even zero.
             if lhs.projectedPoints != rhs.projectedPoints {
                 return (lhs.projectedPoints ?? -.infinity) > (rhs.projectedPoints ?? -.infinity)
@@ -415,22 +427,81 @@ final class AppModel {
         }
     }
 
+    func replacementNeedsFollowUp(for request: LineupReplacementRequest, with playerID: String) -> Bool {
+        guard let starter = replaceableStarter(for: request),
+              let source = lineup.startingSlots.first(where: { $0.id == playerID }) else { return false }
+        return !lineup.isEligible(starter, forSlot: source.label)
+    }
+
+    func replacementFollowUpCandidates(for request: LineupReplacementRequest, with playerID: String) -> [LineupPlayer] {
+        guard replacementCandidates(for: request).contains(where: { $0.id == playerID }),
+              replacementNeedsFollowUp(for: request, with: playerID),
+              let source = lineup.startingSlots.first(where: { $0.id == playerID }) else { return [] }
+        let counts = Dictionary(grouping: lineup.players, by: \.id)
+        return sortReplacementPlayers(lineup.players.filter { player in
+            guard !player.isLocked, player.injuryStatus != .injuredReserve, counts[player.id]?.count == 1,
+                  player.id != request.starter.id, player.id != playerID,
+                  lineup.isEligible(player, forSlot: source.label) else { return false }
+            if player.isStarter {
+                // A third starter in FLEX can fill the fixed slot while the
+                // original outgoing player rotates into their FLEX slot.
+                return lineup.startingSlots.contains { $0.id == player.id && $0.isFlex }
+                    && lineup.isEligible(request.starter, forSlot: "FLEX")
+            }
+            var proposed = lineup
+            for index in proposed.players.indices {
+                if proposed.players[index].id == request.starter.id { proposed.players[index].isStarter = false }
+                if proposed.players[index].id == player.id { proposed.players[index].isStarter = true }
+            }
+            return proposed.hasValidStarterPositions
+        })
+    }
+
     func replacementPositions(for request: LineupReplacementRequest) -> [String] {
         guard replaceableStarter(for: request) != nil else { return [] }
         return lineup.replacementPositions(for: request.starter.id)
     }
 
     @discardableResult
-    func replaceStarter(_ request: LineupReplacementRequest, with replacementID: String) -> Bool {
+    func replaceStarter(_ request: LineupReplacementRequest, with replacementID: String,
+                        fillingVacatedSlotWith fillID: String? = nil) -> Bool {
         // Revalidate at selection time: a refresh, kickoff, week switch, or
         // account change may have happened while the picker was open.
         guard replacementCandidates(for: request).contains(where: { $0.id == replacementID }),
               let outgoing = lineup.players.firstIndex(where: { $0.id == request.starter.id }),
               let incoming = lineup.players.firstIndex(where: { $0.id == replacementID }) else { return false }
         var updated = lineup
-        updated.players[outgoing].isStarter = false
-        updated.players[incoming].isStarter = true
-        updated.tiebreakerPlayerIDs.removeAll { $0 == replacementID }
+        var assignments = lineup.startingAssignments
+        guard let target = assignments.firstIndex(where: { $0.playerID == request.starter.id }) else { return false }
+        if updated.players[incoming].isStarter {
+            guard let source = assignments.firstIndex(where: { $0.playerID == replacementID }) else { return false }
+            if replacementNeedsFollowUp(for: request, with: replacementID) {
+                // A cross-position move is staged in the picker, then applied
+                // atomically only after the user fills the vacated fixed slot.
+                guard let fillID,
+                      replacementFollowUpCandidates(for: request, with: replacementID).contains(where: { $0.id == fillID }),
+                      let fill = updated.players.firstIndex(where: { $0.id == fillID }) else { return false }
+                if updated.players[fill].isStarter {
+                    guard let third = assignments.firstIndex(where: { $0.playerID == fillID }) else { return false }
+                    assignments[third].playerID = request.starter.id
+                } else {
+                    updated.players[outgoing].isStarter = false
+                    updated.players[fill].isStarter = true
+                    updated.tiebreakerPlayerIDs.removeAll { $0 == fillID }
+                }
+                assignments[source].playerID = fillID
+            } else {
+                guard fillID == nil else { return false }
+                assignments[source].playerID = request.starter.id
+            }
+        } else {
+            guard fillID == nil else { return false }
+            updated.players[outgoing].isStarter = false
+            updated.players[incoming].isStarter = true
+            updated.tiebreakerPlayerIDs.removeAll { $0 == replacementID }
+        }
+        assignments[target].playerID = replacementID
+        updated.preferredStartingAssignments = assignments
         lineup = updated
         saveLineupDraft()
         lineupRevision &+= 1
@@ -440,6 +511,9 @@ final class AppModel {
     private func replaceableStarter(for request: LineupReplacementRequest) -> LineupPlayer? {
         guard canChangeLineupDraft, request.sessionGeneration == sessionGeneration,
               request.week == lineup.week,
+              request.assignments == lineup.startingAssignments,
+              request.positionRequirements == lineup.positionRequirements,
+              request.requiredStarterCount == lineup.requiredStarterCount,
               lineup.startingSlots.first(where: { $0.id == request.starter.id })?.label == request.slotLabel else { return nil }
         let matches = lineup.players.filter { $0.id == request.starter.id }
         guard matches.count == 1, let starter = matches.first,
@@ -531,7 +605,8 @@ final class AppModel {
                 drafts.lineups[submittedLineup.week] = LineupDraft(
                     baseline: lineup.serverStarterPlayerIDs, starters: lineup.serverStarterPlayerIDs,
                     tiebreakers: submittedLineup.tiebreakerPlayerIDs,
-                    submittedTiebreakers: submittedLineup.tiebreakerPlayerIDs)
+                    submittedTiebreakers: submittedLineup.tiebreakerPlayerIDs,
+                    startingAssignments: lineup.preferredStartingAssignments)
                 persistDrafts()
             }
             if isDemo {
@@ -561,6 +636,7 @@ final class AppModel {
             && reviewed.requiredTiebreakerCount == lineup.requiredTiebreakerCount
             && reviewed.positionRequirements == lineup.positionRequirements
             && Set(reviewed.starters.map(\.id)) == Set(lineup.starters.map(\.id))
+            && reviewed.startingAssignments == lineup.startingAssignments
             && reviewed.tiebreakerPlayerIDs == lineup.tiebreakerPlayerIDs
     }
 
@@ -986,6 +1062,7 @@ extension AppModel {
             baseline: lineup.serverStarterPlayerIDs, starters: [], tiebreakers: [])
         draft.starters = Set(lineup.starters.map(\.id))
         draft.tiebreakers = lineup.tiebreakerPlayerIDs
+        draft.startingAssignments = lineup.preferredStartingAssignments
         drafts.lineups[lineup.week] = draft
         persistDrafts()
     }
@@ -1006,9 +1083,12 @@ extension AppModel {
         guard let saved, dirty else {
             let retained = saved?.tiebreakers.filter { id in fresh.bench.contains { $0.id == id } } ?? []
             lineup.tiebreakerPlayerIDs = retained
+            if saved?.starters == Set(fresh.starters.map(\.id)) {
+                lineup.preferredStartingAssignments = saved?.startingAssignments
+            }
             drafts.lineups[fresh.week] = LineupDraft(baseline: fresh.serverStarterPlayerIDs,
                 starters: Set(fresh.starters.map(\.id)), tiebreakers: retained,
-                submittedTiebreakers: retained)
+                submittedTiebreakers: retained, startingAssignments: lineup.preferredStartingAssignments)
             persistDrafts()
             return
         }
@@ -1023,6 +1103,7 @@ extension AppModel {
             } else { lineup.players[index].isStarter = desired }
         }
         lineup.tiebreakerPlayerIDs = saved.tiebreakers
+        lineup.preferredStartingAssignments = saved.startingAssignments
     }
 
     func discardLineupDraft() {

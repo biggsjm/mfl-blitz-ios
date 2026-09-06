@@ -141,6 +141,8 @@ struct LineupSnapshot: Equatable, Sendable {
     var editState: LineupEditState = .unavailable(
         "MFL hasn’t returned a complete saved lineup for this week."
     )
+    /// Local presentation only. MFL accepts starter IDs, not named slot assignments.
+    var preferredStartingAssignments: [LineupSlotAssignment]? = nil
 
     var starters: [LineupPlayer] { players.filter(\.isStarter) }
     var bench: [LineupPlayer] { players.filter { !$0.isStarter } }
@@ -155,6 +157,7 @@ struct LineupSnapshot: Equatable, Sendable {
     /// position's required minimum first; the remaining starters fill flex.
     /// These are presentation slots only—the submitted payload stays player IDs.
     var startingSlots: [LineupStartingSlot] {
+        if let preferred = validatedPreferredSlots { return preferred }
         guard hasUsablePositionLimits else { return starters.map { LineupStartingSlot(player: $0, isFlex: false) } }
         let flexIDs = LineupSlotAllocation.flexPlayerIDs(starters.map { ($0.id, $0.position) },
             requirements: positionRequirements, starterCount: requiredStarterCount)
@@ -165,6 +168,40 @@ struct LineupSnapshot: Equatable, Sendable {
         let remaining = starters.filter { !requiredIDs.contains($0.id) }
         return required.map { LineupStartingSlot(player: $0, isFlex: false) }
             + remaining.map { LineupStartingSlot(player: $0, isFlex: flexPositions.contains($0.position)) }
+    }
+
+    var startingAssignments: [LineupSlotAssignment] {
+        startingSlots.map { LineupSlotAssignment(playerID: $0.id, label: $0.label) }
+    }
+
+    func isEligible(_ player: LineupPlayer, forSlot label: String) -> Bool {
+        label == "FLEX" ? flexPositions.contains(player.position) : player.position == label
+    }
+
+    var hasValidStarterPositions: Bool {
+        hasUsablePositionLimits && starters.count == requiredStarterCount
+            && positionRequirements.allSatisfy { rule in
+                (rule.minimum...rule.maximum).contains(starters.count { $0.position == rule.position })
+            }
+    }
+
+    private var validatedPreferredSlots: [LineupStartingSlot]? {
+        guard let assignments = preferredStartingAssignments, hasValidStarterPositions,
+              assignments.count == starters.count,
+              Set(assignments.map(\.playerID)).count == assignments.count,
+              Set(assignments.map(\.playerID)) == Set(starters.map(\.id)),
+              positionRequirements.allSatisfy({ rule in
+                  assignments.count { $0.label == rule.position } == rule.minimum
+              }),
+              assignments.filter({ $0.label == "FLEX" }).count == requiredStarterCount - positionRequirements.map(\.minimum).reduce(0, +)
+        else { return nil }
+        var result: [LineupStartingSlot] = []
+        for assignment in assignments {
+            guard let player = starters.first(where: { $0.id == assignment.playerID }),
+                  isEligible(player, forSlot: assignment.label) else { return nil }
+            result.append(LineupStartingSlot(player: player, isFlex: assignment.label == "FLEX"))
+        }
+        return result
     }
 
     var flexPositions: [String] {
@@ -198,6 +235,11 @@ struct LineupSnapshot: Equatable, Sendable {
         let maximum = positionRequirements.map(\.maximum).reduce(0, +)
         return (minimum...maximum).contains(requiredStarterCount)
     }
+}
+
+struct LineupSlotAssignment: Codable, Equatable, Sendable {
+    var playerID: String
+    let label: String
 }
 
 struct LineupStartingSlot: Identifiable, Equatable, Sendable {

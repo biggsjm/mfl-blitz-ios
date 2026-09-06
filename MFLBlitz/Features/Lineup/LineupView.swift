@@ -147,7 +147,7 @@ struct LineupView: View {
         .refreshable { await model.refreshAll() }
         .sheet(item: $replacementRequest) { request in
             LineupReplacementPicker(request: request)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
         .sheet(item: $reviewedLineup) { review in
@@ -264,16 +264,18 @@ private struct LineupReplacementPicker: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     let request: AppModel.LineupReplacementRequest
+    @State private var path: [String] = []
 
     var body: some View {
-        NavigationStack {
+        let candidates = model.replacementCandidates(for: request)
+        NavigationStack(path: $path) {
             List {
                 Section {
                     HStack(spacing: 12) {
                         PositionBadge(position: request.slotLabel)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(request.starter.name).font(.headline)
-                            Text("\(request.starter.position) · Currently starting · Week \(request.week)")
+                            Text("\(request.starter.position) · Week \(request.week)")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 8)
@@ -287,55 +289,38 @@ private struct LineupReplacementPicker: View {
                     }
                 }
 
-                Section {
-                    if model.isLoadingLineup {
+                if model.isLoadingLineup {
+                    Section {
                         ProgressView("Updating eligible players…")
-                    } else if candidates.isEmpty {
+                    }
+                } else if candidates.isEmpty {
+                    Section {
                         Text("No eligible \(request.slotLabel) replacements")
                             .font(.headline)
-                        Text("No available bench players meet this slot’s league rules, or the lineup has changed. No swap was made.")
+                        Text("No unlocked players meet this slot’s league rules, or the lineup has changed. No swap was made.")
                             .font(.subheadline).foregroundStyle(.secondary)
-                    } else {
-                        ForEach(candidates) { player in
-                            Button {
-                                if model.replaceStarter(request, with: player.id) { dismiss() }
-                            } label: {
-                                HStack(spacing: 12) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(player.name).font(.body.weight(.semibold))
-                                            .foregroundStyle(.primary)
-                                        HStack(spacing: 6) {
-                                            Text("\(player.position) · \(player.nflTeam)")
-                                            if let injury = player.injuryStatus {
-                                                Text(injury.rawValue).foregroundStyle(.orange)
-                                            }
-                                        }
-                                        .font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    Spacer(minLength: 8)
-                                    VStack(alignment: .trailing, spacing: 2) {
-                                        Text(player.projectedPoints.pointsText)
-                                            .font(.body.bold().monospacedDigit()).foregroundStyle(.primary)
-                                        Text("proj").font(.caption2).foregroundStyle(.secondary)
-                                    }
-                                    Image(systemName: "arrow.up.circle.fill")
-                                        .font(.title3).foregroundStyle(Color.blitzGreen)
-                                }
-                                .frame(minHeight: 48)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Replace \(request.starter.name) with \(player.name), \(player.position), \(player.nflTeam), projected \(player.projectedPoints.pointsText) points\(player.injuryStatus.map { ", \($0.label)" } ?? "")")
-                            .accessibilityHint("Swaps the players in your draft. Review and submit to save to MFL.")
-                            .accessibilityIdentifier("lineup-replacement-\(player.id)")
+                    }
+                } else {
+                    let bench = candidates.filter { !$0.isStarter }
+                    let starters = candidates.filter(\.isStarter)
+                    if !bench.isEmpty {
+                        Section {
+                            ForEach(bench) { candidateButton($0) }
+                        } header: {
+                            Text("Bench")
+                        } footer: {
+                            Text("Review & submit to save new starters.")
                         }
                     }
-                } header: {
-                    Text("Bench · \(model.replacementPositions(for: request).joined(separator: " / "))")
-                } footer: {
-                    Text(request.slotLabel == "FLEX"
-                         ? "FLEX eligibility follows your league’s position minimums and maximums. Only swaps that keep a valid lineup are shown, highest projection first. Review and submit to save to MFL."
-                         : "Only eligible \(request.slotLabel) bench players are shown, highest projection first. Choose a replacement, then review and submit your lineup to save to MFL.")
+                    if !starters.isEmpty {
+                        Section {
+                            ForEach(starters) { candidateButton($0) }
+                        } header: {
+                            Text("Already starting")
+                        } footer: {
+                            Text("Slot swaps save on this device.")
+                        }
+                    }
                 }
             }
             .listStyle(.insetGrouped)
@@ -344,10 +329,110 @@ private struct LineupReplacementPicker: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             }
+            .navigationDestination(for: String.self) { playerID in
+                LineupVacatedSlotPicker(request: request, movingPlayerID: playerID) { dismiss() }
+            }
         }
     }
 
-    private var candidates: [LineupPlayer] { model.replacementCandidates(for: request) }
+    private func candidateButton(_ player: LineupPlayer) -> some View {
+        let source = model.lineup.startingSlots.first { $0.id == player.id }?.label
+        let needsFollowUp = model.replacementNeedsFollowUp(for: request, with: player.id)
+        let detail = source.map { $0 == request.slotLabel ? "Starting · \($0)" : "\($0) → \(request.slotLabel)" }
+        return Button {
+            if needsFollowUp { path.append(player.id) }
+            else if model.replaceStarter(request, with: player.id) { dismiss() }
+        } label: {
+            LineupReplacementCandidateRow(player: player, detail: detail,
+                actionIcon: needsFollowUp ? "chevron.right" : player.isStarter ? "arrow.up.arrow.down.circle.fill" : "arrow.up.circle.fill")
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(player.name), \(player.position), \(player.nflTeam), \(detail ?? "Bench"), projected \(player.projectedPoints.pointsText) points\(player.injuryStatus.map { ", \($0.label)" } ?? "")")
+        .accessibilityHint(needsFollowUp ? "Choose who fills the vacated position before applying this move."
+            : player.isStarter ? "Swap slots with \(request.starter.name). Both players remain starters."
+            : "Replace \(request.starter.name) in your draft. Review and submit to save to MFL.")
+        .accessibilityIdentifier("lineup-replacement-\(player.id)")
+    }
+}
+
+private struct LineupVacatedSlotPicker: View {
+    @Environment(AppModel.self) private var model
+    let request: AppModel.LineupReplacementRequest
+    let movingPlayerID: String
+    let onComplete: () -> Void
+
+    var body: some View {
+        let source = model.lineup.startingSlots.first { $0.id == movingPlayerID }
+        let candidates = model.replacementFollowUpCandidates(for: request, with: movingPlayerID)
+        List {
+            Section {
+                if let source {
+                    Text("\(source.player.name) → \(request.slotLabel)").font(.headline)
+                        .padding(.vertical, 4)
+                }
+            }
+            Section {
+                if candidates.isEmpty {
+                    Text("No eligible replacements are available, or the lineup has changed. Go back and choose another player.")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(candidates) { player in
+                    Button {
+                        if model.replaceStarter(request, with: movingPlayerID, fillingVacatedSlotWith: player.id) { onComplete() }
+                    } label: {
+                        LineupReplacementCandidateRow(player: player,
+                            detail: "\(player.isStarter ? "FLEX" : "Bench") → \(source?.label ?? "position")\n\(request.starter.name) → \(player.isStarter ? "FLEX" : "Bench")",
+                            actionIcon: player.isStarter ? "arrow.up.arrow.down.circle.fill" : "arrow.up.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(player.name), \(player.position), projected \(player.projectedPoints.pointsText) points. Moves from \(player.isStarter ? "FLEX" : "bench") to \(source?.label ?? "the open position"). \(request.starter.name) moves to \(player.isStarter ? "the other FLEX slot" : "the bench").")
+                    .accessibilityHint(player.isStarter ? "Rotates three starters between slots. All remain in your lineup."
+                        : "Completes both moves in your draft. Review and submit to save new starters to MFL.")
+                    .accessibilityIdentifier("lineup-fill-\(player.id)")
+                }
+            } footer: {
+                Text("Choose to apply to your draft.")
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Fill \(source?.label ?? "position")")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { Button("Cancel") { onComplete() } }
+        }
+    }
+}
+
+private struct LineupReplacementCandidateRow: View {
+    let player: LineupPlayer
+    let detail: String?
+    let actionIcon: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(player.name).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                    HStack(spacing: 6) {
+                        Text("\(player.position) · \(player.nflTeam)")
+                        if let injury = player.injuryStatus { Text(injury.rawValue).foregroundStyle(.orange) }
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(player.projectedPoints.pointsText)
+                        .font(.body.bold().monospacedDigit()).foregroundStyle(.primary)
+                    Text("proj").font(.caption2).foregroundStyle(.secondary)
+                }
+                .fixedSize(horizontal: true, vertical: false)
+                Image(systemName: actionIcon).font(.title3).foregroundStyle(Color.blitzGreen)
+            }
+            if let detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
+        }
+        .frame(minHeight: 48)
+        .contentShape(Rectangle())
+    }
 }
 
 private struct LineupSummaryCard: View {
@@ -503,8 +588,8 @@ private struct LineupPlayerRow: View {
         if player.injuryStatus == .injuredReserve { return "Move this player off injured reserve on MFL first" }
         if actionTitle == "Replace" {
             return slotLabel == "FLEX"
-                ? "Shows bench players allowed in FLEX by your league’s rules. Choosing one swaps both players in your draft."
-                : "Shows eligible \(player.position) bench players. Choosing one swaps both players in your draft."
+                ? "Shows eligible bench players and starters allowed in FLEX by your league’s rules."
+                : "Shows eligible \(player.position) bench players and starters, including players in FLEX."
         }
         let destination = actionTitle == "Start" ? "starting lineup" : "bench"
         return "Moves this player to the \(destination). Review and submit to send the change to MFL."
