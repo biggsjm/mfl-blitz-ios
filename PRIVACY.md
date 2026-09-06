@@ -2,7 +2,7 @@
 
 Effective September 6, 2026
 
-Implementation reviewed against private build **0.5.1 (20) candidate**. Team/player browsing and the fantasy season schedule read directly from MFL and use memory-only private caches.
+Implementation reviewed against private build **0.5.1 (20)**. Team/player browsing and the fantasy season schedule read directly from MFL and use memory-only private caches.
 
 MFL Blitz is an independent, open-source iOS client for MyFantasyLeague. It has no advertising, analytics, tracking, crash-reporting, or proprietary chat service.
 

@@ -182,7 +182,9 @@ struct RosterManagementView: View {
                                         Button("Drop player", role: .destructive) { selected = .init(kind: .drop, playerID: player.id) }
                                             .disabled(!context.allowed.contains(.drop))
                                     } label: { Image(systemName: "arrow.up.arrow.down.circle").frame(width: 44, height: 44) }
+                                    .buttonStyle(.borderless)
                                     .disabled(model.isBusy).accessibilityLabel("Manage \(player.name)")
+                                    .accessibilityIdentifier("roster-manage-\(player.id)")
                                 }
                             }
                         }

@@ -1,6 +1,6 @@
 # Player tools and roster actions
 
-Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in 0.5.0 (19), with owner-feedback fixes in the **0.5.1 (20) candidate**. Implementation checks below are separate from final verification, installation and live-owner certification. [Current status](current-status.md) records the installed build; [roadmap](roadmap.md) retains release gates and remaining work.
+Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in 0.5.0 (19), with owner-feedback fixes in **0.5.1 (20)**, installed and launched on Josh's iPhone. Implementation and automated verification are separate from live-owner certification. [Current status](current-status.md) records the evidence; [roadmap](roadmap.md) retains release gates and remaining work.
 
 ## Scope and sequence
 
@@ -68,10 +68,10 @@ Champion Hall's September 6 public configuration reports `BBID_FCFS`, conditiona
 
 ## Verification and delivery
 
-- [ ] Core request/decoding/cache tests for new endpoints, malformed/duplicate identifiers, absent vs zero, and season/week boundaries.
-- [ ] Model tests for stale sessions, partial data, progressive request budgets, watchlist persistence/readback and roster-action preflight/recovery.
-- [ ] Synthetic two-week journeys cover injuries/byes, unavailable history, watch/unwatch, FCFS open/closed, $0 blind-bid regression, IR full/activation/drop, timeout/relaunch reconciliation and preservation of existing drafts.
-- [ ] Native UI journeys cover discovery, review/cancel, empty/error/loading, separate identity/action controls, large text, and Light/Dark appearances.
+- [x] Core request/decoding/cache tests for new endpoints, malformed/duplicate identifiers, absent vs zero, and season/week boundaries.
+- [x] Model tests for stale sessions, partial data, progressive request budgets, watchlist persistence/readback and roster-action preflight/recovery.
+- [x] Synthetic two-week journeys cover injuries/byes, unavailable history, watch/unwatch, FCFS open/closed, $0 blind-bid regression, IR full/activation/drop, timeout/relaunch reconciliation and preservation of existing drafts.
+- [x] Native UI journeys cover discovery, review/cancel, empty/error/loading, separate identity/action controls, large text, and Light/Dark appearances.
 - [ ] Run full core/app/UI suites and GitHub CI on the supported older toolchain; build signed candidate and install/launch on Josh's phone when available.
 - [ ] Update current status, API/cache notes, feature contracts, privacy/security implications, owner checklist and changelog with actual evidence before handoff.
 - [ ] Push and merge after checks pass, honoring Josh's standing delivery request. Keep actual intended live writes and Week 1/Week 2 invitation gates separate from synthetic QA.

@@ -13,11 +13,11 @@ final class PlayerToolsUITests: XCTestCase {
         XCTAssertFalse(move.isEnabled)
         XCTAssertTrue(app.staticTexts["Requires Out or IR"].waitForExistence(timeout: 5))
         capture(app, "Player Detail — ineligible IR disabled")
-        app.navigationBars["Aaron Jones"].buttons.matching(identifier: "BackButton").firstMatch.tap()
+        app.navigationBars["Aaron Jones"].buttons.firstMatch.tap()
         let manage = app.buttons["Manage roster"]
         for _ in 0..<6 where !manage.isHittable { app.swipeDown() }
         manage.tap()
-        let menu = app.buttons["Manage Aaron Jones"]
+        let menu = rosterMenu("13319", in: app)
         for _ in 0..<6 where !menu.isHittable { app.swipeUp() }
         menu.tap()
         XCTAssertTrue(move.waitForExistence(timeout: 5))
@@ -35,7 +35,7 @@ final class PlayerToolsUITests: XCTestCase {
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         app.buttons["roster-move-player-w1"].tap()
         XCTAssertTrue(app.buttons["player-watch-w1"].waitForExistence(timeout: 5))
-        app.navigationBars["Isaiah Bond"].buttons.matching(identifier: "BackButton").firstMatch.tap()
+        app.navigationBars["Isaiah Bond"].buttons.firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Roster moves"].waitForExistence(timeout: 5))
         XCTAssertTrue(add.exists)
         add.tap()
@@ -53,7 +53,7 @@ final class PlayerToolsUITests: XCTestCase {
         app.buttons["Close"].tap()
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         app.segmentedControls.buttons["My roster"].tap()
-        let retained = app.buttons["Manage Dak Prescott"]
+        let retained = rosterMenu("12620", in: app)
         for _ in 0..<5 where !retained.isHittable { app.swipeUp() }
         XCTAssertTrue(retained.exists)
     }
@@ -99,7 +99,7 @@ final class PlayerToolsUITests: XCTestCase {
         let manage = app.buttons["Manage roster"]
         XCTAssertTrue(manage.waitForExistence(timeout: 5))
         manage.tap()
-        let playerMenu = app.buttons["Manage Dak Prescott"]
+        let playerMenu = rosterMenu("12620", in: app)
         for _ in 0..<5 where !playerMenu.isHittable { app.swipeUp() }
         XCTAssertTrue(playerMenu.waitForExistence(timeout: 5))
         playerMenu.tap()
@@ -134,7 +134,7 @@ final class PlayerToolsUITests: XCTestCase {
         for _ in 0..<6 where !manage.isHittable { app.swipeUp() }
         XCTAssertTrue(manage.waitForExistence(timeout: 5))
         manage.tap()
-        let menu = app.buttons["Manage Dak Prescott"]
+        let menu = rosterMenu("12620", in: app)
         for _ in 0..<8 where !menu.isHittable { app.swipeUp() }
         XCTAssertTrue(menu.isHittable)
         menu.tap()
@@ -147,6 +147,11 @@ final class PlayerToolsUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(confirm.frame.height, 44)
         capture(app, "Roster review — largest text action")
         app.buttons["Close"].tap()
+    }
+
+    @MainActor private func rosterMenu(_ playerID: String, in app: XCUIApplication) -> XCUIElement {
+        // SwiftUI Menu is exposed as Button or PopUpButton depending on OS/SDK.
+        app.descendants(matching: .any).matching(identifier: "roster-manage-\(playerID)").firstMatch
     }
 
     @MainActor private func preview(arguments: [String] = []) -> XCUIApplication {

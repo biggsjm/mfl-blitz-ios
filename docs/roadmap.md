@@ -1,6 +1,6 @@
 # Execution plan and remaining work
 
-Updated September 6, 2026 for the **0.5.1 (20) candidate**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 6, 2026 for the installed private build **0.5.1 (20)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 
@@ -15,7 +15,7 @@ Updated September 6, 2026 for the **0.5.1 (20) candidate**. Checked items mean i
 - [x] Daily public player disk cache, stable league memory cache, decoded reuse, request sharing/spacing/cooldowns and no blind write retries.
 - [x] Original icons, explicit Week N controls, adaptive layouts and accessibility foundations.
 - [x] Performance regressions, four synthetic managers across two accelerated weeks and native UI journeys; private build installed on the owner's phone.
-- [x] Initial My Team/shared team roster, Player Detail, team/league season schedules and canonical-ID navigation. Player tools 1–5 extend this in the current candidate.
+- [x] Initial My Team/shared team roster, Player Detail, team/league season schedules and canonical-ID navigation. Player tools 1–5 extend this in the installed build.
 
 ## P0 — Week 1 validation and Week 2 release gates
 
@@ -37,7 +37,7 @@ My Team is a separately verified product increment. It does not substitute for r
 
 ## P1 — My Team, schedule and player detail
 
-**Current implemented candidate: [Player tools 1–5](player-tools-plan.md).** Josh approved injury/kickoff/bye context, richer league-scored player research, an MFL-synced watchlist, native first-come add/drop and IR management on September 6. The linked plan defines acceptance checks and keeps trading blocks, calendars, polls and playoff brackets queued after those five. All five are implemented in the candidate; final test/CI/device and live-owner checks are recorded separately.
+**Current installed increment: [Player tools 1–5](player-tools-plan.md).** Josh approved injury/kickoff/bye context, richer league-scored player research, an MFL-synced watchlist, native first-come add/drop and IR management on September 6. The linked plan defines acceptance checks and keeps trading blocks, calendars, polls and playoff brackets queued after those five. All five are implemented in build 20; test/CI/device evidence and live-owner checks are recorded separately.
 
 **Initial slice implemented in 0.4.0 (17).** Tabs: **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. No Players tab and no new global search destination; reuse the existing available-player search in Transactions → Waivers.
 
@@ -57,7 +57,7 @@ Implementation boundaries: team/player work owns roster/player surfaces; schedul
 8. [ ] Board polls and voting.
 9. [ ] Playoff brackets beside schedules.
 
-These are retained in the [approved plan](player-tools-plan.md) and are not implemented in 0.5.0.
+These are retained in the [approved plan](player-tools-plan.md) and are not implemented in 0.5.1.
 
 ## P2 — Broader coverage and polish
 

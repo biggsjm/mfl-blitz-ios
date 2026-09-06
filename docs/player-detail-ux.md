@@ -1,6 +1,6 @@
 # Player and team detail
 
-Status: **Extended player-tools candidate — 0.5.1 (20)**, September 6, 2026. See [current status](current-status.md) for final build/test evidence and [roadmap](roadmap.md) for remaining work.
+Status: **Extended player tools — installed private build 0.5.1 (20)**, September 6, 2026. See [current status](current-status.md) for build/test evidence and [roadmap](roadmap.md) for remaining work.
 
 ## Navigation and action boundaries
 

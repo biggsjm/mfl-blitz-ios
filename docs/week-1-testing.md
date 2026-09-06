@@ -1,13 +1,13 @@
 # Week 1 owner test and Week 2 go/no-go
 
-Updated September 6, 2026 for the **0.5.1 (20) candidate**. Build 19 installed/launched and Josh reported IR eligibility and cooldown issues; build 20 addresses those reports. See [current status](current-status.md) for delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
+Updated September 6, 2026 for **0.5.1 (20)**, installed and launched on Josh's iPhone. Build 20 addresses the IR eligibility and cooldown issues reported on build 19. See [current status](current-status.md) for delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
 ## Already observed
 
 - Josh reported successfully submitting a lineup and seeing Week 1 projections.
-- The final 0.4.1 (18) compatibility rebuild installed and launched on Josh's phone September 6. The 0.5.0 candidate needs its own delivery/launch record. Build 0.4.0 (17) had installed/launched successfully. Josh reported the My Team screen looked good; its detailed update timer was then simplified. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse. Full schedule comparison remains unchecked below.
+- Builds 0.5.0 (19) and 0.5.1 (20) installed and launched on Josh's phone September 6; the latter contains the IR and request-pressure fixes. Delivery/launch is not a complete live workflow audit. Josh previously reported the My Team screen looked good; its detailed update timer was then simplified. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse. Full schedule comparison remains unchecked below.
 - Core, app-model and native UI checks passed as described in [current status](current-status.md). Four synthetic managers completed two accelerated weeks; those are not actual Week 1 results.
 
 ## Before kickoff
@@ -40,7 +40,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 - [ ] Search stays below Waivers / Trades / Activity and survives section changes. Loading is centered; a failed read is not an empty pool/history. Retry respects MFL's cooldown.
 - [ ] Build two conditional rounds, edit amount/drop, reorder alternatives and review the complete queue. When you intend to submit, compare every saved round on MFL. Remove/clear/cancel only requests you intend to remove.
 - [ ] Check the $0 minimum for league 41333/2026. It is an owner-confirmed fallback only when MFL omits the rule; explicit MFL data wins. Make a real $0 bid only for a claim you actually want.
-- [ ] Compare the displayed explicit future blind-bid event with MFL. Missing dates are not guessed. First-come adds and unsupported formats/windows use the MFL link.
+- [ ] Compare the displayed explicit future blind-bid event with MFL. Missing dates are not guessed. Supported first-come adds use the native roster-move review; unsupported formats/windows retain the MFL link.
 - [ ] Compare Activity/recent waiver results with MFL: added/dropped player names, bid amounts and trade direction; no “Player 0” or ID-sized dollar amounts. These are recent processed acquisitions, not the complete unsuccessful-bid report.
 
 ### Trades and drafts

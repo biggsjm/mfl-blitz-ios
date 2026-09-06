@@ -117,6 +117,8 @@ struct LineupView: View {
                                 Text("\(player.name) · \(player.position)").tag(player.id)
                             }
                         }
+                        .pickerStyle(.menu)
+                        .accessibilityIdentifier("lineup-tiebreaker")
                         .disabled(!model.canChangeLineupDraft)
                     } header: {
                         Text("Tiebreaker")

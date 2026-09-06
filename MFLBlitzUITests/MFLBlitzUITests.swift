@@ -432,11 +432,15 @@ final class MFLBlitzUITests: XCTestCase {
             if week == 2 {
                 XCTAssertTrue(app.staticTexts["Choose one bench tiebreaker before submitting changes"].firstMatch.exists)
                 XCTAssertFalse(app.buttons["Review & submit lineup"].isEnabled)
-                let tiebreaker = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Bench tiebreaker")).firstMatch
+                let tiebreaker = app.descendants(matching: .any).matching(identifier: "lineup-tiebreaker").firstMatch
                 for _ in 0..<10 where !tiebreaker.isHittable { app.swipeUp() }
                 XCTAssertTrue(tiebreaker.isHittable)
-                tiebreaker.tap()
-                app.buttons["Kyler Murray · QB"].tap()
+                // On iOS 18 the menu's tappable value is trailing; the combined
+                // accessibility frame also includes its noninteractive title.
+                tiebreaker.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+                let choice = app.buttons["Kyler Murray · QB"]
+                XCTAssertTrue(choice.waitForExistence(timeout: 5))
+                choice.tap()
             }
             app.buttons["Review & submit lineup"].tap()
             let submit = app.buttons["lineup-confirm-submit"]
@@ -615,7 +619,7 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertTrue(player.label.hasSuffix(", selected"))
         app.buttons["trade-research-12620"].tap()
         XCTAssertTrue(app.buttons["player-watch-12620"].waitForExistence(timeout: 5))
-        app.navigationBars["Dak Prescott"].buttons.matching(identifier: "BackButton").firstMatch.tap()
+        app.navigationBars["Dak Prescott"].buttons.firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Choose assets"].waitForExistence(timeout: 5))
         XCTAssertTrue(player.waitForExistence(timeout: 5))
         XCTAssertTrue(player.label.hasSuffix(", selected"))

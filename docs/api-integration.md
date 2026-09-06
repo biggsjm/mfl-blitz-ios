@@ -176,7 +176,7 @@ IR controls use the current action week's matching injury snapshot, not the brow
 | Season fantasy metrics | `playerScores&W=YTD` / `AVG` | Independent optional reads; missing is not zero |
 | Opponent context | export `pointsAllowed` | 6-hour memory; verified `team.position.points` totals, not averages |
 | Watchlist | export/import `myWatchList` | 60-second memory; incremental ADD/REMOVE, forced readback |
-| Owner permissions | `abilities&DETAILS=1` | 30-second client cache, bypassed for roster review/preflight |
+| Owner permissions | `abilities&DETAILS=1` | 30-second client cache reused for browsing/review, bypassed for mutation preflight |
 | Immediate add/drop | import `fcfsWaiver` | One ADD and optional DROP, or deliberate drop-only |
 | IR | import `ir` | DEACTIVATE or ACTIVATE; optional explicitly reviewed DROP on activation |
 
@@ -184,7 +184,7 @@ Abilities use the owner-verified `abilities.franchise.id` and unique ability IDs
 
 FCFS adds additionally require FCFS/BBID_FCFS configuration, fresh free-agent membership, explicit is_fa=true and no existing ownership. MFL documents cant_add/locked as optional restrictions on free agents: omitted or false flags pass this part of preflight; present null, unknown, true or conflicting aliases block it. Omission alone never proves free agency or a lineup unlock. The owner's supplied player 9431 response is rostered to franchise 0008 with status S and correctly cannot pass an add preflight. IR deactivation requires an Out/IR report; MFL enforces final league-specific eligibility, positional limits and deadlines. No reserve move is inferred from the displayed FLEX/starting slot.
 
-All roster reviews reload current roster, limits and abilities; submission compares the complete reviewed membership/limits against another fresh preflight. A device-only scoped marker is saved before the only POST. Exact full membership/status and any explicit drop are read back uncached. A timeout does not cause retry; unresolved changes remain discoverable in My Team with Check status/MFL/acknowledgement. Roster-affecting imports share a repository gate. Acknowledgement clears only the marker, not an MFL move. Successful changes invalidate roster/pool/status/activity caches and refresh existing draft-safe mergers.
+Roster reviews load roster, limits and abilities through their normal caches; submission compares that complete reviewed membership/limits against forced-fresh preflight. A device-only scoped marker is saved before the only POST. Exact full membership/status and any explicit drop are read back uncached. A timeout does not cause retry; unresolved changes remain discoverable in My Team with Check status/MFL/acknowledgement. Roster-affecting imports share a repository gate. Acknowledgement clears only the marker, not an MFL move. Successful changes invalidate roster/pool/status/activity caches and refresh existing draft-safe mergers.
 
 Watchlist markers contain only player ID, desired state and time. Roster markers contain the requested move, scope and expected membership. Both survive relaunch; neither is stored in the public player cache. Explicit disconnect removes them. No private history/watchlist response disk cache was added.
 
