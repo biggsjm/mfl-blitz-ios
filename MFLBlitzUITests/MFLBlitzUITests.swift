@@ -433,8 +433,16 @@ final class MFLBlitzUITests: XCTestCase {
                 XCTAssertTrue(app.staticTexts["Choose one bench tiebreaker before submitting changes"].firstMatch.exists)
                 XCTAssertFalse(app.buttons["Review & submit lineup"].isEnabled)
                 let tiebreaker = app.descendants(matching: .any).matching(identifier: "lineup-tiebreaker").firstMatch
-                for _ in 0..<10 where !tiebreaker.isHittable { app.swipeUp() }
+                // A partially visible picker can report hittable underneath
+                // the disabled sticky submit bar. Reveal the entire row first.
+                let visibleBottom = app.buttons["Review & submit lineup"].frame.minY - 44
+                for _ in 0..<10 {
+                    if tiebreaker.exists && tiebreaker.isHittable && tiebreaker.frame.maxY < visibleBottom { break }
+                    app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+                        .press(forDuration: 0.01, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)))
+                }
                 XCTAssertTrue(tiebreaker.isHittable)
+                XCTAssertLessThan(tiebreaker.frame.maxY, visibleBottom)
                 // On iOS 18 the menu's tappable value is trailing; the combined
                 // accessibility frame also includes its noninteractive title.
                 tiebreaker.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
@@ -627,7 +635,7 @@ final class MFLBlitzUITests: XCTestCase {
         let beforeSaving = XCTAttachment(screenshot: app.screenshot())
         beforeSaving.name = "Trade draft before save"; beforeSaving.lifetime = .keepAlways; add(beforeSaving)
         app.buttons["Save & close"].tap()
-        app.buttons["trade-resume-draft"].tap()
+        resumeTradeAfterDismissal(in: app)
         XCTAssertTrue(app.staticTexts["CeeDee Lamb"].exists)
         XCTAssertTrue(app.staticTexts["Dak Prescott"].exists)
         // Editing and canceling a resumed trade restores the saved terms.
@@ -639,7 +647,7 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Build a trade"].exists)
         app.buttons["trade-cancel-draft"].tap()
         app.alerts.buttons["Discard changes"].tap()
-        app.buttons["trade-resume-draft"].tap()
+        resumeTradeAfterDismissal(in: app)
         XCTAssertTrue(app.staticTexts["Route Runners"].exists)
         XCTAssertTrue(app.staticTexts["CeeDee Lamb"].exists)
         XCTAssertTrue(app.staticTexts["Dak Prescott"].exists)
@@ -651,6 +659,16 @@ final class MFLBlitzUITests: XCTestCase {
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Trade proposal final review"; screenshot.lifetime = .keepAlways; add(screenshot)
         // Deliberately do not press Send, even in the offline preview.
+    }
+
+    @MainActor
+    private func resumeTradeAfterDismissal(in app: XCUIApplication) {
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["trade-cancel-draft"])
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
+        let resume = app.buttons["trade-resume-draft"]
+        XCTAssertTrue(resume.waitForExistence(timeout: 5))
+        resume.tap()
+        XCTAssertTrue(app.buttons["trade-cancel-draft"].waitForExistence(timeout: 5))
     }
 
     @MainActor
