@@ -113,6 +113,7 @@ Do not run overlapping jobs on one simulator. See [contributing](CONTRIBUTING.md
 | Document | Purpose |
 | --- | --- |
 | [Current status](docs/current-status.md) | Shipped build, evidence, known limits and release gates |
+| [Player tools 1–5](docs/player-tools-plan.md) | Approved availability, research, watchlist, add/drop and IR plan; later features |
 | [Roadmap](docs/roadmap.md) / [Changelog](CHANGELOG.md) | Remaining execution plan / implemented release history |
 | [Product brief](docs/product-brief.md) | Priorities, current navigation and design principles |
 | [API integration](docs/api-integration.md) / [MFLCore](Packages/MFLCore/README.md) | Endpoints, cache policies, implementation boundaries |

@@ -54,6 +54,8 @@ All native QA explicitly enters preview and performs no live lineup, waiver, tra
 
 ## Known gaps and next work
 
+The next approved increment is [Player tools 1–5](player-tools-plan.md): availability context, player research, synced watchlists, native FCFS add/drop and IR. Its checkboxes track implementation separately from the installed 0.4.1 build; trading blocks, calendars, polls and playoff brackets are explicitly queued afterward.
+
 - Full player scoring history still needs a verified endpoint and progressive cache. Do not issue 18 forced full-week reads on first open.
 - Add player links/actions in waiver/trade surfaces with independent asset-selection controls, modal destinations and search/scroll/draft restoration. Existing waiver search remains available-player-only; no Players tab/global directory is introduced.
 - Season timelines use league bounds, but the separate Scores/Lineup week picker still uses 1…18.

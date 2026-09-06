@@ -37,6 +37,8 @@ My Team is a separately verified product increment. It does not substitute for r
 
 ## P1 — My Team, schedule and player detail
 
+**Next approved implementation: [Player tools 1–5](player-tools-plan.md).** Josh approved injury/kickoff/bye context, richer league-scored player research, an MFL-synced watchlist, native first-come add/drop and IR management on September 6. The linked plan defines acceptance checks and keeps trading blocks, calendars, polls and playoff brackets queued after those five. None is marked shipped until its implementation and verification evidence is recorded.
+
 **Initial slice implemented in 0.4.0 (17).** Tabs: **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. No Players tab and no new global search destination; reuse the existing available-player search in Transactions → Waivers.
 
 1. [x] Implement canonical-ID routes and the shared read-only team shell. My Team exposes Transactions above Roster / Schedule; dedicated Lineup retains editing/submission. Other-team pages never present the owner's inbox as their own. Carry the existing trade-specific badge onto My Team and its Transactions entry.
