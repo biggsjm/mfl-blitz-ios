@@ -15,16 +15,29 @@ actor LiveMFLRepository: LeagueRepository {
         )
         let newClient = MFLClient(configuration: configuration)
         _ = try await newClient.authenticate(username: credentials.username, password: credentials.password)
-        let loadedLeague = try await newClient.league(refreshPolicy: .reloadIgnoringCache)
-
-        guard let franchise = ownedFranchise(in: loadedLeague, username: credentials.username) else {
+        let memberships = try await newClient.myLeagues(refreshPolicy: .reloadIgnoringCache)
+        guard let membership = memberships.leagues.first(where: { $0.leagueID == credentials.leagueID }) else {
             throw RepositoryError.server(
-                "MFL accepted the login, but this account could not be matched to a franchise in league \(credentials.leagueID)."
+                "MFL accepted the login, but league \(credentials.leagueID) is not associated with this account for \(credentials.season)."
+            )
+        }
+        guard membership.franchiseID != "0000" else {
+            throw RepositoryError.server(
+                "This MFL account is the commissioner but is not assigned to a franchise in league \(credentials.leagueID)."
+            )
+        }
+        guard let host = membership.serverHost else {
+            throw RepositoryError.server("MFL returned an invalid host for league \(credentials.leagueID).")
+        }
+        await newClient.setLeagueHost(host)
+        let loadedLeague = try await newClient.league(refreshPolicy: .reloadIgnoringCache)
+        guard let franchise = loadedLeague.franchises.first(where: { $0.id == membership.franchiseID }) else {
+            throw RepositoryError.server(
+                "MFL mapped this account to franchise \(membership.franchiseID), but that franchise was not present in league \(credentials.leagueID)."
             )
         }
 
         let scoring = try await newClient.liveScoring(refreshPolicy: .reloadIgnoringCache)
-        let host = try await newClient.discoverLeagueHost()
         guard let baseURL = URL(string: "https://\(host.name)") else {
             throw RepositoryError.server("MFL returned an invalid league host.")
         }
@@ -483,16 +496,6 @@ actor LiveMFLRepository: LeagueRepository {
     private func requireSession() throws -> (MFLClient, MFLLeague, LeagueWorkspace) {
         guard let client, let league, let workspace else { throw RepositoryError.missingSession }
         return (client, league, workspace)
-    }
-
-    private func ownedFranchise(in league: MFLLeague, username: String) -> MFLFranchise? {
-        if let exact = league.franchises.first(where: {
-            $0.username?.caseInsensitiveCompare(username) == .orderedSame
-        }) {
-            return exact
-        }
-        let franchisesWithPrivateOwnerData = league.franchises.filter { $0.username != nil }
-        return franchisesWithPrivateOwnerData.count == 1 ? franchisesWithPrivateOwnerData[0] : nil
     }
 
     private func makeMatchupTeam(_ value: MFLLiveFranchise, franchise: MFLFranchise?) -> MatchupTeam {

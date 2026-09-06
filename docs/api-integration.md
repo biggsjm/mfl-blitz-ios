@@ -12,7 +12,7 @@ https://api.myfantasyleague.com/{season}/login
 
 The form contains `USERNAME`, `PASSWORD`, and `XML=1`. A successful XML response contains `MFL_USER_ID`; subsequent requests send it as the `MFL_USER_ID` cookie. Logout is local cookie deletion. The alternate `APIKEY` works only for restricted exports, not imports, so it cannot power lineup, waiver, or message-board writes.
 
-Resolve the current host from the requested league export's validated `baseURL`. MFL currently redirects this GET from `api.myfantasyleague.com` to the league's `wwwXX` host. The client follows that redirect manually only after validating HTTPS, the MFL domain, and an unchanged path/query; it strips the session cookie from the redirected discovery request. Login and mutation redirects remain blocked. MFL warns that leagues can move between hosts, so a host is scoped to a session. Multi-league account discovery through `TYPE=myleagues` is planned but is not part of version 0.1.
+After authentication, resolve the requested league's franchise id and current `wwwXX` host through `TYPE=myleagues`. Validate the returned HTTPS MFL URL, select its host, then fetch authenticated league data directly from that host. As a fallback for unauthenticated discovery, the generic client can follow MFL's league-export GET redirect only after validating HTTPS, the MFL domain, and an unchanged path/query; it strips the session cookie from that redirected request. Login and mutation redirects remain blocked. MFL warns that leagues can move between hosts, so a host is scoped to a session. A multi-league picker is planned, but the underlying account-to-league mapping is implemented in version 0.1.
 
 ## Priority endpoint map
 
@@ -20,6 +20,7 @@ All league calls use `https://{resolved-host}/{season}/` and include `L={leagueI
 
 | Capability | Request |
 |---|---|
+| Account league/franchise mapping | `export?TYPE=myleagues&YEAR={season}&FRANCHISE_NAMES=1&JSON=1` |
 | Current week | `https://api.myfantasyleague.com/fflnetdynamic{season}/mfl_status.json` |
 | League/capabilities | `export?TYPE=league&JSON=1`; authenticated `TYPE=abilities&DETAILS=1` |
 | Live scores | `export?TYPE=liveScoring&W={week}&DETAILS=1&JSON=1` |

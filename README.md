@@ -43,7 +43,7 @@ SwiftUI features
 AppModel / repository boundary
     ↓
 MFLCore (local Swift package)
-    ├── request building + host discovery
+    ├── authenticated account/franchise mapping + host discovery
     ├── HTTPS login + in-memory session-cookie authorization
     ├── tolerant DTO decoding + body-level error checks
     ├── request spacing + response caching

@@ -1,5 +1,9 @@
 import Foundation
 
+public struct MFLMyLeaguesResponse: Decodable, Equatable, Sendable {
+    public let leagues: MFLUserLeagueCollection
+}
+
 public struct MFLLeagueResponse: Decodable, Equatable, Sendable {
     public let league: MFLLeague
 }

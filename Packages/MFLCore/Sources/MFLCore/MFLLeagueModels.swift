@@ -1,5 +1,55 @@
 import Foundation
 
+public struct MFLUserLeagueCollection: Decodable, Equatable, Sendable {
+    public let leagues: [MFLUserLeague]
+
+    private enum CodingKeys: String, CodingKey { case league }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        leagues = try container.mflArray(of: MFLUserLeague.self, forKey: .league)
+    }
+}
+
+public struct MFLUserLeague: Decodable, Equatable, Sendable, Identifiable {
+    public let leagueID: String
+    public let franchiseID: String
+    public let name: String
+    public let franchiseName: String?
+    public let url: URL
+
+    public var id: String { leagueID }
+
+    public var serverHost: MFLAPIHost? {
+        guard let host = url.host else { return nil }
+        return try? MFLAPIHost(host)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case leagueID = "league_id"
+        case franchiseID = "franchise_id"
+        case name
+        case franchiseName = "franchise_name"
+        case url
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        leagueID = try container.mflRequiredString(forKey: .leagueID)
+        franchiseID = try container.mflRequiredString(forKey: .franchiseID)
+        name = try container.mflStringIfPresent(forKey: .name) ?? "League \(leagueID)"
+        franchiseName = try container.mflStringIfPresent(forKey: .franchiseName)
+        let urlString = try container.mflRequiredString(forKey: .url)
+        guard let parsedURL = URL(string: urlString),
+              parsedURL.scheme?.lowercased() == "https",
+              (try? MFLAPIHost(parsedURL.absoluteString)) != nil
+        else {
+            throw MFLCoreError.invalidHost(urlString)
+        }
+        url = parsedURL
+    }
+}
+
 public struct MFLLeague: Decodable, Equatable, Sendable, Identifiable {
     public let id: String
     public let name: String

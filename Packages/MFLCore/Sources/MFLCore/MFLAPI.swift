@@ -246,6 +246,7 @@ public struct MFLClientConfiguration: Sendable {
 }
 
 public enum MFLExportEndpoint: String, CaseIterable, Sendable {
+    case myleagues
     case league
     case players
     case freeAgents

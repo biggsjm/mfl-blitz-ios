@@ -153,6 +153,13 @@ public actor MFLClient {
         cookie
     }
 
+    /// Selects an already validated league host, such as the host returned by
+    /// the authenticated `myleagues` export.
+    public func setLeagueHost(_ host: MFLAPIHost) {
+        leagueHost = host
+        cache.removeAll(keepingCapacity: true)
+    }
+
     // MARK: Host discovery
 
     /// Resolves and retains the league's current `wwwXX` host for this client session.
@@ -179,6 +186,30 @@ public actor MFLClient {
     }
 
     // MARK: Reads
+
+    /// Returns the signed-in user's leagues for this client's season. Besides
+    /// enabling a future league picker, this is the authoritative mapping from
+    /// an account to its franchise id and current league host.
+    public func myLeagues(
+        includeFranchiseNames: Bool = true,
+        refreshPolicy: MFLRefreshPolicy = .useCache
+    ) async throws -> MFLUserLeagueCollection {
+        guard cookie != nil else {
+            throw MFLCoreError.unauthorized("Sign in to load your MFL leagues.")
+        }
+        var parameters = ["YEAR": String(configuration.league.season)]
+        if includeFranchiseNames { parameters["FRANCHISE_NAMES"] = "1" }
+        let response: MFLMyLeaguesResponse = try await export(
+            MFLMyLeaguesResponse.self,
+            endpoint: .myleagues,
+            host: .api,
+            leagueID: nil,
+            parameters: parameters,
+            ttl: configuration.cacheDurations.league,
+            refreshPolicy: refreshPolicy
+        )
+        return response.leagues
+    }
 
     public func league(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLLeague {
         let host = leagueHost ?? .api

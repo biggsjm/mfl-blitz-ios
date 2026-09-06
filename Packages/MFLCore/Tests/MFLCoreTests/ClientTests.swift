@@ -7,6 +7,33 @@ import Testing
 
 @Suite("MFL actor client")
 struct ClientTests {
+    @Test("Authenticated league discovery maps account to franchise and host")
+    func myLeagues() async throws {
+        let transport = StubTransport(responses: [
+            .json(try fixtureData("my-leagues"), url: "https://api.myfantasyleague.com/2026/export")
+        ])
+        let client = MFLClient(
+            configuration: try configuration(host: nil),
+            transport: transport,
+            authenticationCookie: try MFLAuthenticationCookie(value: "saved-cookie")
+        )
+
+        let memberships = try await client.myLeagues(refreshPolicy: .reloadIgnoringCache)
+        let membership = try #require(memberships.leagues.first)
+        let request = try #require(await transport.recordedRequests().first)
+
+        #expect(membership.leagueID == "41366")
+        #expect(membership.franchiseID == "0008")
+        #expect(membership.franchiseName == "Route Runners")
+        #expect(membership.serverHost?.name == "www45.myfantasyleague.com")
+        #expect(request.url?.host == "api.myfantasyleague.com")
+        #expect(request.url?.query?.contains("TYPE=myleagues") == true)
+        #expect(request.url?.query?.contains("YEAR=2026") == true)
+        #expect(request.url?.query?.contains("FRANCHISE_NAMES=1") == true)
+        #expect(request.url?.query?.contains("L=") == false)
+        #expect(request.value(forHTTPHeaderField: "Cookie") == "MFL_USER_ID=saved-cookie")
+    }
+
     @Test("Host discovery runs once and read responses are cached")
     func discoveryAndCaching() async throws {
         let redirectedLeagueURL = "https://www42.myfantasyleague.com/2026/export?JSON=1&L=41366&TYPE=league"
@@ -68,6 +95,23 @@ struct ClientTests {
             }
         }
         #expect(await transport.recordedRequests().count == 1)
+    }
+
+    @Test("User-league URLs reject insecure hosts")
+    func unsafeUserLeagueURL() throws {
+        let data = Data("""
+        {"leagues":{"league":{"league_id":"41366","franchise_id":"0008","name":"Unsafe","url":"http://www45.myfantasyleague.com/2026/home/41366"}}}
+        """.utf8)
+
+        do {
+            _ = try MFLResponseDecoder().decode(MFLMyLeaguesResponse.self, from: data)
+            Issue.record("Expected the insecure league URL to be rejected")
+        } catch let error as MFLCoreError {
+            guard case .decoding = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+        }
     }
 
     @Test("Login cookie is manually sent on the next mutation")
