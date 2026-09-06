@@ -1,5 +1,13 @@
 # Performance audit and synthetic user testing — 0.3.3 (11)
 
+Historical report for 0.3.3, September 6, 2026. Original benchmarks and counts below remain tied to that build. The current installed release is **0.3.7 (16)**; see [current status](current-status.md) and the [remaining plan](roadmap.md).
+
+## Subsequent regression evidence
+
+Build 16 passed the full app unit suite (including these four two-week model scenarios) plus five native trade journeys: 96 functions / 121 executions, no failures or runtime warnings. This does not mean all 11 historical UI journeys below were rerun locally in that build-16 selection. The documentation audit also reran all 62 MFLCore tests successfully in a fresh build directory.
+
+Later click-through testing found UI-state bugs that model scenarios alone did not catch: first-tap Decline/Withdraw could show the default Accept review, and reused composer state could redisplay canceled edits. Fresh identifiable response payloads and explicit editor identities fix these in 0.3.7; targeted native tests assert action labels and cancel/reopen behavior. See [trade release details](trade-inbox-ux.md). No real league action was performed by those tests.
+
 ## Scope and limits
 
 Four synthetic managers use the production `AppModel`, `TransactionsModel`, `LiveMFLRepository`, and MFLCore request/response pipeline against a shared, stateful in-memory league. An accelerated game clock advances through pregame, live games, final results, and the next week. No network transport, real credentials, or real league writes are involved.
@@ -46,7 +54,7 @@ xcodebuild -project MFLBlitz.xcodeproj -scheme MFLBlitz \
 
 Choose an installed iPhone simulator if that model is unavailable. Run simulator jobs serially: overlapping test runs targeting the same simulator can terminate the test runner. A simulator launch failure is not recorded as an app pass.
 
-## Verified results — September 6, 2026
+## Historical verified results — 0.3.3, September 6, 2026
 
 - **62 MFLCore tests passed**, including the catalog benchmark, cache cancellation/invalidation, duplicate IDs, malformed trade dates, and invalid rate-limit headers.
 - **78 app test functions passed**, including all four managers completing both weeks, conditional bid reordering/cancellation, cross-manager trades, lost board acknowledgements, offline recovery, week rollover, corrections, and private draft isolation.

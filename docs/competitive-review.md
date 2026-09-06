@@ -1,6 +1,8 @@
-# Competitive review — September 2026
+# Competitive research snapshot — September 5, 2026
 
-## Current MFL iOS clients
+Historical discovery research, not a continuously verified storefront report or a new September 6 market survey. Ratings, prices, features and availability can change; recheck original listings before using this for public comparisons. Observations below are the original research inputs, not acceptance evidence for MFL Blitz. Current implementation and remaining work are in [status](current-status.md) and [roadmap](roadmap.md).
+
+## MFL iOS clients reviewed
 
 | Product | Strongest evidence | Opportunity for MFL Blitz |
 |---|---|---|
@@ -37,6 +39,6 @@ All visible general-purpose clients appear independent rather than first-party M
 
 > **Every critical league action is obvious, legal, fresh, and confirmed.**
 
-The first release should be narrower than the incumbents, then win the five priority workflows across a deliberately difficult league matrix. Draft, trade, commissioner, contract, pool, and research features should arrive only after that foundation is trustworthy.
+The original recommendation was a narrower release validated across a deliberately difficult league matrix before broad draft/trade/commissioner/contract/research expansion. Subsequent user priorities brought native trading into private build 0.3.0, with safety and presentation refinements through 0.3.7. Broad configuration certification, draft/commissioner tooling and richer research are still unfinished; this research conclusion does not supersede the current execution plan.
 
 For broader platform context, current commissioner discussions still contrast MFL's configurability with its dated presentation while praising newer platforms' mobile communication and criticizing their increasing bloat: [2026 platform discussion](https://www.reddit.com/r/FFCommish/comments/1vfnynp/best_fantasy_football_platform_in_2026/).

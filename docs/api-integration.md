@@ -1,5 +1,7 @@
 # MFL 2026 API integration
 
+Implementation audit: September 6, 2026, **0.3.7 (16)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
+
 Primary sources: [general API guidance](https://api.myfantasyleague.com/2026/api_info), [request reference](https://api.myfantasyleague.com/2026/api_info?STATE=details), and [sample code](https://api.myfantasyleague.com/2026/api_info?STATE=example).
 
 ## Authentication and routing
@@ -22,6 +24,7 @@ All league calls use `https://{resolved-host}/{season}/` and include `L={leagueI
 |---|---|
 | Account league/franchise mapping | `export?TYPE=myleagues&YEAR={season}&JSON=1` |
 | Current week | `https://api.myfantasyleague.com/fflnetdynamic{season}/mfl_status.json` |
+| Public player catalog | `https://api.myfantasyleague.com/{season}/export?TYPE=players&JSON=1`; optional `PLAYERS={ids}&DETAILS=1` for targeted detail |
 | League/capabilities | `export?TYPE=league&JSON=1`; authenticated `TYPE=abilities&DETAILS=1` |
 | Live scores | `export?TYPE=liveScoring&W={week}&DETAILS=1&JSON=1` |
 | League-scored projections | `export?TYPE=projectedScores&W={week}&JSON=1` |
@@ -101,7 +104,22 @@ Artwork loads independently from league data through an ephemeral, cookieless, c
 
 Read-only verification against the public league export successfully downloaded and decoded artwork for all 12 franchises with this native loader. Regression tests cover JPEG/PNG/GIF decoding, downsampling, safe URL selection, cookie isolation, caching, failed-image fallback, and artwork mapping into live/completed matchups and official standings.
 
-## Platform constraints
+## Cache and refresh policies
+
+These are current defaults, not a cache-everything rule. Private read retention and write preflight have different requirements.
+
+| Data | Retention/freshness | Exceptions |
+| --- | --- | --- |
+| Full public player directory | 24-hour disk entry plus validated decoded memory reuse, scoped by season/version | Original fetch time survives relaunch; invalid/expired data is rejected; no private payloads/headers on disk |
+| Stable league configuration | 24-hour memory cache | Auth restoration verifies freshly; waiver balance display imposes 60-second maximum age; bid preflight bypasses cache |
+| Pregame league projections | 15-minute memory cache, league/week scoped | Missing values remain nil; not a live forecast |
+| Live scoring | 90-second memory TTL and one foreground scoreboard/detail poller | Completed weeks use forced `weeklyResults`; foreground lifecycle and read guards prevent duplicate pollers |
+| Rosters / player roster status / free agents | 30 / 15 / 60-second memory TTLs | Mutation preflight/readback bypass cache |
+| Standings / board list / board thread / pending waivers | 60 / 30 / 15 / 15-second memory TTLs | Explicit refresh/readback can force fresh data |
+| Pending trades / assets / transaction activity | Forced client reads; model-level reuse on recent section visits | Fresh trade preflight/readback; no stale or failed read becomes a confirmed-empty state |
+| Franchise artwork | Bounded 15-minute memory thumbnails; 60-second failure cooldown | Isolated cookieless loader; no disk cache |
+
+The full player directory is shared across tabs; targeted detailed-player caching and season schedule/player-history caching are future design work, not existing persistent stores. MFL supports incremental `SINCE`, but the app currently refreshes the full public catalog after its daily expiry.
 
 Version 0.3.2 persists only the public, full player directory in the app's Caches folder, scoped by season and cache-format version. Entries retain their original fetch time across relaunches; corrupt, wrong-season, future-dated, and expired entries cannot be used. Decoding succeeds before saving, writes are atomic and size-bounded, and disk failures do not block fresh reads. Score and lineup lookups now use the same full catalog as waivers/trades, eliminating separate per-roster subset downloads. Concurrent cacheable reads still share one request.
 
@@ -109,13 +127,25 @@ Stable league reads use a 24-hour **in-memory** cache. The league export also in
 
 Scoring and lineup editing now share deterministic positional allocation: required minimums are filled first, with qualifying extra starters displayed as FLEX. Assignment is stable across different feed ordering. Player NFL positions and points remain unchanged; incomplete or unsupported scoring lineups do not get guessed FLEX assignments.
 
+Versions 0.3.5–0.3.6 add user-chosen starter/FLEX placement and atomic two/three-player rotations. Private placements are scoped by season/league/franchise/week and validated against restored starters/rules. Swapping existing starters alone changes no MFL starter IDs and sends no import; changing membership still requires Review & submit. Live scores use the server starter set, not an unsubmitted draft. User-facing copy does not make managers reason about this storage distinction; [lineup documentation](lineup-starter-swaps.md) retains the technical contract.
+
 Version 0.3.3 also retains the validated decoded catalog in memory under the same cache entry and expiry. Completed shared reads publish even if their initiating caller was canceled; forced preflight/readback and invalidation still supersede older reads. Duplicate catalog IDs and malformed trade dates fail closed. Nonfinite/out-of-range Retry-After values use the finite fallback. Successful trade readbacks carry their snapshot to the inbox instead of triggering a duplicate download. Reported active starter clocks can establish live status when team-level live counts are absent. See the [performance and synthetic two-week report](two-week-synthetic-testing.md) for regression evidence and limits.
 
 Version 0.3.0 trades use fresh `pendingTrades` and `assets` reads before every POST and for confirmation. Asset tokens preserve players, `DP_round_pick` (zero-based current-year indices), `FP_franchise_year_round`, and positive `BB_amount` FAAB. Unsupported assets or unverifiable offer direction disable native actions. Missing proposer IDs are inferred only from a unique owner of every non-cash offered asset, never from description text.
 
 A device-only marker is written before a trade POST. A proposal needs a new pending ID with exact recipient, asset sets, comments, and expiration. A response needs positive MFL acknowledgment plus disappearance from the fresh pending list; disappearance after a timeout alone cannot prove acceptance. No trade import is automatically retried. MFL has no atomic counteroffer endpoint: counters are separate offers, with an explicit acknowledgment that the original stays open. Approval, deadlines, and roster enforcement remain MFL's responsibility.
 
+Version 0.3.7 retains those mutation safeguards while fixing presentation state. Response review uses one identifiable action payload and explicit view identity, so first-tap Decline/Withdraw cannot default to Accept. Each composer session has a fresh identity and immutable saved-draft snapshot; Cancel rolls back meaningful autosaves and late callbacks cannot restore canceled edits. Empty/whitespace-only drafts do not persist or enable Save & close. A partner, assets, nonblank message or counteroffer constitutes content; changing only the expiry does not. See [trade interaction/regression evidence](trade-inbox-ux.md).
+
 The request gate rechecks spacing after suspension to prevent resume bursts. Concurrent cacheable exports share their in-flight read; forced mutation preflight/readback never joins it, and an older response cannot overwrite a newer cache entry. Quick foreground transitions and repeated transaction-section visits reuse recent results. HTTP 429 honors the advertised Retry-After duration (90 seconds when absent), with disabled countdown retry controls and no automatic retry loop. Activity uses the documented DEFAULT transaction filter instead of the broader combination that returned invalid parameters.
+
+## Distribution and unimplemented data surfaces
+
+The app currently supplies `MFL Blitz/0.1 (com.biggsjm.MFLBlitz)` on sign-in/restore. MFLCore separately defaults to `MFL Blitz/1.0`. Neither string proves registration; confirm production registration and configure the exact approved identity before distribution. Do not change it simply to match the marketing version without considering registered-client identity.
+
+No fantasy season schedule endpoint/decoder/repository method or Player Detail aggregation exists yet. League season bounds are decoded but the current week picker remains `1...18`. Planned schedule/history views require validated official schemas, bounded shared reads, explicit missing states and browsing selections independent of `AppModel.selectedWeek`; see [schedule](schedule-ux.md) and [player](player-detail-ux.md) proposals.
+
+MFLCore exposes optional player bio and targeted `DETAILS=1`, but live population still needs validation. A whole-week `weeklyResults` response is not proof of complete player season history. Current lineup/waiver placeholder fields must not be reused as opponent, kickoff or season-total facts. Board HTML currently receives plain-text tag/entity cleanup and is rendered with native Text; richer HTML and safe link handling are unfinished.
 
 MFL expressly forbids browser JavaScript from outside its domains and does not provide permissive CORS. Native `URLSession` is unaffected, which is another reason to remain a genuine native client.
 

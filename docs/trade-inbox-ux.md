@@ -1,5 +1,7 @@
 # Trade inbox — 0.3.7 (16)
 
+Implemented at [`e779e4b`](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b), installed on the owner's phone September 6, 2026. See [current status](current-status.md), [remaining plan](roadmap.md), and [owner verification](week-1-testing.md). Future My Team navigation will reuse this hub; it is not part of build 16.
+
 Native trading is the primary path. A full-width **Create trade** button sits directly below the transaction selector and remains visible while the inbox scrolls. A saved draft changes that same action to **Resume trade**; there is no duplicate draft card.
 
 - A successfully loaded, empty inbox shows one **No active trades** state. Loading, failed reads, unverified actions, and unresolved offers never masquerade as an empty inbox.
@@ -13,6 +15,8 @@ Trade API preflight and readback safeguards remain unchanged. New offers remain 
 ## Composer and response reviews
 
 Cancel is at the leading edge; Save & close is at the trailing edge and disabled for a blank/whitespace-only draft. Choosing a partner, assets, or entering a message enables saving even if the offer is not ready to send. Merely opening a blank composer does not create a resumable draft, and blank drafts from older builds are ignored on restore.
+
+Changing only expiration does not make a blank draft meaningful. Dirty editors cannot be swiped away without resolving edits; Cancel/Discard changes restores the pre-opening snapshot rather than deleting an already saved draft or sent offer.
 
 Meaningful edits retain crash-safe autosaving. Cancel restores the saved draft from before the composer opened; edited drafts require a centered Discard changes confirmation. An unchanged blank composer cancels immediately. Counteroffers are staged separately so canceling a newly opened counteroffer does not leave an unwanted draft.
 
