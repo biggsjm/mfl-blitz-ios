@@ -93,8 +93,18 @@ public struct MFLLivePlayerStatus: RawRepresentable, Codable, Hashable, Sendable
 public struct MFLLivePlayer: Decodable, Equatable, Sendable, Identifiable {
     public let id: String
     public let score: Decimal
+    /// `true` when MFL supplied a score value that could be decoded.
+    ///
+    /// `score` remains zero when the field is absent for source compatibility;
+    /// use this flag when an omitted score must be distinguished from a real zero.
+    public let hasReportedScore: Bool
     public let status: MFLLivePlayerStatus
     public let gameSecondsRemaining: Int
+    /// `true` when MFL supplied a game clock value that could be decoded.
+    ///
+    /// `gameSecondsRemaining` remains zero when the field is absent for source
+    /// compatibility; use this flag to distinguish an omitted clock from a final game.
+    public let hasReportedGameSecondsRemaining: Bool
     public let updatedStats: String?
 
     public var isStarter: Bool {
@@ -112,11 +122,15 @@ public struct MFLLivePlayer: Decodable, Equatable, Sendable, Identifiable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.mflRequiredString(forKey: .id)
-        score = try container.mflDecimalIfPresent(forKey: .score) ?? 0
+        let reportedScore = try container.mflDecimalIfPresent(forKey: .score)
+        score = reportedScore ?? 0
+        hasReportedScore = reportedScore != nil
         status = MFLLivePlayerStatus(
             rawValue: try container.mflStringIfPresent(forKey: .status) ?? "unknown"
         )
-        gameSecondsRemaining = try container.mflIntIfPresent(forKey: .gameSecondsRemaining) ?? 0
+        let reportedGameSecondsRemaining = try container.mflIntIfPresent(forKey: .gameSecondsRemaining)
+        gameSecondsRemaining = reportedGameSecondsRemaining ?? 0
+        hasReportedGameSecondsRemaining = reportedGameSecondsRemaining != nil
         updatedStats = try container.mflStringIfPresent(forKey: .updatedStats)
     }
 }

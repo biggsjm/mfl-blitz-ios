@@ -170,6 +170,24 @@ final class AppModel {
         }
     }
 
+    func refreshScores() async {
+        let refreshID = beginRefreshing()
+        defer { endRefreshing(refreshID) }
+
+        let activeRepository = repository
+        let generation = sessionGeneration
+        let requestedWeek = selectedWeek
+
+        do {
+            let refreshedScores = try await activeRepository.refreshScores(week: requestedWeek)
+            guard generation == sessionGeneration, selectedWeek == requestedWeek else { return }
+            scores = refreshedScores
+        } catch {
+            guard generation == sessionGeneration, selectedWeek == requestedWeek else { return }
+            notice = .error("Couldn’t refresh live scores. Pull to try again.")
+        }
+    }
+
     func changeWeek(to week: Int) async {
         guard week != selectedWeek else { return }
         selectedWeek = week

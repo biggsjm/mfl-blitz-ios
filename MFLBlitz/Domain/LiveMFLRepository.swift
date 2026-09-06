@@ -70,8 +70,24 @@ actor LiveMFLRepository: LeagueRepository {
     }
 
     func loadScores(week: Int) async throws -> ScoresSnapshot {
+        try await makeScoresSnapshot(week: week, refreshPolicy: .useCache)
+    }
+
+    func refreshScores(week: Int) async throws -> ScoresSnapshot {
+        try await makeScoresSnapshot(week: week, refreshPolicy: .reloadIgnoringCache)
+    }
+
+    private func makeScoresSnapshot(
+        week: Int,
+        refreshPolicy: MFLRefreshPolicy
+    ) async throws -> ScoresSnapshot {
         let (client, _, workspace) = try requireSession()
-        async let liveTask = liveScoringIfAvailable(from: client, week: week, includeBench: true)
+        async let liveTask = liveScoringIfAvailable(
+            from: client,
+            week: week,
+            includeBench: true,
+            refreshPolicy: refreshPolicy
+        )
         async let leagueTask = client.league()
         let (live, refreshedLeague) = try await (liveTask, leagueTask)
         self.league = refreshedLeague
@@ -81,10 +97,28 @@ actor LiveMFLRepository: LeagueRepository {
                 week: week,
                 matchups: [],
                 lastUpdated: Date(),
-                isLive: false
+                isLive: false,
+                scorePrecision: scorePrecision(for: refreshedLeague)
             )
         }
 
+        let livePlayerIDs = Set(
+            live.matchups
+                .flatMap(\.franchises)
+                .flatMap(\.players)
+                .map(\.id)
+        )
+        // Aggregate live scoring remains useful even if MFL's player catalog
+        // is temporarily unavailable. In that case the detail rows keep their
+        // real ids, scores, statuses, and clocks and display neutral placeholders
+        // for only the missing catalog fields.
+        let catalog: MFLPlayerCatalog? = if livePlayerIDs.isEmpty {
+            nil
+        } else {
+            try? await client.players(ids: livePlayerIDs.sorted())
+        }
+        let catalogByID = Dictionary(grouping: catalog?.players ?? [], by: \.id)
+            .compactMapValues { $0.count == 1 ? $0[0] : nil }
         let franchiseByID = Dictionary(uniqueKeysWithValues: refreshedLeague.franchises.map { ($0.id, $0) })
         let matchups = live.matchups.compactMap { matchup -> Matchup? in
             guard matchup.franchises.count >= 2 else { return nil }
@@ -94,8 +128,16 @@ actor LiveMFLRepository: LeagueRepository {
             }
             let away = ordered[0]
             let home = ordered[1]
-            let awayTeam = makeMatchupTeam(away, franchise: franchiseByID[away.franchiseID])
-            let homeTeam = makeMatchupTeam(home, franchise: franchiseByID[home.franchiseID])
+            let awayTeam = makeMatchupTeam(
+                away,
+                franchise: franchiseByID[away.franchiseID],
+                playerCatalog: catalogByID
+            )
+            let homeTeam = makeMatchupTeam(
+                home,
+                franchise: franchiseByID[home.franchiseID],
+                playerCatalog: catalogByID
+            )
             return Matchup(
                 id: matchup.id,
                 away: awayTeam,
@@ -109,7 +151,8 @@ actor LiveMFLRepository: LeagueRepository {
             week: live.week ?? week,
             matchups: matchups,
             lastUpdated: Date(),
-            isLive: matchups.contains(where: { $0.status.isLive })
+            isLive: matchups.contains(where: { $0.status.isLive }),
+            scorePrecision: scorePrecision(for: refreshedLeague)
         )
     }
 
@@ -738,15 +781,58 @@ actor LiveMFLRepository: LeagueRepository {
         return (client, league, workspace)
     }
 
-    private func makeMatchupTeam(_ value: MFLLiveFranchise, franchise: MFLFranchise?) -> MatchupTeam {
-        MatchupTeam(
+    private func makeMatchupTeam(
+        _ value: MFLLiveFranchise,
+        franchise: MFLFranchise?,
+        playerCatalog: [String: MFLPlayer]
+    ) -> MatchupTeam {
+        let players = value.players.map { livePlayer in
+            makeMatchupPlayer(livePlayer, catalogPlayer: playerCatalog[livePlayer.id])
+        }
+        return MatchupTeam(
             id: value.franchiseID,
             name: cleanText(franchise?.name ?? "Franchise \(value.franchiseID)"),
             abbreviation: franchise?.abbreviation ?? value.franchiseID,
             score: value.score.doubleValue,
             projectedScore: nil,
             playersRemaining: value.playersYetToPlay + value.playersCurrentlyPlaying,
-            accentSeed: Int(value.franchiseID) ?? 0
+            accentSeed: Int(value.franchiseID) ?? 0,
+            starters: players.filter { $0.lineupStatus == .starter },
+            bench: players.filter { $0.lineupStatus == .bench },
+            unclassifiedPlayers: players.filter { $0.lineupStatus == .unknown }
+        )
+    }
+
+    private func scorePrecision(for league: MFLLeague) -> Int {
+        min(max(league.scorePrecision ?? 1, 0), 4)
+    }
+
+    private func makeMatchupPlayer(
+        _ value: MFLLivePlayer,
+        catalogPlayer: MFLPlayer?
+    ) -> MatchupPlayer {
+        let status: MatchupLineupStatus
+        if value.status.rawValue.caseInsensitiveCompare(MFLLivePlayerStatus.starter.rawValue) == .orderedSame {
+            status = .starter
+        } else if value.status.rawValue.caseInsensitiveCompare(MFLLivePlayerStatus.nonstarter.rawValue) == .orderedSame {
+            status = .bench
+        } else {
+            status = .unknown
+        }
+
+        let cleanedName = catalogPlayer.map { cleanText($0.displayName) } ?? ""
+        let cleanedStatLine = value.updatedStats.map(cleanText)
+        return MatchupPlayer(
+            id: value.id,
+            name: cleanedName.isEmpty ? "Player \(value.id)" : cleanedName,
+            position: catalogPlayer?.position.flatMap { $0.isEmpty ? nil : $0 } ?? "—",
+            nflTeam: catalogPlayer?.nflTeam.flatMap { $0.isEmpty ? nil : $0 } ?? "—",
+            livePoints: value.hasReportedScore ? value.score.doubleValue : nil,
+            lineupStatus: status,
+            gameSecondsRemaining: value.hasReportedGameSecondsRemaining
+                ? value.gameSecondsRemaining
+                : nil,
+            statLine: cleanedStatLine.flatMap { $0.isEmpty ? nil : $0 }
         )
     }
 

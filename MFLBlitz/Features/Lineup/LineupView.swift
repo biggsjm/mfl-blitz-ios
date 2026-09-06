@@ -364,13 +364,17 @@ private struct LineupPlayerRow: View {
 
 struct PositionBadge: View {
     let position: String
+    var isAccessibilityHidden = true
 
     var body: some View {
         Text(position)
             .font(.caption2.bold())
             .foregroundStyle(Color.blitzNavy)
-            .frame(width: 38, height: 32)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 6)
+            .frame(minWidth: 38, minHeight: 32)
             .background(Color.blitzGreen.opacity(0.9), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .accessibilityHidden(true)
+            .accessibilityHidden(isAccessibilityHidden)
     }
 }

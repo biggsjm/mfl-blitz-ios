@@ -12,7 +12,7 @@ This repository contains a polished, runnable product prototype and a tested MFL
 
 The current build includes:
 
-- a scores-first game-day dashboard with the user's matchup featured;
+- a scores-first game-day dashboard with the user's matchup featured and tappable position-by-position live scoring for every matchup;
 - a tap- and swipe-accessible lineup editor with lock, injury, deadline, projection, validation, review, and receipt states;
 - an ordered conditional-FAAB queue with search, useful sorting, bid/drop editing, budget checks, reordering, and explicit full-queue confirmation;
 - division and overall standings that preserve MFL's official ordering;

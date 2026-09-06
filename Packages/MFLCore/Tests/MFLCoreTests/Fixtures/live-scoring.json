@@ -22,8 +22,12 @@
               {
                 "id": "16001",
                 "status": "nonstarter",
-                "score": 4,
+                "score": 0,
                 "gameSecondsRemaining": 0
+              },
+              {
+                "id": "16002",
+                "status": "nonstarter"
               }
             ]
           }

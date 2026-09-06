@@ -22,6 +22,7 @@ struct ScoresSnapshot: Equatable, Sendable {
     var matchups: [Matchup]
     var lastUpdated: Date
     var isLive: Bool
+    var scorePrecision: Int = 1
 
     var featuredMatchup: Matchup? {
         matchups.first(where: { $0.isUserMatchup }) ?? matchups.first
@@ -49,6 +50,53 @@ struct MatchupTeam: Identifiable, Equatable, Sendable {
     var projectedScore: Double?
     var playersRemaining: Int
     var accentSeed: Int
+    var starters: [MatchupPlayer] = []
+    var bench: [MatchupPlayer] = []
+    var unclassifiedPlayers: [MatchupPlayer] = []
+
+    var players: [MatchupPlayer] { starters + bench + unclassifiedPlayers }
+}
+
+struct MatchupPlayer: Identifiable, Equatable, Sendable {
+    let id: String
+    var name: String
+    var position: String
+    var nflTeam: String
+    /// Nil when MFL omitted the player's scoring value from a partial response.
+    var livePoints: Double?
+    var lineupStatus: MatchupLineupStatus
+    /// MFL reports 3,600 before kickoff, counts down during regulation, and
+    /// reaches zero when the player's NFL game is complete. Nil means MFL did
+    /// not include a clock for this player.
+    var gameSecondsRemaining: Int?
+    var statLine: String?
+
+    var gameState: MatchupPlayerGameState {
+        guard let gameSecondsRemaining else { return .unknown }
+        return switch gameSecondsRemaining {
+        case 3_600:
+            .pregame
+        case 1 ..< 3_600:
+            .live
+        case 0:
+            .final
+        default:
+            .unknown
+        }
+    }
+}
+
+enum MatchupLineupStatus: Equatable, Sendable {
+    case starter
+    case bench
+    case unknown
+}
+
+enum MatchupPlayerGameState: Equatable, Sendable {
+    case pregame
+    case live
+    case final
+    case unknown
 }
 
 enum GameStatus: Equatable, Sendable {
@@ -248,6 +296,17 @@ extension Optional where Wrapped == Double {
     var pointsText: String {
         guard let self else { return "—" }
         return self.formatted(.number.precision(.fractionLength(1)))
+    }
+}
+
+extension Double {
+    var pointsText: String {
+        pointsText(precision: 1)
+    }
+
+    func pointsText(precision: Int) -> String {
+        let safePrecision = min(max(precision, 0), 4)
+        return formatted(.number.precision(.fractionLength(safePrecision)))
     }
 }
 

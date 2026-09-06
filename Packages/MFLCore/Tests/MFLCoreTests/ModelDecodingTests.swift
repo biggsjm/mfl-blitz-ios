@@ -83,7 +83,22 @@ struct ModelDecodingTests {
         #expect(live.week == 7)
         #expect(live.matchups.count == 1)
         #expect(live.matchups[0].franchises[0].isInProgress)
-        #expect(live.matchups[0].franchises[0].players[0].isStarter)
+        let reportedPlayer = live.matchups[0].franchises[0].players[0]
+        #expect(reportedPlayer.isStarter)
+        #expect(reportedPlayer.hasReportedScore)
+        #expect(reportedPlayer.hasReportedGameSecondsRemaining)
+
+        let reportedZeros = live.matchups[0].franchises[0].players[1]
+        #expect(reportedZeros.score == 0)
+        #expect(reportedZeros.hasReportedScore)
+        #expect(reportedZeros.gameSecondsRemaining == 0)
+        #expect(reportedZeros.hasReportedGameSecondsRemaining)
+
+        let omittedValues = live.matchups[0].franchises[0].players[2]
+        #expect(omittedValues.score == 0)
+        #expect(!omittedValues.hasReportedScore)
+        #expect(omittedValues.gameSecondsRemaining == 0)
+        #expect(!omittedValues.hasReportedGameSecondsRemaining)
         #expect(live.matchups[0].franchises[1].isHome == true)
         #expect(live.matchups[0].franchises[1].score == Decimal(string: "99.2"))
     }

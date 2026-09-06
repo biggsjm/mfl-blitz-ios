@@ -16,6 +16,17 @@ struct AppModelTests {
         #expect(model.scores.matchups.count == 6)
     }
 
+    @Test("Preview matchups include position-by-position scoring")
+    func previewMatchupPlayerScoring() throws {
+        let matchup = try #require(SampleData.scores.featuredMatchup)
+
+        #expect(matchup.away.starters.count == 9)
+        #expect(matchup.home.starters.count == 9)
+        #expect(Set(matchup.away.starters.map(\.position)).isSuperset(of: ["QB", "RB", "WR", "TE"]))
+        #expect(!matchup.away.bench.isEmpty)
+        #expect(matchup.away.players.allSatisfy { $0.livePoints != nil })
+    }
+
     @Test("Lineup validation notices missing starters")
     func lineupValidation() {
         let model = AppModel(repository: DemoLeagueRepository())

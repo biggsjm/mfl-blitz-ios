@@ -14,6 +14,7 @@ protocol LeagueRepository: Sendable {
     func signIn(with credentials: LoginCredentials) async throws -> LeagueWorkspace
     func loadWorkspace() async throws -> LeagueWorkspace
     func loadScores(week: Int) async throws -> ScoresSnapshot
+    func refreshScores(week: Int) async throws -> ScoresSnapshot
     func loadLineup(week: Int) async throws -> LineupSnapshot
     func submitLineup(_ lineup: LineupSnapshot) async throws
     func loadWaivers() async throws -> WaiverSnapshot
@@ -23,6 +24,12 @@ protocol LeagueRepository: Sendable {
     func loadThread(id: String) async throws -> BoardThread
     func postMessage(subject: String?, body: String, threadID: String?) async throws
     func signOut() async
+}
+
+extension LeagueRepository {
+    func refreshScores(week: Int) async throws -> ScoresSnapshot {
+        try await loadScores(week: week)
+    }
 }
 
 enum RepositoryError: LocalizedError {

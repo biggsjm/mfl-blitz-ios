@@ -18,43 +18,43 @@ enum SampleData {
         matchups: [
             Matchup(
                 id: "0001-0008",
-                away: .init(id: "0001", name: "Uber Beasts", abbreviation: "UB", score: 112.7, projectedScore: 128.4, playersRemaining: 3, accentSeed: 1),
-                home: .init(id: "0008", name: "GPT 5.0 now available", abbreviation: "RU", score: 108.2, projectedScore: 121.9, playersRemaining: 2, accentSeed: 8),
+                away: .init(id: "0001", name: "Uber Beasts", abbreviation: "UB", score: 112.7, projectedScore: 128.4, playersRemaining: 3, accentSeed: 1, starters: demoStarters("0001", "UB", score: 112.7, remaining: 3), bench: demoBench("0001", "UB")),
+                home: .init(id: "0008", name: "GPT 5.0 now available", abbreviation: "RU", score: 108.2, projectedScore: 121.9, playersRemaining: 2, accentSeed: 8, starters: demoStarters("0008", "RU", score: 108.2, remaining: 2), bench: demoBench("0008", "RU")),
                 isUserMatchup: true,
                 status: .live("3rd · 8:42")
             ),
             Matchup(
                 id: "0002-0011",
-                away: .init(id: "0002", name: "Croton Bug Eaters", abbreviation: "CBE", score: 96.4, projectedScore: 119.1, playersRemaining: 4, accentSeed: 2),
-                home: .init(id: "0011", name: "The Mean Green", abbreviation: "TMG", score: 101.8, projectedScore: 124.3, playersRemaining: 3, accentSeed: 11),
+                away: .init(id: "0002", name: "Croton Bug Eaters", abbreviation: "CBE", score: 96.4, projectedScore: 119.1, playersRemaining: 4, accentSeed: 2, starters: demoStarters("0002", "CBE", score: 96.4, remaining: 4), bench: demoBench("0002", "CBE")),
+                home: .init(id: "0011", name: "The Mean Green", abbreviation: "TMG", score: 101.8, projectedScore: 124.3, playersRemaining: 3, accentSeed: 11, starters: demoStarters("0011", "TMG", score: 101.8, remaining: 3), bench: demoBench("0011", "TMG")),
                 isUserMatchup: false,
                 status: .live("Halftime")
             ),
             Matchup(
                 id: "0003-0007",
-                away: .init(id: "0003", name: "Secret Asian Man", abbreviation: "SAM", score: 0, projectedScore: 117.6, playersRemaining: 9, accentSeed: 3),
-                home: .init(id: "0007", name: "Fields of Gold", abbreviation: "JPH", score: 0, projectedScore: 125.8, playersRemaining: 9, accentSeed: 7),
+                away: .init(id: "0003", name: "Secret Asian Man", abbreviation: "SAM", score: 0, projectedScore: 117.6, playersRemaining: 9, accentSeed: 3, starters: demoStarters("0003", "SAM", score: 0, remaining: 9, isPregame: true), bench: demoBench("0003", "SAM", isPregame: true)),
+                home: .init(id: "0007", name: "Fields of Gold", abbreviation: "JPH", score: 0, projectedScore: 125.8, playersRemaining: 9, accentSeed: 7, starters: demoStarters("0007", "JPH", score: 0, remaining: 9, isPregame: true), bench: demoBench("0007", "JPH", isPregame: true)),
                 isUserMatchup: false,
                 status: .pregame(Calendar.current.date(byAdding: .hour, value: 3, to: now)!)
             ),
             Matchup(
                 id: "0004-0009",
-                away: .init(id: "0004", name: "Chemical Bulldogs", abbreviation: "CB", score: 131.5, projectedScore: 131.5, playersRemaining: 0, accentSeed: 4),
-                home: .init(id: "0009", name: "Pray For Mojo", abbreviation: "PFM", score: 119.2, projectedScore: 119.2, playersRemaining: 0, accentSeed: 9),
+                away: .init(id: "0004", name: "Chemical Bulldogs", abbreviation: "CB", score: 131.5, projectedScore: 131.5, playersRemaining: 0, accentSeed: 4, starters: demoStarters("0004", "CB", score: 131.5, remaining: 0), bench: demoBench("0004", "CB")),
+                home: .init(id: "0009", name: "Pray For Mojo", abbreviation: "PFM", score: 119.2, projectedScore: 119.2, playersRemaining: 0, accentSeed: 9, starters: demoStarters("0009", "PFM", score: 119.2, remaining: 0), bench: demoBench("0009", "PFM")),
                 isUserMatchup: false,
                 status: .final
             ),
             Matchup(
                 id: "0005-0010",
-                away: .init(id: "0005", name: "Bears Sausage Ditka", abbreviation: "BSD", score: 88.9, projectedScore: 116.2, playersRemaining: 4, accentSeed: 5),
-                home: .init(id: "0010", name: "360° Turnaround", abbreviation: "360", score: 92.1, projectedScore: 122.7, playersRemaining: 4, accentSeed: 10),
+                away: .init(id: "0005", name: "Bears Sausage Ditka", abbreviation: "BSD", score: 88.9, projectedScore: 116.2, playersRemaining: 4, accentSeed: 5, starters: demoStarters("0005", "BSD", score: 88.9, remaining: 4), bench: demoBench("0005", "BSD")),
+                home: .init(id: "0010", name: "360° Turnaround", abbreviation: "360", score: 92.1, projectedScore: 122.7, playersRemaining: 4, accentSeed: 10, starters: demoStarters("0010", "360", score: 92.1, remaining: 4), bench: demoBench("0010", "360")),
                 isUserMatchup: false,
                 status: .live("2nd · 2:13")
             ),
             Matchup(
                 id: "0006-0012",
-                away: .init(id: "0006", name: "Two Bad Neighbors", abbreviation: "BAB", score: 73.4, projectedScore: 110.4, playersRemaining: 5, accentSeed: 6),
-                home: .init(id: "0012", name: "Bitchbettahavemymoney.com", abbreviation: "BBM", score: 84.6, projectedScore: 118.8, playersRemaining: 4, accentSeed: 12),
+                away: .init(id: "0006", name: "Two Bad Neighbors", abbreviation: "BAB", score: 73.4, projectedScore: 110.4, playersRemaining: 5, accentSeed: 6, starters: demoStarters("0006", "BAB", score: 73.4, remaining: 5), bench: demoBench("0006", "BAB")),
+                home: .init(id: "0012", name: "Bitchbettahavemymoney.com", abbreviation: "BBM", score: 84.6, projectedScore: 118.8, playersRemaining: 4, accentSeed: 12, starters: demoStarters("0012", "BBM", score: 84.6, remaining: 4), bench: demoBench("0012", "BBM")),
                 isUserMatchup: false,
                 status: .live("2nd · 11:06")
             )
@@ -191,6 +191,88 @@ enum SampleData {
             ]
         )
     ]
+
+    private static func demoStarters(
+        _ teamID: String,
+        _ abbreviation: String,
+        score: Double,
+        remaining: Int,
+        isPregame: Bool = false
+    ) -> [MatchupPlayer] {
+        let slots = [
+            ("QB", "Quarterback", "DAL", 0.20),
+            ("RB", "Running Back 1", "GB", 0.13),
+            ("RB", "Running Back 2", "MIN", 0.11),
+            ("WR", "Wide Receiver 1", "BUF", 0.14),
+            ("WR", "Wide Receiver 2", "MIA", 0.12),
+            ("WR", "Wide Receiver 3", "PIT", 0.10),
+            ("TE", "Tight End", "JAX", 0.08),
+            ("WR", "Flex Receiver", "SEA", 0.07),
+            ("RB", "Flex Back", "NYJ", 0.05),
+        ]
+
+        return slots.enumerated().map { index, slot in
+            let gameSecondsRemaining: Int
+            if isPregame {
+                gameSecondsRemaining = 3_600
+            } else if index < remaining {
+                gameSecondsRemaining = index.isMultiple(of: 2) ? 1_365 : 3_600
+            } else {
+                gameSecondsRemaining = 0
+            }
+            return MatchupPlayer(
+                id: "\(teamID)-starter-\(index)",
+                name: "\(abbreviation) \(slot.1)",
+                position: slot.0,
+                nflTeam: slot.2,
+                livePoints: (score * slot.3 * 10).rounded() / 10,
+                lineupStatus: .starter,
+                gameSecondsRemaining: gameSecondsRemaining,
+                statLine: gameSecondsRemaining > 0 && gameSecondsRemaining < 3_600
+                    ? demoStatLine(for: slot.0)
+                    : nil
+            )
+        }
+    }
+
+    private static func demoBench(
+        _ teamID: String,
+        _ abbreviation: String,
+        isPregame: Bool = false
+    ) -> [MatchupPlayer] {
+        [
+            MatchupPlayer(
+                id: "\(teamID)-bench-0",
+                name: "\(abbreviation) Bench Quarterback",
+                position: "QB",
+                nflTeam: "ARI",
+                livePoints: isPregame ? 0 : 14.2,
+                lineupStatus: .bench,
+                gameSecondsRemaining: isPregame ? 3_600 : 0,
+                statLine: nil
+            ),
+            MatchupPlayer(
+                id: "\(teamID)-bench-1",
+                name: "\(abbreviation) Bench Runner",
+                position: "RB",
+                nflTeam: "CLE",
+                livePoints: isPregame ? 0 : 6.8,
+                lineupStatus: .bench,
+                gameSecondsRemaining: isPregame ? 3_600 : 0,
+                statLine: nil
+            ),
+        ]
+    }
+
+    private static func demoStatLine(for position: String) -> String {
+        switch position {
+        case "QB": "18/27, 214 yds, 2 TD"
+        case "RB": "12 rush, 68 yds · 3 rec, 24 yds"
+        case "WR": "6 rec, 82 yds"
+        case "TE": "4 rec, 46 yds"
+        default: "Live"
+        }
+    }
 
     private static func player(
         _ id: String,

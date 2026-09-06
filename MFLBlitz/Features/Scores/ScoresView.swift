@@ -38,7 +38,17 @@ struct ScoresView: View {
                     }
                 } else {
                     if let featured = model.scores.featuredMatchup {
-                        FeaturedMatchupCard(matchup: featured)
+                        NavigationLink {
+                            MatchupDetailView(matchupID: featured.id)
+                        } label: {
+                            FeaturedMatchupCard(
+                                matchup: featured,
+                                scorePrecision: model.scores.scorePrecision
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("matchup-\(featured.id)")
+                        .accessibilityHint("Opens live player scoring for this matchup")
                             .padding(.horizontal, BlitzMetrics.pagePadding)
                     }
 
@@ -48,8 +58,20 @@ struct ScoresView: View {
                             .padding(.horizontal, BlitzMetrics.pagePadding)
 
                         LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(model.scores.matchups.filter { !$0.isUserMatchup }) { matchup in
-                                MatchupCard(matchup: matchup)
+                            ForEach(model.scores.matchups.filter {
+                                $0.id != model.scores.featuredMatchup?.id
+                            }) { matchup in
+                                NavigationLink {
+                                    MatchupDetailView(matchupID: matchup.id)
+                                } label: {
+                                    MatchupCard(
+                                        matchup: matchup,
+                                        scorePrecision: model.scores.scorePrecision
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("matchup-\(matchup.id)")
+                                .accessibilityHint("Opens live player scoring for this matchup")
                             }
                         }
                         .padding(.horizontal, BlitzMetrics.pagePadding)
@@ -108,6 +130,7 @@ private struct UpdatedLabel: View {
 
 private struct FeaturedMatchupCard: View {
     let matchup: Matchup
+    let scorePrecision: Int
 
     var body: some View {
         VStack(spacing: 18) {
@@ -133,15 +156,27 @@ private struct FeaturedMatchupCard: View {
                     .background(.red.opacity(0.85), in: Capsule())
                     .accessibilityLabel("Live scoring")
                 }
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.white.opacity(0.58))
+                    .accessibilityHidden(true)
             }
 
             HStack(alignment: .top, spacing: 10) {
-                FeaturedTeam(team: matchup.away, isLeading: matchup.leaderID == matchup.away.id)
+                FeaturedTeam(
+                    team: matchup.away,
+                    isLeading: matchup.leaderID == matchup.away.id,
+                    scorePrecision: scorePrecision
+                )
                 Text("–")
                     .font(.title.bold())
                     .foregroundStyle(.white.opacity(0.42))
                     .padding(.top, 49)
-                FeaturedTeam(team: matchup.home, isLeading: matchup.leaderID == matchup.home.id)
+                FeaturedTeam(
+                    team: matchup.home,
+                    isLeading: matchup.leaderID == matchup.home.id,
+                    scorePrecision: scorePrecision
+                )
             }
 
             Divider().overlay(.white.opacity(0.16))
@@ -191,8 +226,8 @@ private struct FeaturedMatchupCard: View {
     }
 
     private var accessibilitySummary: String {
-        let awayScore = matchup.away.score.formatted(.number.precision(.fractionLength(1)))
-        let homeScore = matchup.home.score.formatted(.number.precision(.fractionLength(1)))
+        let awayScore = matchup.away.score.pointsText(precision: scorePrecision)
+        let homeScore = matchup.home.score.pointsText(precision: scorePrecision)
         return "Your matchup. \(matchup.away.name), \(awayScore) points. \(matchup.home.name), \(homeScore) points. \(matchup.status.label)."
     }
 }
@@ -200,6 +235,7 @@ private struct FeaturedMatchupCard: View {
 private struct FeaturedTeam: View {
     let team: MatchupTeam
     let isLeading: Bool
+    let scorePrecision: Int
 
     var body: some View {
         VStack(spacing: 8) {
@@ -210,7 +246,7 @@ private struct FeaturedTeam: View {
                 .multilineTextAlignment(.center)
                 .frame(minHeight: 38, alignment: .top)
             HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(team.score, format: .number.precision(.fractionLength(1)))
+                Text(team.score.pointsText(precision: scorePrecision))
                     .font(.system(size: 33, weight: .black, design: .rounded))
                     .contentTransition(.numericText())
                 if isLeading {
@@ -243,6 +279,7 @@ private struct ProjectionMetric: View {
 
 private struct MatchupCard: View {
     let matchup: Matchup
+    let scorePrecision: Int
 
     var body: some View {
         SurfaceCard {
@@ -253,13 +290,25 @@ private struct MatchupCard: View {
                     Text(matchup.status.label)
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.bold())
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
                 }
-                CompactTeamRow(team: matchup.away, isLeader: matchup.leaderID == matchup.away.id)
-                CompactTeamRow(team: matchup.home, isLeader: matchup.leaderID == matchup.home.id)
+                CompactTeamRow(
+                    team: matchup.away,
+                    isLeader: matchup.leaderID == matchup.away.id,
+                    scorePrecision: scorePrecision
+                )
+                CompactTeamRow(
+                    team: matchup.home,
+                    isLeader: matchup.leaderID == matchup.home.id,
+                    scorePrecision: scorePrecision
+                )
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(matchup.away.name) \(matchup.away.score, format: .number.precision(.fractionLength(1))), \(matchup.home.name) \(matchup.home.score, format: .number.precision(.fractionLength(1))). \(matchup.status.label).")
+        .accessibilityLabel("\(matchup.away.name) \(matchup.away.score.pointsText(precision: scorePrecision)), \(matchup.home.name) \(matchup.home.score.pointsText(precision: scorePrecision)). \(matchup.status.label).")
     }
 
     private var statusLabel: some View {
@@ -279,6 +328,7 @@ private struct MatchupCard: View {
 private struct CompactTeamRow: View {
     let team: MatchupTeam
     let isLeader: Bool
+    let scorePrecision: Int
 
     var body: some View {
         HStack(spacing: 10) {
@@ -292,7 +342,7 @@ private struct CompactTeamRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
-            Text(team.score, format: .number.precision(.fractionLength(1)))
+            Text(team.score.pointsText(precision: scorePrecision))
                 .font(.title3.weight(isLeader ? .black : .semibold).monospacedDigit())
         }
     }
