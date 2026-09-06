@@ -2,9 +2,9 @@ import SwiftUI
 
 struct WaiversView: View {
     @Environment(AppModel.self) private var model
-    @State private var searchText = ""
+    @Binding var searchText: String
     @State private var position = "All"
-    @State private var sort = CandidateSort.trending
+    @State private var sort = CandidateSort.projection
     @State private var editingClaim: WaiverClaim?
     @State private var showingReview = false
 
@@ -21,16 +21,27 @@ struct WaiversView: View {
         List {
             if model.isLoadingWaivers {
                 ProgressView("Loading waivers…")
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 16)
                     .listRowBackground(Color.clear)
+                    .accessibilityIdentifier("waiver-loading")
+            }
+            if let error = model.waiverReadError {
+                Section {
+                    Label(error, systemImage: "wifi.exclamationmark").font(.subheadline)
+                    Button("Refresh waivers") { Task { await model.refreshWaivers() } }.disabled(model.isLoadingWaivers)
+                }
             }
             if model.isDemo {
                 DemoBanner()
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
-            } else if let reason = model.waivers.unavailableReason {
-                LiveWriteSafetyBanner(message: reason)
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
+            } else if !model.isLoadingWaivers, let reason = model.waivers.unavailableReason {
+                Section {
+                    Label("Manage waivers on MFL", systemImage: "info.circle").font(.headline)
+                    Text(reason).font(.subheadline).foregroundStyle(.secondary)
+                    if let workspace = model.workspace { Link("Open MyFantasyLeague", destination: workspace.leagueURL) }
+                }
             }
 
             if let conflict = model.waiverConflict {
@@ -69,12 +80,14 @@ struct WaiversView: View {
                 WaiverHeaderCard(snapshot: model.waivers)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .listRowBackground(Color.clear)
+            }
+            Section {
                 if let workspace = model.workspace {
-                    Link("Calendar, full results & first-come adds on MFL", destination: workspace.leagueURL)
+                    Link("League calendar & waiver tools on MFL", destination: workspace.leagueURL)
                         .font(.footnote)
                 }
                 if let note = model.waivers.projectionNote {
-                    Text(model.waivers.projectionWeek.map { "Week \($0) · \(note)" } ?? note)
+                    Text(note)
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -123,7 +136,8 @@ struct WaiversView: View {
                     WaiverCandidateRow(
                         candidate: candidate,
                         hasClaim: hasClaim,
-                        canAdd: model.waivers.maxRounds > 0
+                        canAdd: model.waivers.maxRounds > 0,
+                        showTrends: model.isDemo
                     ) {
                         if let claim = model.waivers.claims.first(where: { $0.player.id == candidate.id }) {
                             editingClaim = claim
@@ -131,7 +145,7 @@ struct WaiversView: View {
                             let round = suggestedRound
                             editingClaim = WaiverClaim(
                                 player: candidate,
-                                bid: max(model.waivers.minimumBid, model.waivers.increment),
+                                bid: model.waivers.minimumBid,
                                 dropPlayerID: nil,
                                 dropPlayerName: nil,
                                 round: round,
@@ -143,15 +157,15 @@ struct WaiversView: View {
             } header: {
                 Text("Available players")
             } footer: {
-                if filteredCandidates.isEmpty {
+                if filteredCandidates.isEmpty && !model.isLoadingWaivers && model.waiverReadError == nil {
                     Text("No players match these filters.")
                 }
             }
 
         }
         .listStyle(.insetGrouped)
-        .navigationTitle("Waivers")
-        .searchable(text: $searchText, prompt: "Search available players")
+        .navigationTitle("Transactions")
+        .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if !model.waivers.claims.isEmpty {
@@ -186,7 +200,7 @@ struct WaiversView: View {
         .sheet(isPresented: $showingReview) {
             WaiverReviewView()
         }
-        .refreshable { await model.refreshAll() }
+        .refreshable { await model.refreshWaivers() }
     }
 
     private var filterControls: some View {
@@ -216,11 +230,13 @@ struct WaiversView: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 Picker("Sort available players", selection: $sort) {
-                    ForEach(CandidateSort.allCases) { option in
+                    ForEach(CandidateSort.allCases.filter { model.isDemo || ![CandidateSort.trending, .rostered].contains($0) }) { option in
                         Text(option.rawValue).tag(option)
                     }
                 }
                 .pickerStyle(.menu)
+                .labelsHidden()
+                .accessibilityLabel("Sort available players")
             }
         }
     }
@@ -275,27 +291,30 @@ private struct WaiverHeaderCard: View {
             VStack(spacing: 14) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("FAAB available")
+                        Text("Waiver budget")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         Text(snapshot.availableBudget, format: .currency(code: "USD").precision(.fractionLength(0)))
                             .font(.system(.largeTitle, design: .rounded, weight: .black))
                     }
                     Spacer()
-                    StatusPill(text: "Conditional", systemImage: "arrow.triangle.branch", tone: .neutral)
+                    StatusPill(text: "Blind bids", systemImage: "envelope", tone: .neutral)
                 }
                 Divider()
-                HStack {
+                VStack(alignment: .leading, spacing: 10) {
                     if let processesAt = snapshot.processesAt {
-                        Label("Processes \(processesAt.formatted(date: .abbreviated, time: .shortened))", systemImage: "clock.badge")
+                        VStack(alignment: .leading, spacing: 3) {
+                            Label("Next blind-bid run", systemImage: "clock")
+                            Text(processesAt.formatted(date: .abbreviated, time: .shortened)).font(.subheadline)
+                        }
                     } else {
-                        Label("Check league calendar", systemImage: "calendar.badge.exclamationmark")
+                        Label("Next run: check MFL’s calendar", systemImage: "calendar")
                     }
-                    Spacer()
-                    Text("\(Set(snapshot.claims.map(\.round)).count)/\(snapshot.maxRounds) rounds · \(snapshot.claims.count) bids")
+                    Text(snapshot.claims.isEmpty ? "No bids in your queue" : "\(snapshot.claims.count) bid\(snapshot.claims.count == 1 ? "" : "s") in your queue")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .accessibilityElement(children: .combine)
@@ -339,6 +358,7 @@ private struct WaiverCandidateRow: View {
     let candidate: WaiverCandidate
     let hasClaim: Bool
     let canAdd: Bool
+    let showTrends: Bool
     let action: () -> Void
 
     var body: some View {
@@ -353,7 +373,7 @@ private struct WaiverCandidateRow: View {
                             .foregroundStyle(.orange)
                     }
                 }
-                Text("\(candidate.nflTeam) · \(candidate.rosteredPercent)% rostered · +\(candidate.trend)%")
+                Text(showTrends ? "\(candidate.nflTeam) · \(candidate.rosteredPercent)% rostered · +\(candidate.trend)%" : candidate.nflTeam)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -426,7 +446,7 @@ private struct ClaimEditorView: View {
                 } header: {
                     Text("Bid")
                 } footer: {
-                    Text("Bids must use \(model.waivers.increment, format: .currency(code: "USD").precision(.fractionLength(0))) increments. Your bid stays private inside MFL.")
+                    Text("Minimum bid: \(model.waivers.minimumBid, format: .currency(code: "USD").precision(.fractionLength(0))). Use \(model.waivers.increment, format: .currency(code: "USD").precision(.fractionLength(0))) increments. Bids stay private until MFL processes them.")
                 }
 
                 Section("If successful") {

@@ -20,6 +20,29 @@ actor MutationFixtureTransport: MFLHTTPTransport {
     var slowMembership = false
     var projectionsMissing = false
     var projectionError: MFLCoreError?
+    var tradeOffers: [[String: String]] = []
+    var tradePlayerMoved = false
+    var tradeTimeout = false
+    var hideTradeReadback = false
+    var removedAfterTimeout = false
+    var activityRows: [[String: String]] = []
+    var minimumBid: String? = "1"
+    var flexScoring = false
+    var requestCounts: [String: Int] = [:]
+    func setActivity(_ rows: [[String: String]]) { activityRows = rows }
+    func setMinimumBid(_ value: String?) { minimumBid = value }
+    func enableFlexScoring() { flexScoring = true }
+
+    func seedTrade(outgoing: Bool = false, expired: Bool = false, unknownAsset: Bool = false) {
+        tradeOffers = [["trade_id": "900", "offeringteam": outgoing ? "0001" : "0002", "offeredto": outgoing ? "0002" : "0001",
+            "will_give_up": outgoing ? "201" : unknownAsset ? "UNKNOWN_123" : "101", "will_receive": outgoing ? "101" : "201",
+            "expires": String(Int(Date().addingTimeInterval(expired ? -100 : 86_400).timeIntervalSince1970)), "comments": "Synthetic offer"]]
+    }
+    func moveTradePlayer() { tradePlayerMoved = true }
+    func failTrade(afterRemoval: Bool = false) { tradeTimeout = true; removedAfterTimeout = afterRemoval }
+    func hideTrade() { hideTradeReadback = true }
+    func revealTrade() { hideTradeReadback = false }
+    func changeTradeTerms() { tradeOffers[0]["will_receive"] = "201,BB_2" }
 
     func configure(failRound: Int? = nil, boardTimeout: Bool = false, hidePost: Bool = false, author: String = "0001") {
         self.failRound = failRound; self.boardTimeout = boardTimeout; self.hidePost = hidePost; boardAuthor = author
@@ -37,6 +60,7 @@ actor MutationFixtureTransport: MFLHTTPTransport {
         formComponents.percentEncodedQuery = String(data: request.httpBody ?? Data(), encoding: .utf8)?.replacingOccurrences(of: "+", with: "%20")
         let form = Dictionary(uniqueKeysWithValues: (formComponents.queryItems ?? []).map { ($0.name, $0.value ?? "") })
         let type = query["TYPE"] ?? form["TYPE"] ?? ""
+        requestCounts[type, default: 0] += 1
         func response(_ value: [String: Any]) throws -> MFLHTTPResponse {
             MFLHTTPResponse(data: try JSONSerialization.data(withJSONObject: value), statusCode: 200, url: request.url)
         }
@@ -47,7 +71,15 @@ actor MutationFixtureTransport: MFLHTTPTransport {
         }
         if request.httpMethod == "POST" {
             imports.append(type)
-            if type == "blindBidWaiverRequest" {
+            if type == "tradeProposal" {
+                tradeOffers.append(["trade_id": "901", "offeringteam": "0001", "offeredto": form["OFFEREDTO"]!,
+                    "will_give_up": form["WILL_GIVE_UP"]!, "will_receive": form["WILL_RECEIVE"]!,
+                    "comments": form["COMMENTS"] ?? "", "expires": form["EXPIRES"]!])
+                if tradeTimeout { throw URLError(.timedOut) }
+            } else if type == "tradeResponse" {
+                if !tradeTimeout || removedAfterTimeout { tradeOffers.removeAll { $0["trade_id"] == form["TRADE_ID"] } }
+                if tradeTimeout { throw URLError(.timedOut) }
+            } else if type == "blindBidWaiverRequest" {
                 let round = Int(form["ROUND"] ?? "")!
                 if failRound == round { throw MFLCoreError.transport("Synthetic dropped connection") }
                 let picks = form["PICKS"] ?? ""
@@ -59,23 +91,38 @@ actor MutationFixtureTransport: MFLHTTPTransport {
             return try response(["status": "OK"])
         }
         switch type {
+        case "pendingTrades":
+            return try response(["pendingTrades": ["pendingTrade": hideTradeReadback ? [] : tradeOffers]])
+        case "assets":
+            return try response(["assets": ["franchise": [
+                ["id": "0001", "players": ["player": tradePlayerMoved ? [] : [["id": "201"]]], "blindBiddingDollars": ["amount": "100"]],
+                ["id": "0002", "players": ["player": [["id": "101"]]], "futureYearDraftPicks": ["draftPick": [["pick": "FP_0002_2027_1"]]], "blindBiddingDollars": ["amount": "50"]]
+            ]]])
         case "myleagues":
             if slowMembership { try await Task.sleep(for: .seconds(60)) }
             return try response(["leagues": ["league": [["league_id": "41333", "franchise_id": membership,
                 "url": "https://www45.myfantasyleague.com/2026/home/41333"]]]])
         case "league":
-            return try response(["league": ["id": "41333", "name": "Fixture League", "baseURL": "https://www45.myfantasyleague.com",
+            var fields: [String: Any] = ["id": "41333", "name": "Fixture League", "baseURL": "https://www45.myfantasyleague.com",
                 "startWeek": "1", "precision": "2", "bbidConditional": "Yes", "currentWaiverType": "BBID_FCFS",
-                "maxWaiverRounds": "8", "bbidMinimum": "1", "bbidIncrement": "1", "bbidSeasonLimit": "100",
+                "maxWaiverRounds": "8", "bbidIncrement": "1", "bbidSeasonLimit": "100",
                 "franchises": ["franchise": [["id": "0001", "name": "Fixture One", "bbidAvailableBalance": "100",
+                    "owner_name": "  Avery &amp; Morgan  ",
                     "icon": "https://images.example.com/2015/team-one.png", "logo": "https://images.example.com/team-one.jpg"],
-                    ["id": "0002", "name": "Fixture Two", "icon": "http://images.example.com/insecure.gif"]]]]])
+                    ["id": "0002", "name": "Fixture Two", "ownerName": "  ", "icon": "http://images.example.com/insecure.gif"]]]]
+            fields["bbidMinimum"] = minimumBid
+            if flexScoring {
+                fields["starters"] = ["count": "3", "position": [
+                    ["name": "QB", "limit": "1"], ["name": "RB", "limit": "1-2"], ["name": "WR", "limit": "0-1"]]]
+            }
+            return try response(["league": fields])
         case "leagueStandings":
             return try response(["leagueStandings": ["franchise": [["id": "0002", "h2hw": "1"], ["id": "0001", "h2hw": "0"]]]])
         case "freeAgents":
             return try response(["freeAgents": ["leagueUnit": ["unit": "LEAGUE", "player": [["id": "101"], ["id": "102"]]]]])
         case "players":
             return try response(["players": ["player": [["id": "101", "name": "One, Player", "position": "WR", "team": "CHI"],
+                                                         ["id": "201", "name": "Three, Player", "position": "QB", "team": "DAL"],
                                                          ["id": "102", "name": "Two, Player", "position": "RB", "team": "GB"]]]])
         case "rosters":
             return try response(["rosters": ["franchise": ["id": "0001", "player": [["id": "201", "status": "ROSTER"]]]]])
@@ -87,15 +134,16 @@ actor MutationFixtureTransport: MFLHTTPTransport {
         case "playerRosterStatus":
             return try response(["playerRosterStatuses": ["player": [["id": "201", "franchise": [["id": "0001", "status": "S"]]]]]])
         case "liveScoring":
+            let startingIDs = flexScoring ? ["201", "102", "101"] : ["201"]
             return try response(["liveScoring": ["week": query["W"] ?? "1", "matchup": ["franchise": [
-                ["id": "0001", "score": "0", "playersYetToPlay": "1", "players": ["player": [["id": "201", "status": "starter", "gameSecondsRemaining": "3600", "score": "0"]]]],
+                ["id": "0001", "score": "0", "playersYetToPlay": "1", "players": ["player": startingIDs.map { ["id": $0, "status": "starter", "gameSecondsRemaining": "3600", "score": "0"] }]],
                 ["id": "0002", "score": "0", "playersYetToPlay": "1", "players": ["player": [["id": "101", "status": "starter", "gameSecondsRemaining": "3600", "score": "0"]]]]]]]])
         case "pendingWaivers":
             return try response(["pendingWaivers": ["waiverRequest": rounds.keys.sorted().map {
                 ["round": String($0), "picks": rounds[$0]!, "franchise_id": "0001"]
             }]])
         case "calendar": return try response(["calendar": ["event": []]])
-        case "transactions": return try response(["transactions": ["transaction": []]])
+        case "transactions": return try response(["transactions": ["transaction": activityRows]])
         case "weeklyResults":
             return try response(["weeklyResults": ["week": "1", "matchup": ["franchise": [
                 ["id": "0001", "score": "103.25"], ["id": "0002", "score": "100.75"]]]]])
@@ -116,6 +164,37 @@ actor MutationFixtureTransport: MFLHTTPTransport {
 }
 
 struct MutationRecoveryTests {
+    @Test("Standings use MFL owner names, preserve co-owners, and leave missing names unknown")
+    func standingsOwners() async throws {
+        let repository = try await connected(MutationFixtureTransport())
+        let rows = try await repository.loadStandings()
+        #expect(rows.first(where: { $0.id == "0001" })?.ownerName == "Avery & Morgan")
+        #expect(rows.first(where: { $0.id == "0002" })?.ownerName == nil)
+        #expect(rows.map(\.id) == ["0002", "0001"])
+    }
+
+    @Test("A confirmed zero-dollar minimum supports a complete synthetic waiver save and readback")
+    func zeroDollarWaiver() async throws {
+        let transport = MutationFixtureTransport()
+        await transport.setMinimumBid(nil)
+        let repository = try await connected(transport)
+        let saved = try await repository.loadWaivers()
+        #expect(saved.minimumBid == 0 && saved.increment == 1 && saved.unavailableReason == nil)
+        var desired = saved.claims
+        desired[0].bid = 0
+        try await repository.submitWaivers(desired, replacing: saved.claims)
+        #expect(await transport.rounds[1] == "101_0_0000")
+        #expect(await transport.imports == ["blindBidWaiverRequest"])
+        let confirmed = try await repository.loadWaivers()
+        #expect(confirmed.claims.first?.bid == 0)
+        await transport.setMinimumBid("2")
+        desired[1].bid = 0
+        await #expect(throws: (any Error).self) {
+            try await repository.submitWaivers(desired, replacing: confirmed.claims)
+        }
+        #expect(await transport.imports.count == 1)
+    }
+
     @Test("Live and completed matchups and official standings carry each franchise's safe artwork")
     func franchiseArtwork() async throws {
         let repository = try await connected(MutationFixtureTransport())

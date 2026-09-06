@@ -32,6 +32,11 @@ All league calls use `https://{resolved-host}/{season}/` and include `L={leagueI
 | Free agents | `export?TYPE=freeAgents&POSITION={position}&JSON=1` |
 | Saved waiver requests | `export?TYPE=pendingWaivers&JSON=1` |
 | Submit conditional BBID round | `import?TYPE=blindBidWaiverRequest&ROUND={n}&PICKS={add_bid_drop,...}&REPLACE=1` |
+| Pending owner trades | `export?TYPE=pendingTrades&FRANCHISE_ID={owner}&JSON=1` |
+| Tradable assets | `export?TYPE=assets&JSON=1` |
+| Propose trade | `import?TYPE=tradeProposal`; POST `OFFEREDTO`, `WILL_GIVE_UP`, `WILL_RECEIVE`, `COMMENTS`, `EXPIRES`, `FRANCHISE_ID` |
+| Respond to trade | `import?TYPE=tradeResponse`; POST `TRADE_ID`, `RESPONSE=accept/reject/revoke`, `FRANCHISE_ID`; optional rejection `COMMENTS` |
+| Recent transaction activity | `export?TYPE=transactions&TRANS_TYPE=DEFAULT&COUNT=50&JSON=1` |
 | Standings | `export?TYPE=leagueStandings&COLUMN_NAMES=1&ALL=1&JSON=1` |
 | Board summaries | `export?TYPE=messageBoard&COUNT={count}&JSON=1` |
 | Board thread | `export?TYPE=messageBoardThread&THREAD={id}&JSON=1` |
@@ -67,7 +72,11 @@ The supplied [Champion Hall league metadata](https://www45.myfantasyleague.com/2
 - conditional `BBID_FCFS`, up to eight rounds, $100 season limit, $1 increment;
 - standings order `PCT,H2H,PTS,DIVPCT`.
 
-These values explain the app's conditional queue and flexible position-count validator. They must remain dynamic in production.
+These values explain the app's conditional queue and flexible position-count validator. They must remain dynamic in production. The export omits `bbidMinimum`; on September 6, 2026, Josh confirmed a $0 minimum. Version 0.3.1 uses that confirmation only as a fallback for league 41333 in 2026. An explicit MFL minimum always wins, including during fresh write preflight. Other leagues/seasons with an unknown minimum remain read-only. This is a league-specific confirmed rule, not an inference that omitted numeric fields mean zero.
+
+Standings use the authenticated league export's `owner_name`/`ownerName` under the team name; divisions remain group headings. MFL restricts personal owner information in its API, so an absent/blank name is shown as “Owner not listed,” never replaced with an email, guessed identity, or public-profile lookup. Demo owners are synthetic.
+
+Version 0.3.1 parses activity by transaction type. `BBID_WAIVER` uses `addedIDs|bidAmount|droppedIDs`, whereas `FREE_AGENT` uses `addedIDs|droppedIDs`; blank/zero no-drop sentinels are omitted. Trade/IR/taxi moves use named fields. The formatter is shared by Activity and recent waiver results. Formats were cross-checked against the [ffscrapr MFL transaction implementation](https://github.com/ffverse/ffscrapr/blob/main/R/mfl_transactions.R). Unrecognized formats are not guessed.
 
 ## Defensive client rules
 
@@ -76,7 +85,7 @@ These values explain the app's conditional queue and flexible position-count val
 3. Support both singleton objects and arrays where MFL varies container shape.
 4. Inspect the body for JSON `error.$t` or XML `<error>` even when HTTP status is 200.
 5. Space API requests by at least one second. Poll live scoring at roughly 90 seconds or slower, with jitter.
-6. Cache the player directory for a day and use `SINCE`; cache rules and league configuration aggressively.
+6. Share one full player directory across all tabs and persist it for 24 hours; cache stable league configuration aggressively. The API supports `SINCE`, but this app currently refreshes the full catalog once its daily cache expires.
 7. Honor 429 without an immediate retry. Show cached data and a clear stale state.
 8. Never blindly retry a write. Refetch submitted state first after an ambiguous outcome.
 9. Authenticate priority workflows even when an individual league exposes some score/roster endpoints publicly.
@@ -93,6 +102,18 @@ Artwork loads independently from league data through an ephemeral, cookieless, c
 Read-only verification against the public league export successfully downloaded and decoded artwork for all 12 franchises with this native loader. Regression tests cover JPEG/PNG/GIF decoding, downsampling, safe URL selection, cookie isolation, caching, failed-image fallback, and artwork mapping into live/completed matchups and official standings.
 
 ## Platform constraints
+
+Version 0.3.2 persists only the public, full player directory in the app's Caches folder, scoped by season and cache-format version. Entries retain their original fetch time across relaunches; corrupt, wrong-season, future-dated, and expired entries cannot be used. Decoding succeeds before saving, writes are atomic and size-bounded, and disk failures do not block fresh reads. Score and lineup lookups now use the same full catalog as waivers/trades, eliminating separate per-roster subset downloads. Concurrent cacheable reads still share one request.
+
+Stable league reads use a 24-hour **in-memory** cache. The league export also includes changing owner bid balances, so waiver browsing imposes a maximum age of 60 seconds. Bid submission bypasses both age limits and rechecks the fresh rules, balance, pool, roster, and saved queue. Session restoration still verifies membership and private league data freshly. Owner information, private league responses, projections, and live scoring are not put in the public disk cache; projection and scoring freshness policies remain separate. No cache change introduces automatic write retries.
+
+Scoring and lineup editing now share deterministic positional allocation: required minimums are filled first, with qualifying extra starters displayed as FLEX. Assignment is stable across different feed ordering. Player NFL positions and points remain unchanged; incomplete or unsupported scoring lineups do not get guessed FLEX assignments.
+
+Version 0.3.0 trades use fresh `pendingTrades` and `assets` reads before every POST and for confirmation. Asset tokens preserve players, `DP_round_pick` (zero-based current-year indices), `FP_franchise_year_round`, and positive `BB_amount` FAAB. Unsupported assets or unverifiable offer direction disable native actions. Missing proposer IDs are inferred only from a unique owner of every non-cash offered asset, never from description text.
+
+A device-only marker is written before a trade POST. A proposal needs a new pending ID with exact recipient, asset sets, comments, and expiration. A response needs positive MFL acknowledgment plus disappearance from the fresh pending list; disappearance after a timeout alone cannot prove acceptance. No trade import is automatically retried. MFL has no atomic counteroffer endpoint: counters are separate offers, with an explicit acknowledgment that the original stays open. Approval, deadlines, and roster enforcement remain MFL's responsibility.
+
+The request gate rechecks spacing after suspension to prevent resume bursts. Concurrent cacheable exports share their in-flight read; forced mutation preflight/readback never joins it, and an older response cannot overwrite a newer cache entry. Quick foreground transitions and repeated transaction-section visits reuse recent results. HTTP 429 honors the advertised Retry-After duration (90 seconds when absent), with disabled countdown retry controls and no automatic retry loop. Activity uses the documented DEFAULT transaction filter instead of the broader combination that returned invalid parameters.
 
 MFL expressly forbids browser JavaScript from outside its domains and does not provide permissive CORS. Native `URLSession` is unaffected, which is another reason to remain a genuine native client.
 

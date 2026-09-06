@@ -28,10 +28,22 @@ protocol LeagueRepository: Sendable {
     func pendingBoardPost() async throws -> PendingBoardPost?
     func reconcileBoardPost() async throws -> Bool
     func acknowledgeUnconfirmedPost() async throws
+    func loadTrades() async throws -> TradeSnapshot
+    func performTrade(_ command: TradeCommand) async throws -> TradeReceipt
+    func pendingTradeAction() async throws -> PendingTradeAction?
+    func reconcileTradeAction() async throws -> TradeReceipt
+    func acknowledgeUnconfirmedTrade() async throws
+    func loadTransactionActivity() async throws -> [TransactionActivity]
     func signOut() async
 }
 
 extension LeagueRepository {
+    func loadTrades() async throws -> TradeSnapshot { TradeSnapshot() }
+    func performTrade(_ command: TradeCommand) async throws -> TradeReceipt { throw RepositoryError.server("Trades are unavailable in this session.") }
+    func pendingTradeAction() async throws -> PendingTradeAction? { nil }
+    func reconcileTradeAction() async throws -> TradeReceipt { TradeReceipt(confirmed: false, message: "Check this trade on MFL.") }
+    func acknowledgeUnconfirmedTrade() async throws {}
+    func loadTransactionActivity() async throws -> [TransactionActivity] { [] }
     func restoreSession() async throws -> LeagueWorkspace? { nil }
     func currentWeek() async throws -> Int { try await loadWorkspace().week }
     func pendingBoardPost() async throws -> PendingBoardPost? { nil }

@@ -2,8 +2,13 @@ import SwiftUI
 
 struct LineupView: View {
     @Environment(AppModel.self) private var model
-    @State private var showingSubmitConfirmation = false
+    @State private var reviewedLineup: LineupReviewRequest?
     @State private var replacementRequest: AppModel.LineupReplacementRequest?
+
+    private struct LineupReviewRequest: Identifiable {
+        let id = UUID()
+        let lineup: LineupSnapshot
+    }
 
     var body: some View {
         List {
@@ -69,14 +74,15 @@ struct LineupView: View {
                 }
 
                 Section {
-                    ForEach(model.lineup.starters) { player in
+                    ForEach(model.lineup.startingSlots) { slot in
                         LineupPlayerRow(
-                            player: player,
+                            player: slot.player,
+                            slotLabel: slot.label,
                             actionTitle: "Replace",
                             actionIcon: "arrow.down.circle.fill",
                             isEditable: model.canChangeLineupDraft
                         ) {
-                            replacementRequest = model.replacementRequest(for: player.id)
+                            replacementRequest = model.replacementRequest(for: slot.id)
                         }
                     }
                 } header: {
@@ -144,19 +150,8 @@ struct LineupView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
-        .confirmationDialog(
-            "Submit Week \(model.lineup.week) lineup?",
-            isPresented: $showingSubmitConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Submit \(model.lineup.starters.count) starters") {
-                Task {
-                    await model.submitLineup()
-                }
-            }
-            Button("Keep editing", role: .cancel) {}
-        } message: {
-            Text(confirmationMessage)
+        .sheet(item: $reviewedLineup) { review in
+            LineupSubmissionReview(lineup: review.lineup)
         }
     }
 
@@ -196,7 +191,7 @@ struct LineupView: View {
                 isBusy: model.isBusy,
                 isDisabled: model.lineupValidationMessage != nil || !model.canSubmitLineup
             ) {
-                showingSubmitConfirmation = true
+                reviewedLineup = LineupReviewRequest(lineup: model.lineup)
             }
         }
         .padding(.horizontal, 16)
@@ -205,14 +200,64 @@ struct LineupView: View {
         .background(.ultraThinMaterial)
     }
 
-    private var confirmationMessage: String {
-        var message = "This sends your full starting lineup to MyFantasyLeague. MFL Blitz will read it back and confirm every starter."
-        if model.lineup.requiredTiebreakerCount > 0 {
-            message += " Your tiebreaker is sent too, but MFL does not expose it for readback."
-        }
-        return message
-    }
+}
 
+private struct LineupSubmissionReview: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let lineup: LineupSnapshot
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    LabeledContent("Week", value: String(lineup.week))
+                    LabeledContent("Starting", value: "\(lineup.starters.count) of \(lineup.requiredStarterCount)")
+                    LabeledContent("Projected total", value: lineup.projectedTotal.pointsText)
+                }
+                Section("Starters to submit") {
+                    ForEach(lineup.startingSlots) { slot in
+                        HStack(spacing: 12) {
+                            PositionBadge(position: slot.label)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(slot.player.name).font(.body.weight(.semibold))
+                                Text("\(slot.player.position) · \(slot.player.nflTeam)").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 8)
+                            Text(slot.player.projectedPoints.pointsText).font(.body.monospacedDigit())
+                        }.padding(.vertical, 3)
+                    }
+                }
+                if lineup.requiredTiebreakerCount > 0 {
+                    Section("Bench tiebreaker") {
+                        ForEach(lineup.players.filter { lineup.tiebreakerPlayerIDs.contains($0.id) }) { Text($0.name) }
+                        Text("Your tiebreaker is sent too, but MFL does not expose it for readback.").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Section {
+                    Text("This sends your full starting lineup to MyFantasyLeague. MFL Blitz will read it back and confirm every starter.").font(.subheadline)
+                    if model.isDemo { Text("Preview only · Nothing is submitted to MFL.").foregroundStyle(.orange) }
+                    if !model.lineupMatchesReview(lineup) {
+                        Label("The lineup changed. Cancel and review the updated starters.", systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                    }
+                }
+            }
+            .navigationTitle("Review lineup").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(model.isBusy) }
+            }
+            .safeAreaInset(edge: .bottom) {
+                PrimaryActionButton(title: "Submit \(lineup.starters.count) starters", systemImage: "checkmark.circle.fill",
+                    isBusy: model.isBusy, isDisabled: !model.canSubmitLineup || !model.lineupMatchesReview(lineup) || model.lineupValidationMessage != nil) {
+                    Task { if await model.submitLineup(reviewing: lineup) != nil { dismiss() } }
+                }
+                .accessibilityIdentifier("lineup-confirm-submit")
+                .padding(16).background(.ultraThinMaterial)
+            }
+        }
+        .interactiveDismissDisabled(model.isBusy)
+        .presentationDetents([.large])
+    }
 }
 
 private struct LineupReplacementPicker: View {
@@ -225,10 +270,10 @@ private struct LineupReplacementPicker: View {
             List {
                 Section {
                     HStack(spacing: 12) {
-                        PositionBadge(position: request.starter.position)
+                        PositionBadge(position: request.slotLabel)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(request.starter.name).font(.headline)
-                            Text("Currently starting · Week \(request.week)")
+                            Text("\(request.starter.position) · Currently starting · Week \(request.week)")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 8)
@@ -246,9 +291,9 @@ private struct LineupReplacementPicker: View {
                     if model.isLoadingLineup {
                         ProgressView("Updating eligible players…")
                     } else if candidates.isEmpty {
-                        Text("No eligible \(request.starter.position) replacements")
+                        Text("No eligible \(request.slotLabel) replacements")
                             .font(.headline)
-                        Text("There are no available same-position bench players, or this lineup has changed. No swap was made.")
+                        Text("No available bench players meet this slot’s league rules, or the lineup has changed. No swap was made.")
                             .font(.subheadline).foregroundStyle(.secondary)
                     } else {
                         ForEach(candidates) { player in
@@ -286,13 +331,15 @@ private struct LineupReplacementPicker: View {
                         }
                     }
                 } header: {
-                    Text("Bench · \(request.starter.position)")
+                    Text("Bench · \(model.replacementPositions(for: request).joined(separator: " / "))")
                 } footer: {
-                    Text("Only eligible same-position bench players are shown, highest projection first. Choose a replacement, then review and submit your lineup to save to MFL.")
+                    Text(request.slotLabel == "FLEX"
+                         ? "FLEX eligibility follows your league’s position minimums and maximums. Only swaps that keep a valid lineup are shown, highest projection first. Review and submit to save to MFL."
+                         : "Only eligible \(request.slotLabel) bench players are shown, highest projection first. Choose a replacement, then review and submit your lineup to save to MFL.")
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("Replace \(request.starter.position)")
+            .navigationTitle("Replace \(request.slotLabel)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -364,6 +411,7 @@ private struct LineupSummaryCard: View {
 
 private struct LineupPlayerRow: View {
     let player: LineupPlayer
+    var slotLabel: String? = nil
     let actionTitle: String
     let actionIcon: String
     let isEditable: Bool
@@ -372,7 +420,7 @@ private struct LineupPlayerRow: View {
     var body: some View {
         HStack(spacing: 12) {
             HStack(spacing: 12) {
-                PositionBadge(position: player.position)
+                PositionBadge(position: slotLabel ?? player.position)
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
@@ -454,21 +502,25 @@ private struct LineupPlayerRow: View {
         }
         if player.injuryStatus == .injuredReserve { return "Move this player off injured reserve on MFL first" }
         if actionTitle == "Replace" {
-            return "Shows eligible \(player.position) bench players. Choosing one swaps both players in your draft."
+            return slotLabel == "FLEX"
+                ? "Shows bench players allowed in FLEX by your league’s rules. Choosing one swaps both players in your draft."
+                : "Shows eligible \(player.position) bench players. Choosing one swaps both players in your draft."
         }
         let destination = actionTitle == "Start" ? "starting lineup" : "bench"
         return "Moves this player to the \(destination). Review and submit to send the change to MFL."
     }
 
     private var playerMetadata: String {
+        let team = slotLabel == "FLEX" ? "\(player.position) · \(player.nflTeam)" : player.nflTeam
         guard !player.opponent.isEmpty, player.opponent != "—" else {
-            return player.nflTeam
+            return team
         }
-        return "\(player.nflTeam) · \(player.opponent) · \(player.gameTime.formatted(date: .omitted, time: .shortened))"
+        return "\(team) · \(player.opponent) · \(player.gameTime.formatted(date: .omitted, time: .shortened))"
     }
 
     private var accessibilityLabel: String {
         var value = "\(player.name), \(player.position), \(player.nflTeam)"
+        if slotLabel == "FLEX" { value += ", starting in FLEX" }
         if !player.opponent.isEmpty, player.opponent != "—" { value += ", \(player.opponent)" }
         value += ", projected \(player.projectedPoints.pointsText) points"
         if let injury = player.injuryStatus { value += ", \(injury.label)" }

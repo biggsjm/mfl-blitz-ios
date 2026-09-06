@@ -167,7 +167,7 @@ public struct MFLAuthenticationCookie: Hashable, Sendable, CustomStringConvertib
 }
 
 public enum MFLRefreshPolicy: Equatable, Sendable {
-    /// Return an unexpired in-memory response, otherwise load it.
+    /// Return an unexpired cached response, otherwise load it.
     case useCache
     /// Always load from MFL and replace the in-memory response.
     case reloadIgnoringCache
@@ -186,9 +186,10 @@ public struct MFLCacheDurations: Equatable, Sendable {
     public var pendingWaivers: TimeInterval
 
     /// Conservative in-memory defaults. The 24-hour player TTL follows MFL's
-    /// explicit guidance; shorter league-data TTLs preserve a responsive app.
+    /// explicit guidance. Dynamic league-balance reads impose a shorter maximum
+    /// age; waiver write preflight always bypasses cached league data.
     public static let standard = Self(
-        league: 15 * 60,
+        league: 24 * 60 * 60,
         players: 24 * 60 * 60,
         freeAgents: 60,
         rosters: 30,
@@ -262,6 +263,8 @@ public enum MFLExportEndpoint: String, CaseIterable, Sendable {
     case messageBoard
     case messageBoardThread
     case pendingWaivers
+    case pendingTrades
+    case assets
     case weeklyResults
     case calendar
     case transactions
@@ -270,6 +273,8 @@ public enum MFLExportEndpoint: String, CaseIterable, Sendable {
 public enum MFLImportEndpoint: String, CaseIterable, Sendable {
     case lineup
     case blindBidWaiverRequest
+    case tradeProposal
+    case tradeResponse
     case messageBoard
 }
 

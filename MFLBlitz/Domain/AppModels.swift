@@ -74,6 +74,8 @@ struct MatchupPlayer: Identifiable, Equatable, Sendable {
     var gameSecondsRemaining: Int?
     var statLine: String?
     var projectedPoints: Double? = nil
+    /// A derived league slot, distinct from the player's actual NFL position.
+    var lineupSlot: String? = nil
 
     var gameState: MatchupPlayerGameState {
         guard let gameSecondsRemaining else { return .unknown }
@@ -148,6 +150,61 @@ struct LineupSnapshot: Equatable, Sendable {
         return projections.reduce(0, +)
     }
     var hasLockedPlayers: Bool { players.contains(where: \.isLocked) }
+
+    /// MFL returns starter IDs, not named FLEX assignments. Reserve each
+    /// position's required minimum first; the remaining starters fill flex.
+    /// These are presentation slots only—the submitted payload stays player IDs.
+    var startingSlots: [LineupStartingSlot] {
+        guard hasUsablePositionLimits else { return starters.map { LineupStartingSlot(player: $0, isFlex: false) } }
+        let flexIDs = LineupSlotAllocation.flexPlayerIDs(starters.map { ($0.id, $0.position) },
+            requirements: positionRequirements, starterCount: requiredStarterCount)
+        let required = positionRequirements.flatMap { rule in
+            starters.filter { $0.position == rule.position && !flexIDs.contains($0.id) }
+        }
+        let requiredIDs = Set(required.map(\.id))
+        let remaining = starters.filter { !requiredIDs.contains($0.id) }
+        return required.map { LineupStartingSlot(player: $0, isFlex: false) }
+            + remaining.map { LineupStartingSlot(player: $0, isFlex: flexPositions.contains($0.position)) }
+    }
+
+    var flexPositions: [String] {
+        guard hasUsablePositionLimits,
+              positionRequirements.map(\.minimum).reduce(0, +) < requiredStarterCount else { return [] }
+        return positionRequirements.filter { $0.maximum > $0.minimum }.map(\.position)
+    }
+
+    func replacementPositions(for starterID: String) -> [String] {
+        guard let slot = startingSlots.first(where: { $0.id == starterID }) else { return [] }
+        guard slot.isFlex else { return [slot.player.position] }
+        // A FLEX replacement must satisfy *all* position limits, not just the
+        // incoming position's maximum. Never hard-code RB/WR/TE or permit a QB
+        // unless this league explicitly allows an additional quarterback.
+        guard starters.count == requiredStarterCount else { return [] }
+        let others = starters.filter { $0.id != starterID }
+        return flexPositions.filter { position in
+            positionRequirements.allSatisfy { rule in
+                let count = others.count { $0.position == rule.position } + (position == rule.position ? 1 : 0)
+                return (rule.minimum...rule.maximum).contains(count)
+            }
+        }
+    }
+
+    private var hasUsablePositionLimits: Bool {
+        guard !positionRequirements.isEmpty,
+              Set(positionRequirements.map(\.position)).count == positionRequirements.count,
+              positionRequirements.allSatisfy({ !$0.position.isEmpty && $0.minimum >= 0 && $0.maximum >= $0.minimum }),
+              starters.allSatisfy({ player in positionRequirements.contains { $0.position == player.position } }) else { return false }
+        let minimum = positionRequirements.map(\.minimum).reduce(0, +)
+        let maximum = positionRequirements.map(\.maximum).reduce(0, +)
+        return (minimum...maximum).contains(requiredStarterCount)
+    }
+}
+
+struct LineupStartingSlot: Identifiable, Equatable, Sendable {
+    var id: String { player.id }
+    let player: LineupPlayer
+    let isFlex: Bool
+    var label: String { isFlex ? "FLEX" : player.position }
 }
 
 enum LineupEditState: Equatable, Sendable {
@@ -279,6 +336,7 @@ struct StandingRow: Identifiable, Equatable, Sendable {
     var isUser: Bool
     var accentSeed: Int
     var artworkURLs: [URL] = []
+    var ownerName: String? = nil
 }
 
 struct BoardThread: Identifiable, Equatable, Sendable {

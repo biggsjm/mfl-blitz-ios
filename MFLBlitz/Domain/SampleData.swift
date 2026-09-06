@@ -230,7 +230,8 @@ enum SampleData {
                 gameSecondsRemaining: gameSecondsRemaining,
                 statLine: gameSecondsRemaining > 0 && gameSecondsRemaining < 3_600
                     ? demoStatLine(for: slot.0)
-                    : nil
+                    : nil,
+                lineupSlot: index >= 7 ? "FLEX" : slot.0
             )
         }
     }
@@ -316,11 +317,12 @@ enum SampleData {
         _ isUser: Bool,
         _ accentSeed: Int
     ) -> StandingRow {
-        StandingRow(id: id, rank: rank, name: name, abbreviation: abbreviation, division: division, wins: wins, losses: losses, ties: ties, pointsFor: pointsFor, pointsAgainst: pointsAgainst, streak: streak, isUser: isUser, accentSeed: accentSeed)
+        StandingRow(id: id, rank: rank, name: name, abbreviation: abbreviation, division: division, wins: wins, losses: losses, ties: ties, pointsFor: pointsFor, pointsAgainst: pointsAgainst, streak: streak, isUser: isUser, accentSeed: accentSeed, ownerName: "Demo Owner \(accentSeed)")
     }
 }
 
 actor DemoLeagueRepository: LeagueRepository {
+    var demoTrades = SampleData.trades
     func signIn(with credentials: LoginCredentials) async throws -> LeagueWorkspace {
         try await shortDelay()
         guard !credentials.username.isEmpty, !credentials.password.isEmpty else {

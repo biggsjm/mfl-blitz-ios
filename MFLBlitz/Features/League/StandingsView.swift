@@ -157,9 +157,10 @@ private struct StandingTeamRow: View {
                             .background(Color.blitzGreen, in: Capsule())
                     }
                 }
-                Text(row.streak == "—" ? row.division : "\(row.division) · \(row.streak)")
+                Text(row.ownerName ?? "Owner not listed")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Text(record)
@@ -171,7 +172,8 @@ private struct StandingTeamRow: View {
         }
         .listRowBackground(row.isUser ? Color.blitzGreen.opacity(0.08) : nil)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Rank \(row.rank), \(row.name), \(row.wins) wins, \(row.losses) losses, \(row.ties) ties, \(row.pointsFor, format: .number.precision(.fractionLength(1))) points for, \(row.division) division")
+        .accessibilityLabel("Rank \(row.rank), \(row.name), \(row.ownerName.map { "Owner: \($0)" } ?? "Owner not listed"), \(row.wins) wins, \(row.losses) losses, \(row.ties) ties, \(row.pointsFor, format: .number.precision(.fractionLength(1))) points for, \(row.division) division")
+        .accessibilityIdentifier("standing-\(row.id)")
     }
 
     private var record: String {

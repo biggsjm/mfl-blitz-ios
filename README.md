@@ -2,7 +2,7 @@
 
 > Deep enough for MFL. Calm enough for Sunday.
 
-MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](https://www.myfantasyleague.com/). It puts the deadline-sensitive things first: scores, lineups, conditional blind-bid waivers, standings, and the league message board.
+MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](https://www.myfantasyleague.com/). It puts the deadline-sensitive things first: scores, lineups, transactions, standings, and the league message board.
 
 <img src="docs/app-icon-source.png" alt="MFL Blitz app icon" width="160">
 
@@ -13,9 +13,11 @@ This is a private Week 1 testing build with a tested MFL API foundation. The app
 The current build includes:
 
 - a scores-first game-day dashboard with the user's matchup featured and tappable position-by-position live scoring for every matchup;
-- a tap- and swipe-accessible lineup editor with same-position replacement pickers, lock, injury, deadline, projection, validation, review, and receipt states;
+- a tap- and swipe-accessible lineup editor with league-aware FLEX and required-position replacement pickers, lock, injury, deadline, projection, validation, review, and receipt states;
 - an ordered conditional-FAAB queue with search, useful sorting, bid/drop editing, budget checks, reordering, and explicit full-queue confirmation;
-- division and overall standings that preserve MFL's official ordering;
+- a Transactions hub with Waivers, Trades, and Activity; native player/pick/FAAB offers, acceptance, decline, withdrawal, and explicitly separate counteroffers;
+- saved private trade drafts, exact two-sided review, fresh ownership checks, and restart-safe protection against repeating an unconfirmed trade action;
+- division and overall standings with owner names from MFL that preserve its official ordering;
 - league team artwork in scores, matchup details, and standings, with initials as an offline/missing-image fallback;
 - the existing MFL message board presented as readable native threads, with compose and reply flows;
 - a no-account interactive preview for Champion Hall;
@@ -24,6 +26,7 @@ The current build includes:
 - MFL current/lineup-week guidance, Keychain session restoration, and team-scoped lineup, waiver-queue, and board drafts;
 - explicit partial-round waiver recovery, cancellation of all saved bids, and persistent duplicate-post protection;
 - independent tab loading after account verification, plus bounded/cancellable session reconnection;
+- one shared, persistent 24-hour public player directory, with separate freshness limits for stable league settings, displayed balances, and submission checks;
 - iPhone, iPad, dark mode, Dynamic Type, VoiceOver summaries, Reduce Motion, and 44-point controls;
 - no ads, analytics SDK, cross-app tracking, or proprietary chat network.
 
@@ -53,7 +56,7 @@ MFLCore (local Swift package)
     ├── HTTPS login + device-only Keychain session-cookie authorization
     ├── tolerant DTO decoding + body-level error checks
     ├── request spacing + response caching
-    └── lineup, waiver, and message-board imports
+    └── lineup, waiver, trade, and message-board imports
 ```
 
 The local package isolates MFL's legacy wire format from the UI. IDs remain strings, API errors are detected even inside HTTP 200 responses, league hosts are resolved per session, and writes are never blindly retried. Sessions restore from the device-only Keychain after fresh membership verification. Unsaved lineup edits, queued waiver changes, and message drafts survive a restart and are isolated by season, league, and franchise. Refreshes preserve drafts and surface conflicts rather than silently overwriting them.
@@ -92,7 +95,7 @@ MFL monitors and throttles API clients. Before a public/TestFlight build:
 3. Verify every import call in a disposable test league.
 4. Complete the configuration matrix in [the roadmap](docs/roadmap.md).
 
-Do not put MFL credentials, session cookies, private message content, or blind-bid amounts in logs, fixtures, issues, or screenshots.
+Do not put MFL credentials, session cookies, private message content, trade terms, or blind-bid amounts in logs, fixtures, issues, or screenshots. Automated tests use synthetic data.
 
 See the repository's [privacy policy](PRIVACY.md) for the data flow and deletion behavior.
 

@@ -3,12 +3,20 @@ import SwiftUI
 struct AppTabView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
-    @State private var selection = Tab.scores
+    @State private var selection = initialTab
+
+    private static var initialTab: Tab {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--show-transaction-activity") { return .transactions }
+        if ProcessInfo.processInfo.arguments.contains("--show-standings") { return .standings }
+        #endif
+        return .scores
+    }
 
     enum Tab: Hashable {
         case scores
         case lineup
-        case waivers
+        case transactions
         case standings
         case board
     }
@@ -23,10 +31,10 @@ struct AppTabView: View {
                 .tabItem { Label("Lineup", systemImage: "person.3.sequence.fill") }
                 .tag(Tab.lineup)
 
-            NavigationStack { WaiversView() }
-                .tabItem { Label("Waivers", systemImage: "arrow.triangle.swap") }
-                .tag(Tab.waivers)
-                .badge(model.waivers.claims.count)
+            NavigationStack { TransactionsView().environment(model.transactions) }
+                .tabItem { Label("Transactions", systemImage: "arrow.triangle.swap") }
+                .tag(Tab.transactions)
+                .badge(model.transactions.needsAttentionCount)
 
             NavigationStack { StandingsView() }
                 .tabItem { Label("Standings", systemImage: "list.number") }
@@ -40,6 +48,7 @@ struct AppTabView: View {
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             await model.refreshForForeground()
+            await model.transactions.refresh(ifNeeded: true)
         }
         .task(id: "\(scenePhase)-\(selection)") {
             guard scenePhase == .active, selection == .scores, !model.isDemo else { return }

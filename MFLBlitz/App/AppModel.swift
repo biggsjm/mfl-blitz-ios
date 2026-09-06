@@ -20,6 +20,7 @@ final class AppModel {
     struct LineupReplacementRequest: Identifiable {
         let id = UUID()
         let starter: LineupPlayer
+        let slotLabel: String
         let week: Int
         fileprivate let sessionGeneration: Int
     }
@@ -47,6 +48,7 @@ final class AppModel {
     )
     var standings: [StandingRow] = []
     var boardThreads: [BoardThread] = []
+    var transactions = TransactionsModel()
     var selectedWeek = 1
     var isBusy = false
     var isRefreshing = false
@@ -58,6 +60,7 @@ final class AppModel {
     var lineupConflict: String?
     var waiverConflict: String?
     var waiverServerReadFailed = false
+    var waiverReadError: String?
     var unconfirmedBoardPost: PendingBoardPost?
     var boardDraftRevision = 0
     var isRestoringSession = false
@@ -75,6 +78,9 @@ final class AppModel {
     private let privateStore: any PrivateStore
     private var serverWaivers: [WaiverClaim] = []
     private var latestServerLineup: LineupSnapshot?
+    private var lastFullRefresh: Date?
+    private let foregroundRefreshInterval: TimeInterval
+    private var lastWaiverRefresh: Date?
 
     var canEditLineup: Bool {
         isDemo || (LiveWritePolicy.lineupsEnabled && lineup.editState.allowsEditing)
@@ -96,9 +102,10 @@ final class AppModel {
     private var activeRefreshIDs: Set<Int> = []
     private var nextDemoMessageID = 0
 
-    init(repository: any LeagueRepository = LiveMFLRepository(), privateStore: any PrivateStore = KeychainPrivateStore()) {
+    init(repository: any LeagueRepository = LiveMFLRepository(playerCacheDirectory: AppCacheLocations.players), privateStore: any PrivateStore = KeychainPrivateStore(), foregroundRefreshInterval: TimeInterval = 60) {
         self.repository = repository
         self.privateStore = privateStore
+        self.foregroundRefreshInterval = foregroundRefreshInterval
         if repository is DemoLeagueRepository {
             installDemoContent()
         }
@@ -122,6 +129,7 @@ final class AppModel {
         do {
             guard let restored = try await request.value, generation == sessionGeneration else { return }
             workspace = restored
+            configureTransactions()
             selectedWeek = restored.week
             currentWeek = restored.week
             try restoreDrafts()
@@ -188,6 +196,7 @@ final class AppModel {
             followsCurrentWeek = true
             isDemo = activeRepository is DemoLeagueRepository
             resetContent(for: selectedWeek)
+            configureTransactions()
             try restoreDrafts()
             unconfirmedBoardPost = try await activeRepository.pendingBoardPost()
             // Authentication is complete. Enter the app now; optional league
@@ -210,7 +219,7 @@ final class AppModel {
               !isBusy || lineup.players.isEmpty || isRestoringSession else { return }
         fullRefreshInFlight = true
         fullRefreshSession = generation
-        defer { if fullRefreshSession == generation { fullRefreshInFlight = false } }
+        defer { if fullRefreshSession == generation { fullRefreshInFlight = false; lastFullRefresh = Date() } }
         let refreshID = showSpinner ? beginRefreshing() : nil
         defer {
             if let refreshID { endRefreshing(refreshID) }
@@ -256,8 +265,8 @@ final class AppModel {
                     else { failures.append("lineup") }
                     isLoadingLineup = false
                 case .waivers(let result):
-                    if let value = result.value { mergeWaivers(value) }
-                    else { failures.append("waivers") }
+                    if let value = result.value { mergeWaivers(value); waiverReadError = nil; lastWaiverRefresh = Date() }
+                    else { failures.append("waivers"); waiverReadError = result.error?.localizedDescription }
                     isLoadingWaivers = false
                 case .standings(let result):
                     if let value = result.value { standings = value }
@@ -272,6 +281,23 @@ final class AppModel {
 
         if generation == sessionGeneration, !failures.isEmpty && !Task.isCancelled {
             notice = .error(refreshFailureMessage(for: failures))
+        }
+    }
+
+    func refreshWaivers() async {
+        guard !isLoadingWaivers, !isBusy else { return }
+        if let lastWaiverRefresh, waiverReadError == nil, Date().timeIntervalSince(lastWaiverRefresh) < 15 { return }
+        let generation = sessionGeneration
+        isLoadingWaivers = true
+        defer { if generation == sessionGeneration { isLoadingWaivers = false } }
+        do {
+            let fresh = try await repository.loadWaivers()
+            guard generation == sessionGeneration else { return }
+            mergeWaivers(fresh); waiverReadError = nil; lastWaiverRefresh = Date()
+        } catch {
+            guard generation == sessionGeneration else { return }
+            handleSessionError(error)
+            waiverReadError = "Waivers couldn’t refresh. Your existing data and draft are kept. \(error.localizedDescription)"
         }
     }
 
@@ -366,17 +392,18 @@ final class AppModel {
     }
 
     func replacementRequest(for starterID: String) -> LineupReplacementRequest? {
-        guard let starter = lineup.players.first(where: { $0.id == starterID }) else { return nil }
-        let request = LineupReplacementRequest(starter: starter, week: lineup.week,
+        guard let slot = lineup.startingSlots.first(where: { $0.id == starterID }) else { return nil }
+        let request = LineupReplacementRequest(starter: slot.player, slotLabel: slot.label, week: lineup.week,
                                                sessionGeneration: sessionGeneration)
         return replaceableStarter(for: request) == nil ? nil : request
     }
 
     func replacementCandidates(for request: LineupReplacementRequest) -> [LineupPlayer] {
         guard let starter = replaceableStarter(for: request) else { return [] }
+        let positions = lineup.replacementPositions(for: starter.id)
         let playersByID = Dictionary(grouping: lineup.players, by: \.id)
         return lineup.bench.filter {
-            $0.position == starter.position && !$0.isLocked && $0.injuryStatus != .injuredReserve
+            positions.contains($0.position) && !$0.isLocked && $0.injuryStatus != .injuredReserve
                 && playersByID[$0.id]?.count == 1
         }.sorted { lhs, rhs in
             // Unpublished projections sort after every published value, even zero.
@@ -386,6 +413,11 @@ final class AppModel {
             if lhs.name != rhs.name { return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending }
             return lhs.id < rhs.id
         }
+    }
+
+    func replacementPositions(for request: LineupReplacementRequest) -> [String] {
+        guard replaceableStarter(for: request) != nil else { return [] }
+        return lineup.replacementPositions(for: request.starter.id)
     }
 
     @discardableResult
@@ -407,7 +439,8 @@ final class AppModel {
 
     private func replaceableStarter(for request: LineupReplacementRequest) -> LineupPlayer? {
         guard canChangeLineupDraft, request.sessionGeneration == sessionGeneration,
-              request.week == lineup.week else { return nil }
+              request.week == lineup.week,
+              lineup.startingSlots.first(where: { $0.id == request.starter.id })?.label == request.slotLabel else { return nil }
         let matches = lineup.players.filter { $0.id == request.starter.id }
         guard matches.count == 1, let starter = matches.first,
               starter.isStarter, !starter.isLocked, starter.injuryStatus != .injuredReserve,
@@ -465,7 +498,11 @@ final class AppModel {
     }
 
     @discardableResult
-    func submitLineup() async -> LineupSubmissionReceipt? {
+    func submitLineup(reviewing reviewed: LineupSnapshot? = nil) async -> LineupSubmissionReceipt? {
+        if let reviewed, !lineupMatchesReview(reviewed) {
+            notice = .error("The lineup changed after you opened review. Review the updated starters before submitting.")
+            return nil
+        }
         guard canSubmitLineup else {
             notice = .error(
                 lineup.editState.unavailableMessage
@@ -517,6 +554,14 @@ final class AppModel {
             handleSessionError(error)
             return nil
         }
+    }
+
+    func lineupMatchesReview(_ reviewed: LineupSnapshot) -> Bool {
+        reviewed.week == lineup.week && reviewed.requiredStarterCount == lineup.requiredStarterCount
+            && reviewed.requiredTiebreakerCount == lineup.requiredTiebreakerCount
+            && reviewed.positionRequirements == lineup.positionRequirements
+            && Set(reviewed.starters.map(\.id)) == Set(lineup.starters.map(\.id))
+            && reviewed.tiebreakerPlayerIDs == lineup.tiebreakerPlayerIDs
     }
 
     func upsertClaim(_ claim: WaiverClaim) {
@@ -709,11 +754,13 @@ final class AppModel {
     }
 
     func signOut() async {
-        guard !isBusy else { return }
+        guard !isBusy, !transactions.isBusy else { return }
         if !isDemo, let workspace {
             do {
                 try privateStore.remove("drafts.\(workspace.storageScope)")
                 try privateStore.remove("board.pending.\(workspace.storageScope)")
+                try privateStore.remove("trade.draft.\(workspace.storageScope)")
+                try privateStore.remove("trade.pending.\(workspace.storageScope)")
                 try privateStore.remove("session")
             } catch { notice = .error(error.localizedDescription); return }
         }
@@ -730,7 +777,7 @@ final class AppModel {
         drafts = LeagueDrafts()
         unconfirmedBoardPost = nil
         resetContent(for: selectedWeek)
-        repository = LiveMFLRepository()
+        repository = LiveMFLRepository(playerCacheDirectory: AppCacheLocations.players)
         phase = .onboarding
         await signedInRepository.signOut()
     }
@@ -765,6 +812,8 @@ final class AppModel {
     }
 
     private func resetContent(for week: Int) {
+        transactions = TransactionsModel()
+        waiverReadError = nil; lastWaiverRefresh = nil; lastFullRefresh = nil
         isLoadingScores = false; isLoadingLineup = false
         isLoadingWaivers = false; isLoadingBoard = false
         lineupConflict = nil
@@ -789,6 +838,7 @@ final class AppModel {
     private func installDemoContent() {
         isDemo = true
         workspace = SampleData.workspace
+        configureTransactions()
         selectedWeek = SampleData.workspace.week
         scores = SampleData.scores
         lineup = SampleData.lineup
@@ -802,6 +852,10 @@ final class AppModel {
         boardThreads = SampleData.board
         nextDemoMessageID = 0
         lineupRevision &+= 1
+    }
+
+    private func configureTransactions() {
+        transactions = TransactionsModel(repository: repository, workspace: workspace, privateStore: privateStore, isDemo: isDemo)
     }
 
     private func beginRefreshing() -> Int {
@@ -1042,6 +1096,7 @@ extension AppModel {
 
     func refreshForForeground() async {
         guard phase == .signedIn, !isDemo, !isBusy else { return }
+        if let lastFullRefresh, Date().timeIntervalSince(lastFullRefresh) < foregroundRefreshInterval { return }
         guard !fullRefreshInFlight || fullRefreshSession != sessionGeneration else { return }
         let generation = sessionGeneration
         do {

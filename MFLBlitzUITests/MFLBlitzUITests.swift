@@ -2,6 +2,134 @@ import XCTest
 
 final class MFLBlitzUITests: XCTestCase {
     @MainActor
+    func testFlexReplacementShowsLeagueEligiblePositions() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        app.tabBars.buttons["Lineup"].tap()
+        let replace = app.buttons["lineup-replace-15256"]
+        for _ in 0..<8 where !replace.isHittable { app.swipeUp() }
+        XCTAssertTrue(replace.isHittable)
+        replace.tap()
+        XCTAssertTrue(app.navigationBars["Replace FLEX"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["lineup-replacement-15757"].exists) // WR
+        XCTAssertTrue(app.buttons["lineup-replacement-15712"].exists) // RB
+        XCTAssertTrue(app.buttons["lineup-replacement-16269"].exists) // TE
+        XCTAssertFalse(app.buttons["lineup-replacement-14056"].exists) // QB not allowed here
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "League-aware FLEX replacement"; screenshot.lifetime = .keepAlways; add(screenshot)
+        app.buttons["lineup-replacement-15757"].tap()
+        XCTAssertTrue(app.buttons["Review & submit lineup"].waitForExistence(timeout: 3))
+        app.buttons["Review & submit lineup"].tap()
+        XCTAssertTrue(app.navigationBars["Review lineup"].waitForExistence(timeout: 3))
+        let confirm = app.buttons["lineup-confirm-submit"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        XCTAssertTrue(confirm.isHittable)
+        let review = XCTAttachment(screenshot: app.screenshot())
+        review.name = "Native lineup review modal"; review.lifetime = .keepAlways; add(review)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.buttons["Review & submit lineup"].waitForExistence(timeout: 3))
+        // Draft only: never submit an actual lineup in a UI regression test.
+    }
+
+    @MainActor
+    func testTransactionSearchStaysBelowSectionsAndActivityLoads() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        app.tabBars.buttons["Transactions"].tap()
+        let sections = app.segmentedControls.firstMatch
+        let search = app.textFields["waiver-search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 3))
+        XCTAssertGreaterThan(search.frame.minY, sections.frame.maxY)
+        XCTAssertTrue(app.navigationBars["Transactions"].waitForExistence(timeout: 3))
+        XCTAssertTrue(sections.buttons["Trades"].isHittable)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Waiver search below section tabs"; screenshot.lifetime = .keepAlways; add(screenshot)
+        search.tap()
+        search.typeText("test")
+        app.segmentedControls.buttons["Trades"].tap()
+        XCTAssertFalse(search.exists)
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        app.segmentedControls.buttons["Activity"].tap()
+        XCTAssertTrue(app.switches["Trades only"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["$3.00 bid"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Braelon Allen"].exists)
+        XCTAssertTrue(app.staticTexts["Jaylin Noel"].exists)
+        let activity = XCTAttachment(screenshot: app.screenshot())
+        activity.name = "Readable transaction amounts and player moves"; activity.lifetime = .keepAlways; add(activity)
+        app.segmentedControls.buttons["Waivers"].tap()
+        XCTAssertEqual(search.value as? String, "test")
+        XCTAssertGreaterThan(search.frame.minY, sections.frame.maxY)
+    }
+
+    @MainActor
+    func testTransactionsReviewsIncomingOfferWithoutAccepting() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        app.tabBars.buttons["Transactions"].tap()
+        app.segmentedControls.buttons["Trades"].tap()
+        let incoming = app.buttons["trade-offer-demo-incoming"]
+        XCTAssertTrue(incoming.waitForExistence(timeout: 5))
+        let hub = XCTAttachment(screenshot: app.screenshot())
+        hub.name = "Transactions trade inbox"; hub.lifetime = .keepAlways; add(hub)
+        incoming.tap()
+        let review = app.buttons["trade-review-accept"]
+        for _ in 0..<4 where !review.isHittable { app.swipeUp() }
+        review.tap()
+        let confirm = app.buttons["trade-confirm-response"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["You send"].exists || app.staticTexts["YOU SEND"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Review exact trade before acceptance"; screenshot.lifetime = .keepAlways; add(screenshot)
+        app.buttons["Cancel"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(incoming.waitForExistence(timeout: 3))
+    }
+
+    @MainActor
+    func testTradeDraftPersistsAndRequiresReview() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        app.tabBars.buttons["Transactions"].tap()
+        app.segmentedControls.buttons["Trades"].tap()
+        let newTrade = app.buttons["trade-new"]
+        XCTAssertTrue(newTrade.waitForExistence(timeout: 5))
+        newTrade.tap()
+        app.buttons["trade-partner"].tap()
+        app.buttons["Route Runners"].tap()
+        app.buttons["trade-choose-receive"].tap()
+        app.buttons["trade-asset-demo-wr"].tap()
+        let selectedAsset = XCTAttachment(screenshot: app.screenshot())
+        selectedAsset.name = "Selected receiving asset"; selectedAsset.lifetime = .keepAlways; add(selectedAsset)
+        XCTAssertTrue(app.buttons["trade-asset-demo-wr"].label.hasSuffix(", selected"))
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.staticTexts["CeeDee Lamb"].exists)
+        app.buttons["trade-choose-send"].tap()
+        let player = app.buttons["trade-asset-12620"]
+        for _ in 0..<5 where !player.isHittable { app.swipeUp() }
+        player.tap()
+        XCTAssertTrue(player.label.hasSuffix(", selected"))
+        app.buttons["Done"].tap()
+        let beforeSaving = XCTAttachment(screenshot: app.screenshot())
+        beforeSaving.name = "Trade draft before save"; beforeSaving.lifetime = .keepAlways; add(beforeSaving)
+        app.buttons["Save & close"].tap()
+        app.buttons["trade-resume-draft"].tap()
+        XCTAssertTrue(app.staticTexts["CeeDee Lamb"].exists)
+        XCTAssertTrue(app.staticTexts["Dak Prescott"].exists)
+        let review = app.buttons["trade-review-offer"]
+        for _ in 0..<5 where !review.isHittable { app.swipeUp() }
+        XCTAssertTrue(review.isEnabled)
+        review.tap()
+        XCTAssertTrue(app.buttons["trade-send-offer"].waitForExistence(timeout: 3))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Trade proposal final review"; screenshot.lifetime = .keepAlways; add(screenshot)
+        // Deliberately do not press Send, even in the offline preview.
+    }
+
+    @MainActor
     func testBoardDraftSurvivesClosingComposer() throws {
         let app = XCUIApplication()
         app.launch()
@@ -39,7 +167,7 @@ final class MFLBlitzUITests: XCTestCase {
 
         XCTAssertTrue(app.tabBars.buttons["Scores"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.tabBars.buttons["Lineup"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Waivers"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Transactions"].exists)
         XCTAssertTrue(app.tabBars.buttons["Standings"].exists)
         XCTAssertTrue(app.tabBars.buttons["Board"].exists)
     }
@@ -68,6 +196,13 @@ final class MFLBlitzUITests: XCTestCase {
         screenshot.name = "Position-by-position matchup"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+        let flex = app.staticTexts["position-FLEX"]
+        for _ in 0..<12 where !flex.isHittable { app.swipeUp() }
+        XCTAssertTrue(flex.isHittable)
+        XCTAssertTrue(app.staticTexts["UB Flex Receiver"].exists)
+        XCTAssertTrue(app.staticTexts["UB Flex Back"].exists)
+        let flexScreenshot = XCTAttachment(screenshot: app.screenshot())
+        flexScreenshot.name = "Live scoring FLEX comparison"; flexScreenshot.lifetime = .keepAlways; add(flexScreenshot)
     }
 
     @MainActor
@@ -81,6 +216,16 @@ final class MFLBlitzUITests: XCTestCase {
         let standingsTab = app.tabBars.buttons["Standings"]
         XCTAssertTrue(standingsTab.waitForExistence(timeout: 3))
         standingsTab.tap()
+
+        let ownerRow = app.descendants(matching: .any).matching(identifier: "standing-0004").firstMatch
+        XCTAssertTrue(ownerRow.waitForExistence(timeout: 3))
+        XCTAssertTrue(ownerRow.label.contains("Owner: Demo Owner 4"))
+        let owners = XCTAttachment(screenshot: app.screenshot())
+        owners.name = "Standings with owner names"; owners.lifetime = .keepAlways; add(owners)
+        app.segmentedControls.buttons["Overall"].tap()
+        let overallOwner = app.descendants(matching: .any).matching(identifier: "standing-0011").firstMatch
+        XCTAssertTrue(overallOwner.waitForExistence(timeout: 3))
+        XCTAssertTrue(overallOwner.label.contains("Owner: Demo Owner 11"))
 
         let orderInfo = app.buttons["standings-order-info"]
         XCTAssertTrue(orderInfo.waitForExistence(timeout: 3))

@@ -99,6 +99,7 @@ public actor MFLClient {
     private let transport: any MFLHTTPTransport
     private let requestBuilder: MFLAPIRequestBuilder
     private let responseDecoder = MFLResponseDecoder()
+    private let playerCache: (any MFLPersistentResponseCache)?
     private let clock = ContinuousClock()
 
     private var cookie: MFLAuthenticationCookie?
@@ -106,14 +107,18 @@ public actor MFLClient {
     private var nextRequestInstant: ContinuousClock.Instant?
     private var rateLimitedUntil: Date?
     private var cache: [CacheKey: CacheEntry] = [:]
+    private var sharedReads: [CacheKey: (id: UUID, task: Task<MFLStoredResponse, Error>)] = [:]
+    private var readVersions: [CacheKey: UUID] = [:]
 
     public init(
         configuration: MFLClientConfiguration,
         transport: any MFLHTTPTransport = MFLURLSessionTransport(),
-        authenticationCookie: MFLAuthenticationCookie? = nil
+        authenticationCookie: MFLAuthenticationCookie? = nil,
+        playerCache: (any MFLPersistentResponseCache)? = nil
     ) {
         self.configuration = configuration
         self.transport = transport
+        self.playerCache = playerCache
         requestBuilder = MFLAPIRequestBuilder(
             season: configuration.league.season,
             userAgent: configuration.userAgent,
@@ -139,7 +144,7 @@ public actor MFLClient {
         try validateHTTP(response)
         let parsedCookie = try Self.parseLoginCookie(response.data)
         cookie = parsedCookie
-        cache.removeAll(keepingCapacity: true)
+        clearCache()
         return parsedCookie
     }
 
@@ -147,7 +152,7 @@ public actor MFLClient {
     /// Pass `nil` to log out locally. MFL has no server-side logout endpoint.
     public func setAuthenticationCookie(_ cookie: MFLAuthenticationCookie?) {
         self.cookie = cookie
-        cache.removeAll(keepingCapacity: true)
+        clearCache()
     }
 
     public func authenticationCookie() -> MFLAuthenticationCookie? {
@@ -158,7 +163,7 @@ public actor MFLClient {
     /// the authenticated `myleagues` export.
     public func setLeagueHost(_ host: MFLAPIHost) {
         leagueHost = host
-        cache.removeAll(keepingCapacity: true)
+        clearCache()
     }
 
     // MARK: Host discovery
@@ -269,7 +274,7 @@ public actor MFLClient {
         return response.leagues
     }
 
-    public func league(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLLeague {
+    public func league(refreshPolicy: MFLRefreshPolicy = .useCache, maximumAge: TimeInterval? = nil) async throws -> MFLLeague {
         let host = leagueHost ?? .api
         let response: MFLLeagueResponse = try await export(
             MFLLeagueResponse.self,
@@ -278,7 +283,8 @@ public actor MFLClient {
             leagueID: configuration.league.leagueID,
             parameters: [:],
             ttl: configuration.cacheDurations.league,
-            refreshPolicy: refreshPolicy
+            refreshPolicy: refreshPolicy,
+            maximumAge: maximumAge
         )
         if let baseURL = response.league.baseURL {
             leagueHost = try MFLAPIHost(baseURL)
@@ -594,10 +600,71 @@ public actor MFLClient {
         return result
     }
 
+    // MARK: Trades and transaction activity
+
+    public func pendingTrades(franchiseID: String) async throws -> MFLPendingTrades {
+        try validateIdentifier(franchiseID)
+        let response = try await export(MFLPendingTradesResponse.self, endpoint: .pendingTrades,
+            host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
+            parameters: ["FRANCHISE_ID": franchiseID], ttl: 0, refreshPolicy: .reloadIgnoringCache)
+        return response.pendingTrades
+    }
+
+    public func tradeAssets() async throws -> MFLTradeAssets {
+        let response = try await export(MFLTradeAssetsResponse.self, endpoint: .assets,
+            host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
+            parameters: [:], ttl: 0, refreshPolicy: .reloadIgnoringCache)
+        return response.assets
+    }
+
+    public func transactionActivity() async throws -> MFLJSONValue {
+        try await export(MFLJSONValue.self, endpoint: .transactions,
+            host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
+            parameters: ["TRANS_TYPE": "DEFAULT", "COUNT": "50"],
+            ttl: 0, refreshPolicy: .reloadIgnoringCache)
+    }
+
+    @discardableResult
+    public func proposeTrade(to franchiseID: String, giving: [String], receiving: [String],
+                             comments: String, expires: Date, actingFranchiseID: String) async throws -> MFLMutationResult {
+        try validateIdentifier(franchiseID)
+        try validateIdentifier(actingFranchiseID)
+        guard franchiseID != actingFranchiseID, !giving.isEmpty, !receiving.isEmpty,
+              Set(giving).count == giving.count, Set(receiving).count == receiving.count,
+              (giving + receiving).allSatisfy(MFLTradeAssetCode.isSupported),
+              giving.filter({ $0.hasPrefix("BB_") }).count <= 1,
+              receiving.filter({ $0.hasPrefix("BB_") }).count <= 1,
+              expires.timeIntervalSince1970.isFinite, expires.timeIntervalSince1970 < Double(Int.max), expires > Date(), comments.count <= 1_000 else {
+            throw MFLCoreError.invalidRequest("Review the teams, assets, message, and expiration before sending this offer.")
+        }
+        let result = try await performImport(endpoint: .tradeProposal, parameters: [
+            "OFFEREDTO": franchiseID, "WILL_GIVE_UP": giving.joined(separator: ","),
+            "WILL_RECEIVE": receiving.joined(separator: ","), "COMMENTS": comments,
+            "EXPIRES": String(Int(expires.timeIntervalSince1970)), "FRANCHISE_ID": actingFranchiseID
+        ])
+        invalidate([.pendingTrades, .assets, .transactions])
+        return result
+    }
+
+    @discardableResult
+    public func respondToTrade(id: String, response: MFLTradeResponse, comments: String = "",
+                               actingFranchiseID: String) async throws -> MFLMutationResult {
+        try validateIdentifier(id)
+        try validateIdentifier(actingFranchiseID)
+        guard comments.count <= 1_000 else { throw MFLCoreError.invalidRequest("Keep trade messages under 1,000 characters.") }
+        var parameters = ["TRADE_ID": id, "RESPONSE": response.rawValue, "FRANCHISE_ID": actingFranchiseID]
+        if response == .reject { parameters["COMMENTS"] = comments }
+        let result = try await performImport(endpoint: .tradeResponse, parameters: parameters)
+        invalidate([.pendingTrades, .assets, .rosters, .transactions, .liveScoring, .pendingWaivers])
+        return result
+    }
+
     // MARK: Cache
 
     public func clearCache() {
         cache.removeAll(keepingCapacity: true)
+        sharedReads.removeAll(keepingCapacity: true)
+        readVersions.removeAll(keepingCapacity: true)
     }
 
     public func clearCache(for endpoint: MFLExportEndpoint) {
@@ -618,7 +685,8 @@ public actor MFLClient {
         leagueID: String?,
         parameters: [String: String],
         ttl: TimeInterval,
-        refreshPolicy: MFLRefreshPolicy
+        refreshPolicy: MFLRefreshPolicy,
+        maximumAge: TimeInterval? = nil
     ) async throws -> Value {
         let key = CacheKey(
             endpoint: endpoint,
@@ -627,11 +695,24 @@ public actor MFLClient {
         )
         if refreshPolicy == .useCache,
            let cached = cache[key],
-           cached.expiresAt > Date()
+           cached.expiresAt > Date(),
+           cached.fetchedAt <= Date(),
+           maximumAge.map({ Date().timeIntervalSince(cached.fetchedAt) < $0 }) ?? true
         {
             return try responseDecoder.decode(type, from: cached.data)
         }
 
+        // Coalesce cacheable reads across tabs (notably the full player catalog
+        // and projections). Forced preflight/readback requests NEVER join one.
+        if refreshPolicy == .useCache, let read = sharedReads[key] {
+            let value = try await read.task.value
+            try Task.checkCancellation()
+            if let maximumAge, Date().timeIntervalSince(value.fetchedAt) >= maximumAge {
+                return try await export(type, endpoint: endpoint, host: host, leagueID: leagueID,
+                    parameters: parameters, ttl: ttl, refreshPolicy: .reloadIgnoringCache, maximumAge: maximumAge)
+            }
+            return try responseDecoder.decode(type, from: value.data)
+        }
         let request = try requestBuilder.makeExportRequest(
             endpoint: endpoint,
             host: host,
@@ -639,15 +720,49 @@ public actor MFLClient {
             parameters: parameters,
             cookie: cookie
         )
+        let version = UUID()
+        readVersions[key] = version
+        let persistentKey = "players-v1:\(configuration.league.season)"
+        let persistentStore = endpoint == .players && parameters.isEmpty ? playerCache : nil
+        let value: MFLStoredResponse
+        if refreshPolicy == .useCache, ttl > 0 {
+            let task = Task {
+                if let stored = await persistentStore?.read(),
+                   stored.isFresh(key: persistentKey, ttl: min(ttl, 86_400)),
+                   (try? self.responseDecoder.decode(type, from: stored.data)) != nil {
+                    #if DEBUG
+                    print("[MFL cache] public player directory: disk hit")
+                    #endif
+                    return stored
+                }
+                let data = try await self.exportData(request)
+                #if DEBUG
+                if persistentStore != nil { print("[MFL cache] public player directory: downloaded") }
+                #endif
+                return MFLStoredResponse(key: persistentKey, data: data)
+            }
+            sharedReads[key] = (version, task)
+            defer { if sharedReads[key]?.id == version { sharedReads[key] = nil } }
+            value = try await task.value
+        } else {
+            // A forced read replaces any older shared read for future callers.
+            sharedReads[key] = nil
+            value = MFLStoredResponse(key: persistentKey, data: try await exportData(request))
+        }
+        try Task.checkCancellation()
+        let decoded = try responseDecoder.decode(type, from: value.data)
+        if ttl > 0, readVersions[key] == version {
+            cache[key] = CacheEntry(data: value.data, fetchedAt: value.fetchedAt, expiresAt: value.fetchedAt.addingTimeInterval(ttl))
+            await persistentStore?.write(value)
+        }
+        return decoded
+    }
+
+    private func exportData(_ request: URLRequest) async throws -> Data {
         let response = try await sendFollowingSafeExportRedirect(request)
         try validateHTTP(response)
         try detectAPIError(in: response.data)
-
-        let decoded = try responseDecoder.decode(type, from: response.data)
-        if ttl > 0 {
-            cache[key] = CacheEntry(data: response.data, expiresAt: Date().addingTimeInterval(ttl))
-        }
-        return decoded
+        return response.data
     }
 
     /// MFL routes league exports from `api.myfantasyleague.com` to the
@@ -723,23 +838,19 @@ public actor MFLClient {
     }
 
     private func waitForRequestSlot() async throws {
-        let now = clock.now
-        let scheduled: ContinuousClock.Instant
-        if let nextRequestInstant, nextRequestInstant > now {
-            scheduled = nextRequestInstant
-        } else {
-            scheduled = now
+        // Recheck after every suspension. Reserved slots can all be in the past
+        // after backgrounding, otherwise waking callers send a burst together.
+        while let next = nextRequestInstant, next > clock.now {
+            try await clock.sleep(until: next)
         }
-        nextRequestInstant = scheduled.advanced(by: configuration.minimumRequestInterval)
-        if scheduled > now {
-            try await clock.sleep(until: scheduled)
-        }
+        try Task.checkCancellation()
+        nextRequestInstant = clock.now.advanced(by: configuration.minimumRequestInterval)
     }
 
     private func validateHTTP(_ response: MFLHTTPResponse) throws {
         if response.statusCode == 429 {
             let retryAfter = response.value(forHeader: "Retry-After").flatMap(TimeInterval.init)
-            rateLimitedUntil = Date().addingTimeInterval(max(90, retryAfter ?? 90))
+            rateLimitedUntil = Date().addingTimeInterval(max(1, retryAfter ?? 90))
             throw MFLCoreError.rateLimited(retryAfter: retryAfter)
         }
         guard (200 ... 299).contains(response.statusCode) else {
@@ -858,6 +969,8 @@ public actor MFLClient {
 
     private func invalidate(_ endpoints: Set<MFLExportEndpoint>) {
         cache = cache.filter { !endpoints.contains($0.key.endpoint) }
+        sharedReads = sharedReads.filter { !endpoints.contains($0.key.endpoint) }
+        readVersions = readVersions.filter { !endpoints.contains($0.key.endpoint) }
     }
 
     private func validateWeek(_ week: Int) throws {
@@ -908,6 +1021,7 @@ private struct CacheKey: Hashable {
 
 private struct CacheEntry: Sendable {
     let data: Data
+    let fetchedAt: Date
     let expiresAt: Date
 }
 

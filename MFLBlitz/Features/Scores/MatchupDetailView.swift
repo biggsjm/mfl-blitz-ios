@@ -27,7 +27,7 @@ struct MatchupDetailView: View {
 
                     sectionHeading(
                         title: "Starting lineups",
-                        subtitle: "Player points by position"
+                        subtitle: "Player points by league lineup slot"
                     )
 
                     if matchup.away.starters.isEmpty && matchup.home.starters.isEmpty {
@@ -57,11 +57,13 @@ struct MatchupDetailView: View {
                                 homeTeam: matchup.home,
                                 awayPlayers: players(
                                     in: matchup.away.starters,
-                                    at: position
+                                    at: position,
+                                    usingLineupSlots: true
                                 ),
                                 homePlayers: players(
                                     in: matchup.home.starters,
-                                    at: position
+                                    at: position,
+                                    usingLineupSlots: true
                                 ),
                                 footer: nil
                             )
@@ -185,15 +187,15 @@ struct MatchupDetailView: View {
         }
     }
 
-    private func players(in players: [MatchupPlayer], at position: String) -> [MatchupPlayer] {
-        players.filter { normalizedPosition($0.position) == position }
+    private func players(in players: [MatchupPlayer], at position: String, usingLineupSlots: Bool = false) -> [MatchupPlayer] {
+        players.filter { normalizedPosition(usingLineupSlots ? ($0.lineupSlot ?? $0.position) : $0.position) == position }
     }
 
     private func positions(for matchup: Matchup, showingBench: Bool) -> [String] {
         let awayPlayers = showingBench ? matchup.away.bench : matchup.away.starters
         let homePlayers = showingBench ? matchup.home.bench : matchup.home.starters
-        let available = Set((awayPlayers + homePlayers).map { normalizedPosition($0.position) })
-        let preferred = ["QB", "RB", "WR", "TE", "K", "DEF"]
+        let available = Set((awayPlayers + homePlayers).map { normalizedPosition(showingBench ? $0.position : ($0.lineupSlot ?? $0.position)) })
+        let preferred = ["QB", "RB", "WR", "TE", "FLEX", "K", "DEF"]
         return preferred.filter(available.contains)
             + available.subtracting(preferred).sorted()
     }
@@ -578,7 +580,7 @@ private struct MatchupPlayerCell: View {
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(gameStateColor(for: player))
 
-                    Text(player.nflTeam)
+                    Text("\(player.position) · \(player.nflTeam)")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
 

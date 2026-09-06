@@ -5,20 +5,27 @@ actor LiveMFLRepository: LeagueRepository {
     private var client: MFLClient?
     private var league: MFLLeague?
     private var workspace: LeagueWorkspace?
-    private let privateStore: any PrivateStore
+    let privateStore: any PrivateStore
+    var tradeMutationInFlight = false
     private let transport: any MFLHTTPTransport
     private let requestInterval: Duration
     private let restoreTimeout: Duration
+    private let playerCacheDirectory: URL?
     private var seasonStatus: MFLSeasonStatus?
     private var statusUpdatedAt: Date = .distantPast
 
     init(privateStore: any PrivateStore = KeychainPrivateStore(),
          transport: any MFLHTTPTransport = MFLURLSessionTransport(), requestInterval: Duration = .seconds(1),
-         restoreTimeout: Duration = .seconds(15)) {
+         restoreTimeout: Duration = .seconds(15), playerCacheDirectory: URL? = nil) {
         self.privateStore = privateStore
         self.transport = transport
         self.requestInterval = requestInterval
         self.restoreTimeout = restoreTimeout
+        self.playerCacheDirectory = playerCacheDirectory
+    }
+
+    private func playerCache(season: Int) -> MFLDiskResponseCache? {
+        playerCacheDirectory.map { MFLDiskResponseCache(fileURL: $0.appending(path: "players-\(season)-v1.json")) }
     }
 
     func signIn(with credentials: LoginCredentials) async throws -> LeagueWorkspace {
@@ -28,7 +35,7 @@ actor LiveMFLRepository: LeagueRepository {
             userAgent: "MFL Blitz/0.1 (com.biggsjm.MFLBlitz)",
             minimumRequestInterval: requestInterval
         )
-        let newClient = MFLClient(configuration: configuration, transport: transport)
+        let newClient = MFLClient(configuration: configuration, transport: transport, playerCache: playerCache(season: credentials.season))
         _ = try await newClient.authenticate(username: credentials.username, password: credentials.password)
         return try await finishSignIn(client: newClient, credentials: credentials)
     }
@@ -38,7 +45,7 @@ actor LiveMFLRepository: LeagueRepository {
         let reference = try MFLLeagueReference(season: saved.season, leagueID: saved.leagueID)
         let newClient = MFLClient(configuration: MFLClientConfiguration(
             league: reference, userAgent: "MFL Blitz/0.1 (com.biggsjm.MFLBlitz)", minimumRequestInterval: requestInterval),
-            transport: transport, authenticationCookie: try MFLAuthenticationCookie(value: saved.cookie))
+            transport: transport, authenticationCookie: try MFLAuthenticationCookie(value: saved.cookie), playerCache: playerCache(season: saved.season))
         do {
             return try await withThrowingTaskGroup(of: LeagueWorkspace.self) { group in
                 group.addTask {
@@ -199,7 +206,7 @@ actor LiveMFLRepository: LeagueRepository {
         let catalog: MFLPlayerCatalog? = if livePlayerIDs.isEmpty {
             nil
         } else {
-            try? await client.players(ids: livePlayerIDs.sorted())
+            try? await client.players()
         }
         let catalogByID = Dictionary(grouping: catalog?.players ?? [], by: \.id)
             .compactMapValues { $0.count == 1 ? $0[0] : nil }
@@ -216,6 +223,7 @@ actor LiveMFLRepository: LeagueRepository {
                 away,
                 franchise: franchiseByID[away.franchiseID],
                 playerCatalog: catalogByID,
+                league: refreshedLeague,
                 completed: isCompleted,
                 projections: projections
             )
@@ -223,6 +231,7 @@ actor LiveMFLRepository: LeagueRepository {
                 home,
                 franchise: franchiseByID[home.franchiseID],
                 playerCatalog: catalogByID,
+                league: refreshedLeague,
                 completed: isCompleted,
                 projections: projections
             )
@@ -285,7 +294,7 @@ actor LiveMFLRepository: LeagueRepository {
             )
         }
 
-        async let catalogTask = client.players(ids: playerIDs)
+        async let catalogTask = client.players()
         async let projectionTask = loadProjections(client: client, week: week)
         async let statusTask = client.playerRosterStatus(
             playerIDs: playerIDs,
@@ -590,8 +599,14 @@ actor LiveMFLRepository: LeagueRepository {
     }
 
     func loadWaivers() async throws -> WaiverSnapshot {
+        try await loadWaivers(refreshRules: false)
+    }
+
+    private func loadWaivers(refreshRules: Bool) async throws -> WaiverSnapshot {
         let (client, _, workspace) = try requireSession()
-        let league = try await client.league(refreshPolicy: .reloadIgnoringCache)
+        // The same export includes slow-changing rules and a changing balance.
+        // Browsing accepts at most 60 seconds of age; writes always read fresh.
+        let league = try await client.league(refreshPolicy: refreshRules ? .reloadIgnoringCache : .useCache, maximumAge: 60)
         self.league = league
         async let freeAgentTask = client.freeAgents(refreshPolicy: .reloadIgnoringCache)
         async let pendingTask = client.pendingWaivers(franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache)
@@ -658,10 +673,10 @@ actor LiveMFLRepository: LeagueRepository {
             candidates: candidates,
             claims: claims,
             processesAt: Self.nextBlindBidDate(in: calendar),
-            minimumBid: league.blindBidMinimum ?? 0,
+            minimumBid: LeagueRuleOverrides.minimumBlindBid(for: league, season: workspace.season) ?? 0,
             unavailableReason: franchise?.blindBidAvailableBalance == nil
                 ? "MFL didn’t return your remaining bid balance. Check MFL before making changes."
-                : waiverAvailability(league),
+                : Self.waiverAvailability(league, season: workspace.season),
             results: waiverResults(from: results, catalog: playerByID, league: league),
             resultsUnavailable: results == nil,
             projectionWeek: projectionWeek,
@@ -671,7 +686,7 @@ actor LiveMFLRepository: LeagueRepository {
 
     func submitWaivers(_ claims: [WaiverClaim], replacing baseline: [WaiverClaim]) async throws {
         let (client, _, workspace) = try requireSession()
-        let fresh = try await loadWaivers()
+        let fresh = try await loadWaivers(refreshRules: true)
         if let reason = fresh.unavailableReason { throw RepositoryError.server(reason) }
         let (_, league, _) = try requireSession()
         let expectedClaims = try waiverVerificationClaims(from: claims)
@@ -780,7 +795,7 @@ actor LiveMFLRepository: LeagueRepository {
         let franchiseByID = Dictionary(uniqueKeysWithValues: league.franchises.map { ($0.id, $0) })
         let divisionByID = Dictionary(uniqueKeysWithValues: league.divisions.map { ($0.id, $0.name) })
 
-        return standings.franchises.enumerated().map { index, item in
+        let rows = standings.franchises.enumerated().map { index, item in
             let franchise = franchiseByID[item.id]
             return StandingRow(
                 id: item.id,
@@ -796,9 +811,14 @@ actor LiveMFLRepository: LeagueRepository {
                 streak: item.streak ?? "—",
                 isUser: item.id == workspace.franchiseID,
                 accentSeed: Int(item.id) ?? index,
-                artworkURLs: TeamArtworkURLPolicy.candidates(icon: franchise?.iconURL, logo: franchise?.logoURL)
+                artworkURLs: TeamArtworkURLPolicy.candidates(icon: franchise?.iconURL, logo: franchise?.logoURL),
+                ownerName: franchise?.ownerName.map(cleanText).flatMap { $0.isEmpty ? nil : $0 }
             )
         }
+        #if DEBUG
+        print("[MFL standings] teams=\(rows.count) owner names=\(rows.filter { $0.ownerName != nil }.count)")
+        #endif
+        return rows
     }
 
     func loadBoard() async throws -> [BoardThread] {
@@ -932,7 +952,7 @@ actor LiveMFLRepository: LeagueRepository {
         return workspace
     }
 
-    private func requireSession() throws -> (MFLClient, MFLLeague, LeagueWorkspace) {
+    func requireSession() throws -> (MFLClient, MFLLeague, LeagueWorkspace) {
         guard let client, let league, let workspace else { throw RepositoryError.missingSession }
         return (client, league, workspace)
     }
@@ -941,16 +961,32 @@ actor LiveMFLRepository: LeagueRepository {
         _ value: MFLLiveFranchise,
         franchise: MFLFranchise?,
         playerCatalog: [String: MFLPlayer],
+        league: MFLLeague,
         completed: Bool = false,
         projections: [String: Decimal] = [:]
     ) -> MatchupTeam {
-        let players = value.players.map { livePlayer in
+        var players = value.players.map { livePlayer in
             var player = makeMatchupPlayer(livePlayer, catalogPlayer: playerCatalog[livePlayer.id])
             if completed { player.gameSecondsRemaining = 0 }
             player.projectedPoints = projections[player.id]?.doubleValue
             return player
         }
         let starters = players.filter { $0.lineupStatus == .starter }
+        if let count = league.starterCount, count == starters.count {
+            let requirements = league.starterRequirements.compactMap { rule -> LineupPositionRequirement? in
+                guard let minimum = rule.minimum, let maximum = rule.maximum, minimum >= 0, maximum >= minimum else { return nil }
+                return LineupPositionRequirement(position: rule.position, minimum: minimum, maximum: maximum)
+            }
+            let validCounts = requirements.allSatisfy { rule in
+                (rule.minimum...rule.maximum).contains(starters.count { $0.position == rule.position })
+            }
+            let flexIDs = requirements.count == league.starterRequirements.count && validCounts
+                ? LineupSlotAllocation.flexPlayerIDs(starters.map { ($0.id, $0.position) }, requirements: requirements, starterCount: count)
+                : []
+            for index in players.indices where players[index].lineupStatus == .starter {
+                players[index].lineupSlot = flexIDs.contains(players[index].id) ? "FLEX" : players[index].position
+            }
+        }
         let starterProjections = starters.compactMap(\.projectedPoints)
         let projectedTotal = !starters.isEmpty && starterProjections.count == starters.count
             ? starterProjections.reduce(0, +) : nil
@@ -1052,12 +1088,21 @@ actor LiveMFLRepository: LeagueRepository {
         return .pregame(nil)
     }
 
-    private func waiverAvailability(_ league: MFLLeague) -> String? {
-        guard league.conditionalBlindBidding == true,
-              league.currentWaiverType?.uppercased().contains("BBID") == true,
-              let rounds = league.maxWaiverRounds, rounds > 0,
-              league.blindBidMinimum != nil, league.blindBidSeasonLimit != nil else {
-            return "This waiver window or league format is not supported for native bidding. Use MFL for first-come adds or other waiver formats."
+    nonisolated static func waiverAvailability(_ league: MFLLeague, season: Int) -> String? {
+        guard let type = league.currentWaiverType?.uppercased(), !type.isEmpty else {
+            return "MFL hasn’t provided your league’s waiver rules. Browse players here; use MFL to make waiver moves."
+        }
+        guard type.contains("BBID") else {
+            return "This screen prepares blind bids. Use MFL for your league’s first-come adds and other waiver moves."
+        }
+        guard league.conditionalBlindBidding == true else {
+            return "In-app bidding currently supports ordered, conditional bids. Use MFL to submit bids in your league’s format."
+        }
+        guard LeagueRuleOverrides.minimumBlindBid(for: league, season: season) != nil else {
+            return "You can browse players and save draft bids here. MFL hasn’t supplied your league’s minimum bid, so submit bids on MFL for now."
+        }
+        guard let rounds = league.maxWaiverRounds, rounds > 0, league.blindBidSeasonLimit != nil else {
+            return "Some bid rules still need to be verified. Browse players and prepare bids here; use MFL to submit them."
         }
         return nil
     }
@@ -1085,16 +1130,12 @@ actor LiveMFLRepository: LeagueRepository {
             let franchiseID = fields["franchise"]?.stringValue ?? fields["franchise_id"]?.stringValue
             let franchise = league.franchises.first { $0.id == franchiseID }
             let raw = fields["transaction"]?.stringValue ?? ""
-            let parts = raw.components(separatedBy: "|")
-            func names(_ part: String) -> String {
-                part.split(separator: ",").map { id in cleanText(catalog[String(id)]?.displayName ?? "Player \(id)") }.joined(separator: ", ")
+            let details = TransactionDetails(type: type, fields: fields)
+            var descriptions = details.moves.map { move in
+                "\(move.label) " + move.codes.map { cleanText(catalog[$0]?.displayName ?? "Player \($0)") }.joined(separator: ", ")
             }
-            var detail = type == "BBID_WAIVER" ? "Blind-bid waiver processed" : "Player acquisition"
-            if let adds = parts.first, !adds.isEmpty { detail = "Added \(names(adds))" }
-            if parts.count > 1, !parts[1].isEmpty { detail += " · Dropped \(names(parts[1]))" }
-            if parts.count > 2, let amount = Decimal(string: parts[2]), amount >= 0 {
-                detail += " · \(amount.formatted(.currency(code: "USD")))"
-            }
+            if let amount = details.bid { descriptions.append("\(amount.formatted(.currency(code: "USD"))) bid") }
+            let detail = descriptions.isEmpty ? "Player acquisition · full details on MFL" : descriptions.joined(separator: " · ")
             return WaiverResult(id: fields["id"]?.stringValue ?? "\(index)-\(raw)",
                 franchise: cleanText(franchise?.name ?? "League member"), description: detail,
                 date: fields["timestamp"]?.stringValue.flatMap(TimeInterval.init).map { Date(timeIntervalSince1970: $0) })
@@ -1359,7 +1400,7 @@ actor LiveMFLRepository: LeagueRepository {
         )
     }
 
-    private nonisolated func cleanText(_ raw: String) -> String {
+    nonisolated func cleanText(_ raw: String) -> String {
         raw
             .replacingOccurrences(of: "<br\\s*/?>", with: "\n", options: .regularExpression)
             .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)

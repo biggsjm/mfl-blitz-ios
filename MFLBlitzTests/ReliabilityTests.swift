@@ -13,12 +13,18 @@ final class MemoryPrivateStore: PrivateStore, @unchecked Sendable {
 
 actor ReliabilityRepository: LeagueRepository {
     var waiverGate: TestGate?
+    var transactionGate: TestGate?
     var restoreGate: TestGate?
     var testLineup = SampleData.lineup
     var testWaivers = SampleData.waivers
     var week = 1
     var expired = false
     var scoreLoads = 0
+    var waiverLoads = 0
+    var tradeLoads = 0
+    var activityLoads = 0
+    var tradeReadFailure: MFLCoreError?
+    var waiverReadFailure: MFLCoreError?
     var submittedClaims: [WaiverClaim]?
     var testWorkspace = SampleData.workspace
 
@@ -42,6 +48,8 @@ actor ReliabilityRepository: LeagueRepository {
     }
     func submitLineup(_ lineup: LineupSnapshot) async throws { testLineup = lineup }
     func loadWaivers() async throws -> WaiverSnapshot {
+        waiverLoads += 1
+        if let waiverReadFailure { throw waiverReadFailure }
         if let waiverGate { await waiverGate.wait() }
         return testWaivers
     }
@@ -55,6 +63,21 @@ actor ReliabilityRepository: LeagueRepository {
     func loadThread(id: String) async throws -> BoardThread { SampleData.board[0] }
     func postMessage(subject: String?, body: String, threadID: String?) async throws {}
     func signOut() async {}
+    func failTradeReads() { tradeReadFailure = .rateLimited(retryAfter: 15) }
+    func pauseTransactions(_ gate: TestGate) { transactionGate = gate }
+    func failWaiverReads() { waiverReadFailure = .rateLimited(retryAfter: 15) }
+    func loadTrades() async throws -> TradeSnapshot {
+        tradeLoads += 1
+        if let transactionGate { await transactionGate.wait() }
+        if let tradeReadFailure { throw tradeReadFailure }
+        var snapshot = SampleData.trades; snapshot.updatedAt = Date(); return snapshot
+    }
+    func loadTransactionActivity() async throws -> [TransactionActivity] {
+        activityLoads += 1
+        if let transactionGate { await transactionGate.wait() }
+        if let tradeReadFailure { throw tradeReadFailure }
+        return [TransactionActivity(id: "fixture", title: "Trade", detail: "Synthetic activity", isTrade: true)]
+    }
     func setWeek(_ value: Int) { week = value }
     func expire() { expired = true }
     func changeSavedLineup() {
@@ -216,7 +239,7 @@ struct ReliabilityTests {
     @Test("Week rollover follows current week but preserves explicitly selected history")
     func rollover() async {
         let repository = ReliabilityRepository()
-        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore())
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore(), foregroundRefreshInterval: 0)
         await model.signIn(credentials: LoginCredentials())
         await repository.setWeek(2)
         await model.refreshForForeground()
@@ -234,7 +257,7 @@ struct ReliabilityTests {
     func expiredSession() async {
         let repository = ReliabilityRepository()
         let store = MemoryPrivateStore()
-        let model = AppModel(repository: repository, privateStore: store)
+        let model = AppModel(repository: repository, privateStore: store, foregroundRefreshInterval: 0)
         await model.signIn(credentials: LoginCredentials())
         model.saveBoardDraft(subject: "Keep", body: "Private fixture", threadID: nil)
         await repository.expire()
