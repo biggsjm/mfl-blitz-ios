@@ -89,7 +89,7 @@ Requirements:
 - An Xcode toolchain supporting Swift 6 and the iOS 18 deployment target
 - macOS 15 or later for package tests
 
-Latest local verification used **Xcode 27 beta and an iOS 27 iPhone 17 Pro simulator**. This is not evidence that every supported OS/device has been manually validated. GitHub CI runs on `macos-15` and also builds/tests the app.
+Latest local verification used **Xcode 27 beta with iOS 27 / iPhone 17 Pro and iOS 18.4 / iPhone 16 Pro simulators**. This is not evidence that every supported OS/device has been manually validated. GitHub CI uses the older Xcode 16.4 / iOS 18.5 environment on `macos-15`; see current status for exact passing revisions and counts.
 
 1. Open `MFLBlitz.xcodeproj`.
 2. Select the `MFLBlitz` scheme and an iPhone or iPad simulator.

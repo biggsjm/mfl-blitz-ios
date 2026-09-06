@@ -8,7 +8,7 @@ Implemented private-build history through September 6, 2026. The [roadmap](docs/
 - Visible-section refreshes no longer fan out to every main feed. Ordinary watchlist and roster-review reads reuse caches; actual mutation preflight/readback stays fresh. Scoring history loads only after View scoring history is tapped. Default request spacing increases to 1.25 seconds.
 - Cooldowns are scoped to the rejecting server as MFL documents, so a public availability-feed 429 does not automatically block a different league server. Same-host requests stop until Retry-After expires; no host switching or automatic import retries.
 - Trade composer and team-tool destinations now share typed navigation so player research returns to the asset picker or roster moves with selections intact.
-- Compatibility follow-up gives roster menus explicit independent touch targets and stable accessibility identifiers; native tests handle iOS 18 menu/Back-button differences and tap the tiebreaker picker's actual value control. Older-iOS revalidation remains recorded separately in current status.
+- Compatibility follow-up gives roster menus explicit independent touch targets and stable accessibility identifiers; native tests handle iOS 18 menu/Back-button differences, scroll large-text targets clear of bars and tap the tiebreaker picker's actual value control. Full Xcode 16.4 / iOS 18.5 CI passed before merge; [current status](docs/current-status.md) records exact evidence.
 - Signed build installed and launched on Josh's iPhone. See [current status](docs/current-status.md) for regression evidence and remaining live-owner checks; reducing request pressure does not eliminate MFL's variable rate limits.
 
 ## 0.5.0 (19) — September 6, 2026 — player tools

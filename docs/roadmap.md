@@ -24,7 +24,7 @@ Josh wants to test personally in Week 1 and invite the league in Week 2 if it go
 | Remaining gate | Owner / action | Done when |
 | --- | --- | --- |
 | Live scoring and rollover | Josh, with developer triage | Week 1 totals, player points/FLEX, clocks, final corrections, offline recovery and Week 2 selection match MFL; record build/time/result in the [checklist](week-1-testing.md) |
-| Real write verification | Josh + consenting league/test owner | Intended lineup, $0/conditional queue and processing, trade proposal/each response, and board thread/reply match MFL; ambiguous outcomes cause no duplicate writes |
+| Real write verification | Josh + consenting league/test owner | Intended lineup, $0/conditional queue and processing, trade proposal/each response, board thread/reply, watchlist changes, FCFS add/drop and eligible IR moves match MFL; ambiguous outcomes cause no duplicate writes. Exercise unwanted/destructive cases only in a disposable league |
 | Regression and usability | Developer + owner | Full core/app/UI suites green on candidate; small-screen/iPad, light/dark, large text, VoiceOver, Voice Control/Switch Control, contrast and deadline flows reviewed; release blockers resolved |
 | MFL client identity | Repository owner / developer | Registration confirmed and exact approved User-Agent configured; current `MFL Blitz/0.1 (com.biggsjm.MFLBlitz)` must not be assumed registered |
 | Apple distribution | Apple account owner / developer | App Store Connect/TestFlight record, signing/archive, beta metadata, privacy/support details, applicable compliance/review requirements and tester access verified; clean install/update tested |

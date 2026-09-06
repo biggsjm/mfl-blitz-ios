@@ -72,9 +72,9 @@ Champion Hall's September 6 public configuration reports `BBID_FCFS`, conditiona
 - [x] Model tests for stale sessions, partial data, progressive request budgets, watchlist persistence/readback and roster-action preflight/recovery.
 - [x] Synthetic two-week journeys cover injuries/byes, unavailable history, watch/unwatch, FCFS open/closed, $0 blind-bid regression, IR full/activation/drop, timeout/relaunch reconciliation and preservation of existing drafts.
 - [x] Native UI journeys cover discovery, review/cancel, empty/error/loading, separate identity/action controls, large text, and Light/Dark appearances.
-- [ ] Run full core/app/UI suites and GitHub CI on the supported older toolchain; build signed candidate and install/launch on Josh's phone when available.
-- [ ] Update current status, API/cache notes, feature contracts, privacy/security implications, owner checklist and changelog with actual evidence before handoff.
-- [ ] Push and merge after checks pass, honoring Josh's standing delivery request. Keep actual intended live writes and Week 1/Week 2 invitation gates separate from synthetic QA.
+- [x] Run full core/app/UI suites and GitHub CI on the supported older toolchain; build signed candidate and install/launch on Josh's phone when available. Final GitHub source `679afeb` passed 75 core tests, 145 app unit functions and all 29 native UI journeys; build 20 installed and launched.
+- [x] Update current status, API/cache notes, feature contracts, privacy/security implications, owner checklist and changelog with actual evidence before handoff.
+- [x] Push and merge after checks pass, honoring Josh's standing delivery request. [PR #3](https://github.com/biggsjm/mfl-blitz-ios/pull/3) merged September 6 as `b4c9cf9`. Actual intended live writes and Week 1/Week 2 invitation gates remain separate from synthetic QA.
 
 ## Queued after 1–5 — do not lose these
 
