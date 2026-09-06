@@ -54,10 +54,16 @@ final class AppModel {
     var unconfirmedBoardPost: PendingBoardPost?
     var boardDraftRevision = 0
     var isRestoringSession = false
+    var isLoadingScores = false
+    var isLoadingLineup = false
+    var isLoadingWaivers = false
+    var isLoadingBoard = false
+    private var restoreRequest: Task<LeagueWorkspace?, any Error>?
     private var didAttemptRestore = false
     private var followsCurrentWeek = true
     private var scoreRequestInFlight = false
     private var fullRefreshInFlight = false
+    private var fullRefreshSession = -1
     private var drafts = LeagueDrafts()
     private let privateStore: any PrivateStore
     private var serverWaivers: [WaiverClaim] = []
@@ -66,8 +72,8 @@ final class AppModel {
     var canEditLineup: Bool {
         isDemo || (LiveWritePolicy.lineupsEnabled && lineup.editState.allowsEditing)
     }
-    var canSubmitLineup: Bool { !isBusy && !isRefreshing && canEditLineup && lineup.editState.allowsEditing && lineupConflict == nil && lineup.week == selectedWeek }
-    var canSubmitWaivers: Bool { !isBusy && !isRefreshing && waiverConflict == nil && (isDemo || (LiveWritePolicy.waiversEnabled && waivers.unavailableReason == nil)) }
+    var canSubmitLineup: Bool { !isBusy && !isLoadingLineup && canEditLineup && lineup.editState.allowsEditing && lineupConflict == nil && lineup.week == selectedWeek }
+    var canSubmitWaivers: Bool { !isBusy && !isLoadingWaivers && waiverConflict == nil && (isDemo || (LiveWritePolicy.waiversEnabled && waivers.unavailableReason == nil)) }
     var canPostToBoard: Bool { isDemo || LiveWritePolicy.boardEnabled }
     var hasRestrictedLiveActions: Bool {
         !canEditLineup || !canSubmitWaivers || !canPostToBoard
@@ -93,21 +99,45 @@ final class AppModel {
         didAttemptRestore = true
         isRestoringSession = true
         isBusy = true
-        defer { isRestoringSession = false; isBusy = false }
         let generation = sessionGeneration
+        defer {
+            if generation == sessionGeneration {
+                restoreRequest = nil
+                if isRestoringSession { isRestoringSession = false; isBusy = false }
+            }
+        }
+        let activeRepository = repository
+        let request = Task { try await activeRepository.restoreSession() }
+        restoreRequest = request
         do {
-            guard let restored = try await repository.restoreSession(), generation == sessionGeneration else { return }
+            guard let restored = try await request.value, generation == sessionGeneration else { return }
             workspace = restored
             selectedWeek = restored.week
             currentWeek = restored.week
             try restoreDrafts()
-            phase = .signedIn
             unconfirmedBoardPost = try await repository.pendingBoardPost()
-            await refreshAll(showSpinner: false)
+            guard generation == sessionGeneration else { return }
+            // Reconnecting means verifying the account, not downloading every
+            // optional tab. Show the app immediately once that check succeeds.
+            isRestoringSession = false
+            isBusy = false
+            phase = .signedIn
+            await refreshAll()
         } catch {
             guard generation == sessionGeneration else { return }
             notice = .error("Couldn’t restore your MFL session. Sign in to reconnect. Your saved drafts are kept for the same team. \(error.localizedDescription)")
         }
+    }
+
+    func cancelReconnect() {
+        guard isRestoringSession else { return }
+        restoreRequest?.cancel()
+        restoreRequest = nil
+        sessionGeneration &+= 1
+        isRestoringSession = false
+        isBusy = false
+        notice = nil
+        // Keep the saved cookie/drafts; this only dismisses the current attempt.
     }
 
     func continueInDemo() async {
@@ -130,7 +160,8 @@ final class AppModel {
         let activeRepository = repository
 
         isBusy = true
-        defer { isBusy = false }
+        var authenticating = true
+        defer { if authenticating, generation == sessionGeneration { isBusy = false } }
         notice = nil
         workspace = nil
         selectedWeek = 1
@@ -153,7 +184,9 @@ final class AppModel {
             // sections load independently and may legitimately be unavailable
             // during the preseason.
             phase = .signedIn
-            await refreshAll(showSpinner: false)
+            authenticating = false
+            isBusy = false
+            await refreshAll()
             guard generation == sessionGeneration else { return }
         } catch {
             guard generation == sessionGeneration else { return }
@@ -162,70 +195,78 @@ final class AppModel {
     }
 
     func refreshAll(showSpinner: Bool = true) async {
-        guard !fullRefreshInFlight, !isBusy || lineup.players.isEmpty || isRestoringSession else { return }
+        let generation = sessionGeneration
+        guard !fullRefreshInFlight || fullRefreshSession != generation,
+              !isBusy || lineup.players.isEmpty || isRestoringSession else { return }
         fullRefreshInFlight = true
-        defer { fullRefreshInFlight = false }
+        fullRefreshSession = generation
+        defer { if fullRefreshSession == generation { fullRefreshInFlight = false } }
         let refreshID = showSpinner ? beginRefreshing() : nil
         defer {
             if let refreshID { endRefreshing(refreshID) }
         }
 
         let activeRepository = repository
-        let generation = sessionGeneration
         let requestedWeek = selectedWeek
+        let requestedWeekGeneration = weekLoadGeneration
 
-        async let newScores = Self.capture { try await activeRepository.refreshScores(week: requestedWeek) }
-        async let newLineup = Self.capture { try await activeRepository.loadLineup(week: requestedWeek) }
-        async let newWaivers = Self.capture { try await activeRepository.loadWaivers() }
-        async let newStandings = Self.capture { try await activeRepository.loadStandings() }
-        async let newBoard = Self.capture { try await activeRepository.loadBoard() }
-        let values = await (newScores, newLineup, newWaivers, newStandings, newBoard)
-
-        guard generation == sessionGeneration else { return }
-        for error in [values.0.error, values.1.error, values.2.error, values.3.error, values.4.error].compactMap({ $0 }) {
-            handleSessionError(error)
+        isLoadingScores = true
+        isLoadingLineup = true
+        isLoadingWaivers = true
+        isLoadingBoard = true
+        defer {
+            if generation == sessionGeneration {
+                if weekLoadGeneration == requestedWeekGeneration {
+                    isLoadingScores = false; isLoadingLineup = false
+                }
+                isLoadingWaivers = false; isLoadingBoard = false
+            }
         }
-        guard generation == sessionGeneration else { return }
-
         var failures: [String] = []
-        if selectedWeek == requestedWeek {
-            if let scores = values.0.value {
-                self.scores = scores
-                scoreRefreshError = nil
-            } else {
-                scoreRefreshError = "Scores may be out of date. Pull to retry."
-                failures.append("scores")
+        await withTaskGroup(of: RefreshedSection.self) { group in
+            group.addTask { .scores(await Self.capture { try await activeRepository.refreshScores(week: requestedWeek) }) }
+            group.addTask { .lineup(await Self.capture { try await activeRepository.loadLineup(week: requestedWeek) }) }
+            group.addTask { .waivers(await Self.capture { try await activeRepository.loadWaivers() }) }
+            group.addTask { .standings(await Self.capture { try await activeRepository.loadStandings() }) }
+            group.addTask { .board(await Self.capture { try await activeRepository.loadBoard() }) }
+
+            for await section in group {
+                guard generation == sessionGeneration, !Task.isCancelled else { group.cancelAll(); continue }
+                if let error = section.error { handleSessionError(error) }
+                guard generation == sessionGeneration else { group.cancelAll(); continue }
+                switch section {
+                case .scores(let result):
+                    guard selectedWeek == requestedWeek, weekLoadGeneration == requestedWeekGeneration else { continue }
+                    isLoadingScores = false
+                    if let value = result.value { scores = value; scoreRefreshError = nil }
+                    else { scoreRefreshError = "Scores may be out of date. Pull to retry."; failures.append("scores") }
+                case .lineup(let result):
+                    guard selectedWeek == requestedWeek, weekLoadGeneration == requestedWeekGeneration else { continue }
+                    if let value = result.value { mergeLineup(value); lineupRevision &+= 1 }
+                    else { failures.append("lineup") }
+                    isLoadingLineup = false
+                case .waivers(let result):
+                    if let value = result.value { mergeWaivers(value) }
+                    else { failures.append("waivers") }
+                    isLoadingWaivers = false
+                case .standings(let result):
+                    if let value = result.value { standings = value }
+                    else { failures.append("standings") }
+                case .board(let result):
+                    if let value = result.value { boardThreads = value }
+                    else { failures.append("the message board") }
+                    isLoadingBoard = false
+                }
             }
-            if let lineup = values.1.value {
-                mergeLineup(lineup)
-                lineupRevision &+= 1
-            } else {
-                failures.append("lineup")
-            }
-        }
-        if let waivers = values.2.value {
-            mergeWaivers(waivers)
-        } else {
-            failures.append("waivers")
-        }
-        if let standings = values.3.value {
-            self.standings = standings
-        } else {
-            failures.append("standings")
-        }
-        if let board = values.4.value {
-            boardThreads = board
-        } else {
-            failures.append("the message board")
         }
 
-        if !failures.isEmpty && !Task.isCancelled {
+        if generation == sessionGeneration, !failures.isEmpty && !Task.isCancelled {
             notice = .error(refreshFailureMessage(for: failures))
         }
     }
 
     func refreshScores(silent: Bool = false) async {
-        guard !scoreRequestInFlight, !fullRefreshInFlight, !isBusy else { return }
+        guard !scoreRequestInFlight, !isLoadingScores, !isBusy else { return }
         scoreRequestInFlight = true
         defer { scoreRequestInFlight = false }
         let refreshID = beginRefreshing()
@@ -234,14 +275,19 @@ final class AppModel {
         let activeRepository = repository
         let generation = sessionGeneration
         let requestedWeek = selectedWeek
+        let requestedWeekGeneration = weekLoadGeneration
+        isLoadingScores = true
+        defer {
+            if generation == sessionGeneration, requestedWeekGeneration == weekLoadGeneration { isLoadingScores = false }
+        }
 
         do {
             let refreshedScores = try await activeRepository.refreshScores(week: requestedWeek)
-            guard generation == sessionGeneration, selectedWeek == requestedWeek else { return }
+            guard generation == sessionGeneration, selectedWeek == requestedWeek, requestedWeekGeneration == weekLoadGeneration else { return }
             scores = refreshedScores
             scoreRefreshError = nil
         } catch {
-            guard generation == sessionGeneration, selectedWeek == requestedWeek else { return }
+            guard generation == sessionGeneration, selectedWeek == requestedWeek, requestedWeekGeneration == weekLoadGeneration else { return }
             handleSessionError(error)
             scoreRefreshError = "Scores may be out of date. Pull to retry."
             if !silent { notice = .error(error.localizedDescription) }
@@ -260,7 +306,14 @@ final class AppModel {
         let generation = sessionGeneration
         let activeRepository = repository
         let refreshID = beginRefreshing()
-        defer { endRefreshing(refreshID) }
+        isLoadingScores = true
+        isLoadingLineup = true
+        defer {
+            endRefreshing(refreshID)
+            if generation == sessionGeneration, requestGeneration == weekLoadGeneration {
+                isLoadingScores = false; isLoadingLineup = false
+            }
+        }
 
         async let newScores: ScoresSnapshot? = try? await activeRepository.loadScores(week: week)
         async let newLineup: LineupSnapshot? = try? await activeRepository.loadLineup(week: week)
@@ -512,7 +565,7 @@ final class AppModel {
 
     @discardableResult
     func post(subject: String?, body: String, threadID: String? = nil) async -> Bool {
-        guard canPostToBoard, !isBusy, !isRefreshing, unconfirmedBoardPost == nil else {
+        guard canPostToBoard, !isBusy, !isLoadingBoard, unconfirmedBoardPost == nil else {
             notice = .error("Resolve the previous unconfirmed post before sending another message.")
             return false
         }
@@ -649,6 +702,8 @@ final class AppModel {
     }
 
     private func resetContent(for week: Int) {
+        isLoadingScores = false; isLoadingLineup = false
+        isLoadingWaivers = false; isLoadingBoard = false
         lineupConflict = nil
         waiverConflict = nil
         serverWaivers = []
@@ -752,6 +807,23 @@ final class AppModel {
 }
 
 extension AppModel {
+    private enum RefreshedSection: Sendable {
+        case scores(ReadResult<ScoresSnapshot>)
+        case lineup(ReadResult<LineupSnapshot>)
+        case waivers(ReadResult<WaiverSnapshot>)
+        case standings(ReadResult<[StandingRow]>)
+        case board(ReadResult<[BoardThread]>)
+
+        var error: (any Error)? {
+            switch self {
+            case .scores(let value): value.error
+            case .lineup(let value): value.error
+            case .waivers(let value): value.error
+            case .standings(let value): value.error
+            case .board(let value): value.error
+            }
+        }
+    }
     private struct ReadResult<Value: Sendable>: Sendable {
         var value: Value?
         var error: (any Error)?
@@ -807,7 +879,8 @@ extension AppModel {
     }
 
     private func mergeLineup(_ fresh: LineupSnapshot) {
-        guard !isBusy || isRestoringSession || lineup.players.isEmpty else { return }
+        // A lineup refresh owns isLoadingLineup until this merge completes, so
+        // its submit button cannot race this read. Other tabs may already be usable.
         latestServerLineup = fresh
         lineup = fresh
         lineupConflict = nil
@@ -906,6 +979,7 @@ extension AppModel {
 
     func refreshForForeground() async {
         guard phase == .signedIn, !isDemo, !isBusy else { return }
+        guard !fullRefreshInFlight || fullRefreshSession != sessionGeneration else { return }
         let generation = sessionGeneration
         do {
             let latest = try await repository.currentWeek()

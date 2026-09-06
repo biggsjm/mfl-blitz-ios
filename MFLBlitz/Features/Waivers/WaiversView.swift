@@ -19,6 +19,10 @@ struct WaiversView: View {
 
     var body: some View {
         List {
+            if model.isLoadingWaivers {
+                ProgressView("Loading waivers…")
+                    .listRowBackground(Color.clear)
+            }
             if model.isDemo {
                 DemoBanner()
                     .listRowInsets(EdgeInsets())
@@ -68,6 +72,10 @@ struct WaiversView: View {
                 if let workspace = model.workspace {
                     Link("Calendar, full results & first-come adds on MFL", destination: workspace.leagueURL)
                         .font(.footnote)
+                }
+                if let note = model.waivers.projectionNote {
+                    Text(model.waivers.projectionWeek.map { "Week \($0) · \(note)" } ?? note)
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
 

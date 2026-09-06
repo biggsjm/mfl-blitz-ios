@@ -12,6 +12,8 @@ final class MemoryPrivateStore: PrivateStore, @unchecked Sendable {
 }
 
 actor ReliabilityRepository: LeagueRepository {
+    var waiverGate: TestGate?
+    var restoreGate: TestGate?
     var testLineup = SampleData.lineup
     var testWaivers = SampleData.waivers
     var week = 1
@@ -22,7 +24,10 @@ actor ReliabilityRepository: LeagueRepository {
 
     init() { testLineup.serverStarterPlayerIDs = Set(testLineup.starters.map(\.id)); testWaivers.unavailableReason = nil }
     func signIn(with credentials: LoginCredentials) async throws -> LeagueWorkspace { testWorkspace }
-    func restoreSession() async throws -> LeagueWorkspace? { testWorkspace }
+    func restoreSession() async throws -> LeagueWorkspace? {
+        if let restoreGate { await restoreGate.wait() }
+        return testWorkspace
+    }
     func loadWorkspace() async throws -> LeagueWorkspace { testWorkspace }
     func currentWeek() async throws -> Int {
         if expired { throw MFLCoreError.unauthorized("Expired") }
@@ -36,7 +41,12 @@ actor ReliabilityRepository: LeagueRepository {
         var result = testLineup; result.week = week; return result
     }
     func submitLineup(_ lineup: LineupSnapshot) async throws { testLineup = lineup }
-    func loadWaivers() async throws -> WaiverSnapshot { testWaivers }
+    func loadWaivers() async throws -> WaiverSnapshot {
+        if let waiverGate { await waiverGate.wait() }
+        return testWaivers
+    }
+    func pauseWaivers(_ gate: TestGate) { waiverGate = gate }
+    func pauseRestore(_ gate: TestGate) { restoreGate = gate }
     func submitWaivers(_ claims: [WaiverClaim], replacing baseline: [WaiverClaim]) async throws {
         submittedClaims = claims; testWaivers.claims = claims
     }
@@ -58,8 +68,67 @@ actor ReliabilityRepository: LeagueRepository {
     }
 }
 
+actor TestGate {
+    private var opened = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+    func wait() async {
+        if opened { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+    func open() {
+        opened = true
+        for waiter in waiters { waiter.resume() }
+        waiters = []
+    }
+}
+
 @MainActor
 struct ReliabilityTests {
+    @Test("Reconnect ends and each tab appears before slow waivers finish")
+    func progressiveReconnect() async throws {
+        let repository = ReliabilityRepository()
+        let gate = TestGate()
+        await repository.pauseWaivers(gate)
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore())
+        let restore = Task { await model.restoreSession() }
+        for _ in 0..<100 {
+            if model.phase == .signedIn && !model.lineup.players.isEmpty && !model.scores.matchups.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(model.phase == .signedIn)
+        #expect(!model.isRestoringSession)
+        #expect(!model.isBusy)
+        #expect(!model.scores.matchups.isEmpty)
+        #expect(!model.lineup.players.isEmpty)
+        #expect(model.isLoadingWaivers)
+        #expect(model.canSubmitLineup)
+        #expect(!model.canSubmitWaivers)
+        await gate.open()
+        await restore.value
+        #expect(!model.isLoadingWaivers)
+    }
+
+    @Test("Cancel reconnect leaves drafts alone and ignores late completion")
+    func cancelReconnect() async throws {
+        let repository = ReliabilityRepository()
+        let gate = TestGate()
+        await repository.pauseRestore(gate)
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore())
+        let restore = Task { await model.restoreSession() }
+        for _ in 0..<100 {
+            if model.isRestoringSession { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        model.cancelReconnect()
+        #expect(!model.isRestoringSession)
+        #expect(!model.isBusy)
+        await model.continueInDemo()
+        await gate.open()
+        await restore.value
+        #expect(model.isDemo)
+        #expect(model.phase == .signedIn)
+    }
+
     @Test("Refresh preserves lineup edits and detects a server conflict")
     func lineupRefresh() async {
         let repository = ReliabilityRepository()

@@ -30,12 +30,15 @@ struct ScoresView: View {
                 HStack {
                     WeekPicker(selection: weekBinding, range: 1...18)
                     Spacer()
-                    UpdatedLabel(date: model.scores.lastUpdated, isRefreshing: model.isRefreshing)
+                    UpdatedLabel(date: model.scores.lastUpdated, isRefreshing: model.isLoadingScores)
                 }
                 .padding(.horizontal, BlitzMetrics.pagePadding)
 
                 if model.scores.matchups.isEmpty {
-                    if model.scores.lastUpdated == .distantPast {
+                    if model.isLoadingScores {
+                        ProgressView("Loading Week \(model.selectedWeek) scores…")
+                            .padding(.top, 44)
+                    } else if model.scores.lastUpdated == .distantPast {
                         ContentUnavailableView {
                             Label("Scores unavailable", systemImage: "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90")
                         } description: {
@@ -198,7 +201,7 @@ private struct FeaturedMatchupCard: View {
             Divider().overlay(.white.opacity(0.16))
 
             HStack(spacing: 0) {
-                ProjectionMetric(title: "Projection", value: projectionText)
+                ProjectionMetric(title: "Pregame projection", value: projectionText)
                 Divider().frame(height: 34).overlay(.white.opacity(0.16))
                 ProjectionMetric(title: "Win outlook", value: winOutlook)
                 Divider().frame(height: 34).overlay(.white.opacity(0.16))

@@ -33,7 +33,10 @@ struct LineupView: View {
                 }
             }
 
-            if model.lineup.players.isEmpty {
+            if model.lineup.players.isEmpty && model.isLoadingLineup {
+                ProgressView("Loading Week \(model.selectedWeek) lineup…")
+                    .listRowBackground(Color.clear)
+            } else if model.lineup.players.isEmpty {
                 EmptyState(
                     title: "Lineup unavailable",
                     message: model.lineup.editState.unavailableMessage
@@ -51,6 +54,8 @@ struct LineupView: View {
                     )
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .listRowBackground(Color.clear)
+                } footer: {
+                    if let note = model.lineup.projectionNote { Text(note) }
                 }
 
                 if let message = displayedValidationMessage {

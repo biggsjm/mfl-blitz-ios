@@ -19,8 +19,10 @@ The current build includes:
 - the existing MFL message board presented as readable native threads, with compose and reply flows;
 - a no-account interactive preview for Champion Hall;
 - one foreground-only scoreboard/detail poller, foreground refresh, and official completed-week result reconciliation;
+- MFL/Fantasy Sharks league-scored weekly projections, with missing values shown explicitly;
 - MFL current/lineup-week guidance, Keychain session restoration, and team-scoped lineup, waiver-queue, and board drafts;
 - explicit partial-round waiver recovery, cancellation of all saved bids, and persistent duplicate-post protection;
+- independent tab loading after account verification, plus bounded/cancellable session reconnection;
 - iPhone, iPad, dark mode, Dynamic Type, VoiceOver summaries, Reduce Motion, and 44-point controls;
 - no ads, analytics SDK, cross-app tracking, or proprietary chat network.
 

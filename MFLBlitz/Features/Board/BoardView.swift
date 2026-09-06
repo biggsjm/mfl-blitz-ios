@@ -17,7 +17,10 @@ struct BoardView: View {
             }
             if model.unconfirmedBoardPost != nil { UnconfirmedPostSection() }
 
-            if model.boardThreads.isEmpty {
+            if model.boardThreads.isEmpty && model.isLoadingBoard {
+                ProgressView("Loading the league board…")
+                    .listRowBackground(Color.clear)
+            } else if model.boardThreads.isEmpty {
                 EmptyState(title: "Quiet huddle", message: "The next league message will appear here.", systemImage: "bubble.left.and.bubble.right")
                     .listRowBackground(Color.clear)
             } else {
@@ -247,7 +250,7 @@ struct MessageComposerView: View {
                         }
                     }
                     .fontWeight(.semibold)
-                    .disabled(!isValid || model.isBusy || !model.canPostToBoard || model.unconfirmedBoardPost != nil)
+                    .disabled(!isValid || model.isBusy || model.isLoadingBoard || !model.canPostToBoard || model.unconfirmedBoardPost != nil)
                 }
             }
             .onAppear {

@@ -72,6 +72,7 @@ struct MatchupPlayer: Identifiable, Equatable, Sendable {
     /// not include a clock for this player.
     var gameSecondsRemaining: Int?
     var statLine: String?
+    var projectedPoints: Double? = nil
 
     var gameState: MatchupPlayerGameState {
         guard let gameSecondsRemaining else { return .unknown }
@@ -133,6 +134,7 @@ struct LineupSnapshot: Equatable, Sendable {
     var deadline: Date?
     var lastSubmitted: Date?
     var serverStarterPlayerIDs: Set<String> = []
+    var projectionNote: String? = nil
     var editState: LineupEditState = .unavailable(
         "MFL hasn’t returned a complete saved lineup for this week."
     )
@@ -141,7 +143,7 @@ struct LineupSnapshot: Equatable, Sendable {
     var bench: [LineupPlayer] { players.filter { !$0.isStarter } }
     var projectedTotal: Double? {
         let projections = starters.compactMap(\.projectedPoints)
-        guard projections.count == starters.count else { return nil }
+        guard !starters.isEmpty, projections.count == starters.count else { return nil }
         return projections.reduce(0, +)
     }
     var hasLockedPlayers: Bool { players.contains(where: \.isLocked) }
@@ -210,6 +212,8 @@ struct WaiverSnapshot: Equatable, Sendable {
     var unavailableReason: String? = "Refresh waivers to check availability."
     var results: [WaiverResult] = []
     var resultsUnavailable = false
+    var projectionWeek: Int? = nil
+    var projectionNote: String? = nil
 }
 
 struct WaiverResult: Identifiable, Equatable, Sendable {

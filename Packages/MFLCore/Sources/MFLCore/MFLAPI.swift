@@ -257,6 +257,7 @@ public enum MFLExportEndpoint: String, CaseIterable, Sendable {
     case rosters
     case playerRosterStatus
     case liveScoring
+    case projectedScores
     case leagueStandings
     case messageBoard
     case messageBoardThread

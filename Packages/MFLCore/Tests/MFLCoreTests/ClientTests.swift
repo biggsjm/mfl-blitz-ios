@@ -7,6 +7,29 @@ import Testing
 
 @Suite("MFL actor client")
 struct ClientTests {
+    @Test("League projections send the selected week and cookie and reuse cached results")
+    func projectedScores() async throws {
+        let data = Data(#"{"projectedScores":{"week":"1","playerScore":{"id":"001","score":"17.5"}}}"#.utf8)
+        let transport = StubTransport(responses: [.json(data)])
+        let client = MFLClient(configuration: try configuration(host: "www45.myfantasyleague.com"),
+            transport: transport, authenticationCookie: try MFLAuthenticationCookie(value: "synthetic-cookie"))
+        _ = try await client.projectedScores(week: 1)
+        _ = try await client.projectedScores(week: 1)
+        let requests = await transport.recordedRequests()
+        #expect(requests.count == 1)
+        #expect(requests[0].url?.query?.contains("W=1") == true)
+        #expect(requests[0].url?.query?.contains("TYPE=projectedScores") == true)
+        #expect(requests[0].url?.query?.contains("L=41366") == true)
+        #expect(requests[0].value(forHTTPHeaderField: "Cookie") == "MFL_USER_ID=synthetic-cookie")
+    }
+
+    @Test("Projections from a different week are rejected")
+    func wrongProjectionWeek() async throws {
+        let transport = StubTransport(responses: [.json(Data(#"{"projectedScores":{"week":"2","playerScore":[]}}"#.utf8))])
+        let client = MFLClient(configuration: try configuration(host: "www45.myfantasyleague.com"), transport: transport)
+        await #expect(throws: (any Error).self) { try await client.projectedScores(week: 1) }
+    }
+
     @Test("Authenticated league discovery maps account to franchise and host")
     func myLeagues() async throws {
         let transport = StubTransport(responses: [

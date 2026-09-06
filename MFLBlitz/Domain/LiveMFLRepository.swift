@@ -8,14 +8,17 @@ actor LiveMFLRepository: LeagueRepository {
     private let privateStore: any PrivateStore
     private let transport: any MFLHTTPTransport
     private let requestInterval: Duration
+    private let restoreTimeout: Duration
     private var seasonStatus: MFLSeasonStatus?
     private var statusUpdatedAt: Date = .distantPast
 
     init(privateStore: any PrivateStore = KeychainPrivateStore(),
-         transport: any MFLHTTPTransport = MFLURLSessionTransport(), requestInterval: Duration = .seconds(1)) {
+         transport: any MFLHTTPTransport = MFLURLSessionTransport(), requestInterval: Duration = .seconds(1),
+         restoreTimeout: Duration = .seconds(15)) {
         self.privateStore = privateStore
         self.transport = transport
         self.requestInterval = requestInterval
+        self.restoreTimeout = restoreTimeout
     }
 
     func signIn(with credentials: LoginCredentials) async throws -> LeagueWorkspace {
@@ -37,9 +40,20 @@ actor LiveMFLRepository: LeagueRepository {
             league: reference, userAgent: "MFL Blitz/0.1 (com.biggsjm.MFLBlitz)", minimumRequestInterval: requestInterval),
             transport: transport, authenticationCookie: try MFLAuthenticationCookie(value: saved.cookie))
         do {
-            return try await finishSignIn(client: newClient,
-                credentials: LoginCredentials(leagueID: saved.leagueID, season: saved.season),
-                expectedFranchise: saved.franchiseID)
+            return try await withThrowingTaskGroup(of: LeagueWorkspace.self) { group in
+                group.addTask {
+                    try await self.finishSignIn(client: newClient,
+                        credentials: LoginCredentials(leagueID: saved.leagueID, season: saved.season),
+                        expectedFranchise: saved.franchiseID)
+                }
+                group.addTask { [restoreTimeout] in
+                    try await Task.sleep(for: restoreTimeout)
+                    throw RepositoryError.server("MFL took too long to reconnect. Your saved session and drafts are kept; try signing in again.")
+                }
+                defer { group.cancelAll() }
+                guard let result = try await group.next() else { throw CancellationError() }
+                return result
+            }
         } catch let error as MFLCoreError {
             if case .unauthorized = error { try privateStore.remove("session") }
             throw error
@@ -99,6 +113,7 @@ actor LiveMFLRepository: LeagueRepository {
         )
 
         guard let cookie = await newClient.authenticationCookie() else { throw RepositoryError.missingSession }
+        try Task.checkCancellation()
         try privateStore.encode(SavedSession(cookie: cookie.value, season: credentials.season,
             leagueID: credentials.leagueID, franchiseID: franchise.id), key: "session")
         client = newClient
@@ -169,6 +184,7 @@ actor LiveMFLRepository: LeagueRepository {
         guard live.week == nil || live.week == week else {
             throw RepositoryError.server("MFL returned a different scoring week. Your existing scores were kept.")
         }
+        let projections = (try? await client.projectedScores(week: week))?.scoresByPlayerID ?? [:]
 
         let livePlayerIDs = Set(
             live.matchups
@@ -200,13 +216,15 @@ actor LiveMFLRepository: LeagueRepository {
                 away,
                 franchise: franchiseByID[away.franchiseID],
                 playerCatalog: catalogByID,
-                completed: isCompleted
+                completed: isCompleted,
+                projections: projections
             )
             let homeTeam = makeMatchupTeam(
                 home,
                 franchise: franchiseByID[home.franchiseID],
                 playerCatalog: catalogByID,
-                completed: isCompleted
+                completed: isCompleted,
+                projections: projections
             )
             return Matchup(
                 id: matchup.id,
@@ -268,6 +286,7 @@ actor LiveMFLRepository: LeagueRepository {
         }
 
         async let catalogTask = client.players(ids: playerIDs)
+        async let projectionTask = try? await client.projectedScores(week: week)
         async let statusTask = client.playerRosterStatus(
             playerIDs: playerIDs,
             week: week,
@@ -284,6 +303,7 @@ actor LiveMFLRepository: LeagueRepository {
             refreshPolicy: .reloadIgnoringCache
         )
         let (catalog, rosterStatuses, live) = try await (catalogTask, statusTask, liveTask)
+        let projections = await projectionTask?.scoresByPlayerID ?? [:]
         let catalogByID = Dictionary(grouping: catalog.players, by: \.id)
         let statusCollectionsByID = Dictionary(grouping: rosterStatuses.statuses, by: \.id)
         let playerByID = catalogByID.compactMapValues { $0.count == 1 ? $0[0] : nil }
@@ -350,7 +370,7 @@ actor LiveMFLRepository: LeagueRepository {
                 position: player?.position ?? "—",
                 nflTeam: player?.nflTeam ?? "FA",
                 opponent: "—",
-                projectedPoints: nil,
+                projectedPoints: projections[rosterPlayer.id]?.doubleValue,
                 seasonPoints: livePlayer?.score.doubleValue ?? 0,
                 isStarter: assignment?.status == .starter,
                 isLocked: isLocked,
@@ -373,6 +393,9 @@ actor LiveMFLRepository: LeagueRepository {
                     assignment.status == .starter ? playerID : nil
                 }
             ),
+            projectionNote: projections.isEmpty
+                ? "Week \(week) projections are unavailable from MFL. Missing values stay blank."
+                : "Week \(week) · MFL / Fantasy Sharks projections, using your league’s scoring. Missing players stay blank.",
             editState: editState
         )
     }
@@ -571,6 +594,8 @@ actor LiveMFLRepository: LeagueRepository {
         async let pendingTask = client.pendingWaivers(franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache)
         async let calendarTask: MFLJSONValue? = try? await client.calendar()
         async let resultsTask: MFLJSONValue? = try? await client.waiverResults()
+        let projectionWeek = seasonStatus?.lineupWeek ?? (workspace.weekIsConfirmed ? workspace.week : nil)
+        async let projectionTask = projectionsIfAvailable(client: client, week: projectionWeek)
         let (freeAgentPool, pending) = try await (freeAgentTask, pendingTask)
         // A malformed non-empty response must never become an apparently empty
         // queue that a replacement could erase.
@@ -580,6 +605,7 @@ actor LiveMFLRepository: LeagueRepository {
         let ownedRoster = try await client.rosters(franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache)
         let ownedIDs = Set(ownedRoster.rosters.first?.players.map(\.id) ?? [])
         let ownedNames = Dictionary(uniqueKeysWithValues: catalog.players.filter { ownedIDs.contains($0.id) }.map { ($0.id, $0.displayName) })
+        let projections = await projectionTask
 
         let candidates = freeAgentPool.players.compactMap { freeAgent -> WaiverCandidate? in
             guard let player = playerByID[freeAgent.id],
@@ -591,7 +617,7 @@ actor LiveMFLRepository: LeagueRepository {
                 position: position,
                 nflTeam: player.nflTeam ?? "FA",
                 rosteredPercent: 0,
-                projectedPoints: nil,
+                projectedPoints: projections[freeAgent.id]?.doubleValue,
                 seasonPoints: 0,
                 trend: 0,
                 injuryStatus: nil
@@ -633,7 +659,9 @@ actor LiveMFLRepository: LeagueRepository {
                 ? "MFL didn’t return your remaining bid balance. Check MFL before making changes."
                 : waiverAvailability(league),
             results: waiverResults(from: results, catalog: playerByID, league: league),
-            resultsUnavailable: results == nil
+            resultsUnavailable: results == nil,
+            projectionWeek: projectionWeek,
+            projectionNote: projections.isEmpty ? "MFL projections are unavailable for this waiver week." : "MFL / Fantasy Sharks · league-scored projections"
         )
     }
 
@@ -908,25 +936,36 @@ actor LiveMFLRepository: LeagueRepository {
         _ value: MFLLiveFranchise,
         franchise: MFLFranchise?,
         playerCatalog: [String: MFLPlayer],
-        completed: Bool = false
+        completed: Bool = false,
+        projections: [String: Decimal] = [:]
     ) -> MatchupTeam {
         let players = value.players.map { livePlayer in
             var player = makeMatchupPlayer(livePlayer, catalogPlayer: playerCatalog[livePlayer.id])
             if completed { player.gameSecondsRemaining = 0 }
+            player.projectedPoints = projections[player.id]?.doubleValue
             return player
         }
+        let starters = players.filter { $0.lineupStatus == .starter }
+        let starterProjections = starters.compactMap(\.projectedPoints)
+        let projectedTotal = !starters.isEmpty && starterProjections.count == starters.count
+            ? starterProjections.reduce(0, +) : nil
         return MatchupTeam(
             id: value.franchiseID,
             name: cleanText(franchise?.name ?? "Franchise \(value.franchiseID)"),
             abbreviation: franchise?.abbreviation ?? value.franchiseID,
             score: value.score.doubleValue,
-            projectedScore: nil,
+            projectedScore: projectedTotal,
             playersRemaining: value.playersYetToPlay + value.playersCurrentlyPlaying,
             accentSeed: Int(value.franchiseID) ?? 0,
             starters: players.filter { $0.lineupStatus == .starter },
             bench: players.filter { $0.lineupStatus == .bench },
             unclassifiedPlayers: players.filter { $0.lineupStatus == .unknown }
         )
+    }
+
+    private func projectionsIfAvailable(client: MFLClient, week: Int?) async -> [String: Decimal] {
+        guard let week else { return [:] }
+        return (try? await client.projectedScores(week: week))?.scoresByPlayerID ?? [:]
     }
 
     private func scorePrecision(for league: MFLLeague) -> Int {

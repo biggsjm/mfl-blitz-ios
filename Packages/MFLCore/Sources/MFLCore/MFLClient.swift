@@ -214,6 +214,20 @@ public actor MFLClient {
         return result.weeklyResults
     }
 
+    /// One league/week request covers rostered players and free agents. Unlike
+    /// live scores, pregame projections can be cached for 15 minutes.
+    public func projectedScores(week: Int, refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLProjectedScores {
+        try validateWeek(week)
+        let result: MFLProjectedScoresResponse = try await export(
+            MFLProjectedScoresResponse.self, endpoint: .projectedScores,
+            host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
+            parameters: ["W": String(week)], ttl: 900, refreshPolicy: refreshPolicy)
+        guard result.projectedScores.week == nil || result.projectedScores.week == week else {
+            throw MFLCoreError.invalidResponse
+        }
+        return result.projectedScores
+    }
+
     public func calendar() async throws -> MFLJSONValue {
         try await export(MFLJSONValue.self, endpoint: .calendar,
                          host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,

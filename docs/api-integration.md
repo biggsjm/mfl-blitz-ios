@@ -24,6 +24,7 @@ All league calls use `https://{resolved-host}/{season}/` and include `L={leagueI
 | Current week | `https://api.myfantasyleague.com/fflnetdynamic{season}/mfl_status.json` |
 | League/capabilities | `export?TYPE=league&JSON=1`; authenticated `TYPE=abilities&DETAILS=1` |
 | Live scores | `export?TYPE=liveScoring&W={week}&DETAILS=1&JSON=1` |
+| League-scored projections | `export?TYPE=projectedScores&W={week}&JSON=1` |
 | Final results | `export?TYPE=weeklyResults&W={week}&JSON=1` |
 | Roster | `export?TYPE=rosters&FRANCHISE={id}&W={week}&JSON=1` |
 | Player lineup state | `export?TYPE=playerRosterStatus&P={ids}&W={week}&F={franchise}&JSON=1` |
@@ -42,6 +43,10 @@ All league calls use `https://{resolved-host}/{season}/` and include `L={leagueI
 For a blind bid, `0000` is the no-drop sentinel. Conditional leagues require `ROUND`; `REPLACE=1` means the app must send the complete desired state for that round. MFL offers no idempotency key or dry-run mode.
 
 The private Week 1 build persists the cookie and scoped drafts in device-only Keychain items using [Apple’s When Unlocked accessibility](https://developer.apple.com/documentation/security/ksecattraccessiblewhenunlockedthisdeviceonly). Restored cookies undergo fresh membership/franchise verification. The public `mfl_status` request carries no cookie; its `CurrentWeek`, `LineupWeek`, and `CompletedWeek` are distinct. Completed weeks use fresh `weeklyResults` reads.
+
+Version 0.2.1 requests MFL's `projectedScores`, which converts Fantasy Sharks projections to the league's scoring rules. Requests explicitly select a week and use the authenticated league host, with a 15-minute cache. Individual missing/ambiguous values stay nil; a team projection requires every starter's projection. These are pregame projections, not a continuously updated final-score forecast. Availability for private leagues requires the owner's app session.
+
+Reconnect has a 15-second account-verification deadline and a cancel-to-sign-in action. Once verified, the blocking overlay ends; each tab publishes its result independently. Slow waivers no longer hide ready scores or lineups, and a loading section cannot submit changes before its server baseline arrives.
 
 Blind-bid writes compare fresh pending requests with the user-reviewed baseline, then verify the entire intermediate queue after each changed round. Empty `PICKS` explicitly clears a round. A failed request stops the sequence and triggers readback, not resubmission. Unknown queue structures fail closed. Calendar dates use explicit future `WAIVER_BBID` events when available; recurrence is not guessed. Recent processed acquisitions use `transactions` filtered to `BBID_WAIVER,WAIVER,FREE_AGENT`; the MFL website remains the full processing report.
 

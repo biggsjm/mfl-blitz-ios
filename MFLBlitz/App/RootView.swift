@@ -21,7 +21,16 @@ struct RootView: View {
             if model.isRestoringSession {
                 ZStack {
                     Color(uiColor: .systemBackground).ignoresSafeArea()
-                    ProgressView("Reconnecting to MFL…")
+                    VStack(spacing: 24) {
+                        ProgressView("Reconnecting to MFL…")
+                        Text("Checking your saved account. Your drafts stay on this device.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button("Sign in instead") { model.cancelReconnect() }
+                            .buttonStyle(.bordered)
+                            .accessibilityIdentifier("cancel-reconnect")
+                    }
+                    .padding(32)
                 }
             }
         }

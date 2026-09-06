@@ -17,12 +17,16 @@ actor MutationFixtureTransport: MFLHTTPTransport {
     var currentWeek = 2
     var completedWeek = 1
     var membership = "0001"
+    var slowMembership = false
+    var projectionsMissing = false
 
     func configure(failRound: Int? = nil, boardTimeout: Bool = false, hidePost: Bool = false, author: String = "0001") {
         self.failRound = failRound; self.boardTimeout = boardTimeout; self.hidePost = hidePost; boardAuthor = author
     }
     func revealPost() { hidePost = false }
     func changeMembership() { membership = "0002" }
+    func delayMembership() { slowMembership = true }
+    func omitProjections() { projectionsMissing = true }
 
     func send(_ request: URLRequest) async throws -> MFLHTTPResponse {
         let components = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!
@@ -54,6 +58,7 @@ actor MutationFixtureTransport: MFLHTTPTransport {
         }
         switch type {
         case "myleagues":
+            if slowMembership { try await Task.sleep(for: .seconds(60)) }
             return try response(["leagues": ["league": [["league_id": "41333", "franchise_id": membership,
                 "url": "https://www45.myfantasyleague.com/2026/home/41333"]]]])
         case "league":
@@ -69,6 +74,15 @@ actor MutationFixtureTransport: MFLHTTPTransport {
                                                          ["id": "102", "name": "Two, Player", "position": "RB", "team": "GB"]]]])
         case "rosters":
             return try response(["rosters": ["franchise": ["id": "0001", "player": [["id": "201", "status": "ROSTER"]]]]])
+        case "projectedScores":
+            return try response(["projectedScores": ["week": query["W"] ?? "1", "playerScore": projectionsMissing ? [] : [
+                ["id": "101", "score": "13.25"], ["id": "102", "score": "0.0"], ["id": "201", "score": "19.5"]]]])
+        case "playerRosterStatus":
+            return try response(["playerRosterStatuses": ["player": [["id": "201", "franchise": [["id": "0001", "status": "S"]]]]]])
+        case "liveScoring":
+            return try response(["liveScoring": ["week": query["W"] ?? "1", "matchup": ["franchise": [
+                ["id": "0001", "score": "0", "playersYetToPlay": "1", "players": ["player": [["id": "201", "status": "starter", "gameSecondsRemaining": "3600", "score": "0"]]]],
+                ["id": "0002", "score": "0", "playersYetToPlay": "1", "players": ["player": [["id": "101", "status": "starter", "gameSecondsRemaining": "3600", "score": "0"]]]]]]]])
         case "pendingWaivers":
             return try response(["pendingWaivers": ["waiverRequest": rounds.keys.sorted().map {
                 ["round": String($0), "picks": rounds[$0]!, "franchise_id": "0001"]
@@ -95,6 +109,43 @@ actor MutationFixtureTransport: MFLHTTPTransport {
 }
 
 struct MutationRecoveryTests {
+    @Test("Week 1 projections populate lineup, matchup totals and waiver candidates")
+    func projections() async throws {
+        let repository = try await connected(MutationFixtureTransport())
+        let lineup = try await repository.loadLineup(week: 1)
+        #expect(lineup.players.first?.projectedPoints == 19.5)
+        let scores = try await repository.refreshScores(week: 2)
+        #expect(scores.matchups.first?.away.projectedScore == 19.5)
+        #expect(scores.matchups.first?.home.projectedScore == 13.25)
+        let waivers = try await repository.loadWaivers()
+        #expect(waivers.candidates.first(where: { $0.id == "101" })?.projectedPoints == 13.25)
+        #expect(waivers.candidates.first(where: { $0.id == "102" })?.projectedPoints == 0)
+        #expect(waivers.projectionWeek == 2)
+    }
+
+    @Test("Unavailable projections do not make the roster unavailable or fabricate zeroes")
+    func absentProjections() async throws {
+        let transport = MutationFixtureTransport()
+        await transport.omitProjections()
+        let repository = try await connected(transport)
+        let lineup = try await repository.loadLineup(week: 1)
+        #expect(!lineup.players.isEmpty)
+        #expect(lineup.players.first?.projectedPoints == nil)
+        #expect(lineup.projectionNote?.contains("unavailable") == true)
+    }
+
+    @Test("Restore has a total deadline and keeps the saved cookie on a timeout")
+    func restoreDeadline() async throws {
+        let transport = MutationFixtureTransport()
+        await transport.delayMembership()
+        let store = MemoryPrivateStore()
+        try store.encode(SavedSession(cookie: "synthetic-cookie", season: 2026, leagueID: "41333", franchiseID: "0001"), key: "session")
+        let repository = LiveMFLRepository(privateStore: store, transport: transport, requestInterval: .zero, restoreTimeout: .milliseconds(20))
+        await #expect(throws: (any Error).self) { try await repository.restoreSession() }
+        #expect(store.read("session") != nil)
+        await #expect(throws: (any Error).self) { try await repository.loadWorkspace() }
+    }
+
     private func connected(_ transport: MutationFixtureTransport, store: MemoryPrivateStore = MemoryPrivateStore()) async throws -> LiveMFLRepository {
         try store.encode(SavedSession(cookie: "synthetic-cookie", season: 2026, leagueID: "41333", franchiseID: "0001"), key: "session")
         let repository = LiveMFLRepository(privateStore: store, transport: transport, requestInterval: .zero)
