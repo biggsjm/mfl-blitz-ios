@@ -56,7 +56,7 @@ struct LineupView: View {
                         LineupPlayerRow(
                             player: player,
                             actionTitle: "Bench",
-                            actionIcon: "arrow.down.circle",
+                            actionIcon: "arrow.down.circle.fill",
                             isEditable: model.canEditLineup
                         ) {
                             withAnimation(.snappy) { model.toggleStarter(player.id) }
@@ -76,7 +76,7 @@ struct LineupView: View {
                         LineupPlayerRow(
                             player: player,
                             actionTitle: "Start",
-                            actionIcon: "arrow.up.circle",
+                            actionIcon: "arrow.up.circle.fill",
                             isEditable: model.canEditLineup
                         ) {
                             withAnimation(.snappy) { model.toggleStarter(player.id) }
@@ -279,54 +279,60 @@ private struct LineupPlayerRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            PositionBadge(position: player.position)
+            HStack(spacing: 12) {
+                PositionBadge(position: player.position)
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(player.name)
-                        .font(.body.weight(.semibold))
-                        .lineLimit(1)
-                    if let injury = player.injuryStatus {
-                        Text(injury.rawValue)
-                            .font(.caption2.bold())
-                            .foregroundStyle(injury == .questionable ? Color.orange : Color.red)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background((injury == .questionable ? Color.orange : Color.red).opacity(0.12), in: Capsule())
-                            .accessibilityLabel(injury.label)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(player.name)
+                            .font(.body.weight(.semibold))
+                            .lineLimit(1)
+                        if let injury = player.injuryStatus {
+                            Text(injury.rawValue)
+                                .font(.caption2.bold())
+                                .foregroundStyle(injury == .questionable ? Color.orange : Color.red)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background((injury == .questionable ? Color.orange : Color.red).opacity(0.12), in: Capsule())
+                                .accessibilityLabel(injury.label)
+                        }
+                        if player.isLocked {
+                            Image(systemName: "lock.fill")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .accessibilityLabel("Locked")
+                        }
                     }
-                    if player.isLocked {
-                        Image(systemName: "lock.fill")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .accessibilityLabel("Locked")
-                    }
+                    Text(playerMetadata)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                Text(playerMetadata)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+
+                Spacer(minLength: 4)
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(player.projectedPoints.pointsText)
+                        .font(.body.bold().monospacedDigit())
+                    Text("proj")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityLabel)
 
-            Spacer(minLength: 4)
-
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(player.projectedPoints.pointsText)
-                    .font(.body.bold().monospacedDigit())
-                Text("proj")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            Menu {
-                Button(actionTitle, systemImage: actionIcon, action: action)
-                    .disabled(player.isLocked)
-            } label: {
-                Image(systemName: "ellipsis")
+            Button(action: action) {
+                Image(systemName: actionIcon)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(actionColor)
                     .frame(width: BlitzMetrics.minimumTapTarget, height: BlitzMetrics.minimumTapTarget)
                     .contentShape(Rectangle())
             }
-            .accessibilityLabel("Actions for \(player.name)")
-            .disabled(!isEditable)
+            .buttonStyle(.plain)
+            .disabled(!actionIsAvailable)
+            .accessibilityLabel("\(actionTitle) \(player.name)")
+            .accessibilityHint(actionHint)
+            .accessibilityIdentifier("lineup-\(actionTitle.lowercased())-\(player.id)")
         }
         .contentShape(Rectangle())
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -336,13 +342,26 @@ private struct LineupPlayerRow: View {
             .tint(actionTitle == "Start" ? .green : .orange)
             .disabled(player.isLocked || !isEditable)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityActions {
-            if isEditable, !player.isLocked {
-                Button(actionTitle, action: action)
-            }
+    }
+
+    private var actionIsAvailable: Bool {
+        isEditable && !player.isLocked
+    }
+
+    private var actionColor: Color {
+        guard actionIsAvailable else { return .secondary }
+        return actionTitle == "Start" ? .blitzGreen : .orange
+    }
+
+    private var actionHint: String {
+        if player.isLocked {
+            return "This player is locked because their game has started"
         }
+        if !isEditable {
+            return "Lineup changes are unavailable"
+        }
+        let destination = actionTitle == "Start" ? "starting lineup" : "bench"
+        return "Moves this player to the \(destination). Review and submit to send the change to MFL."
     }
 
     private var playerMetadata: String {

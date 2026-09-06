@@ -3,6 +3,7 @@ import SwiftUI
 struct StandingsView: View {
     @Environment(AppModel.self) private var model
     @State private var scope = Scope.division
+    @State private var showingOrderInfo = false
 
     enum Scope: String, CaseIterable, Identifiable {
         case division = "Divisions"
@@ -19,18 +20,10 @@ struct StandingsView: View {
             }
 
             Section {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Official league order")
-                        .font(.headline)
-                    Text("Record → head-to-head → points → division percentage")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Picker("Standings scope", selection: $scope) {
-                        ForEach(Scope.allCases) { item in Text(item.rawValue).tag(item) }
-                    }
-                    .pickerStyle(.segmented)
+                Picker("Standings scope", selection: $scope) {
+                    ForEach(Scope.allCases) { item in Text(item.rawValue).tag(item) }
                 }
-                .padding(.vertical, 4)
+                .pickerStyle(.segmented)
             }
 
             if scope == .division {
@@ -53,15 +46,62 @@ struct StandingsView: View {
                 }
             }
 
-            Section {
-                Label("Standing order comes from MFL, including your league’s custom tiebreakers.", systemImage: "checkmark.seal")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Standings")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingOrderInfo = true
+                } label: {
+                    Label("About standings order", systemImage: "info.circle")
+                        .labelStyle(.iconOnly)
+                }
+                .accessibilityIdentifier("standings-order-info")
+                .accessibilityHint("Shows how MyFantasyLeague orders tied teams")
+                .popover(isPresented: $showingOrderInfo) {
+                    standingsOrderInfo
+                }
+            }
+        }
         .refreshable { await model.refreshAll() }
+    }
+
+    private var standingsOrderInfo: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if model.isDemo || model.workspace?.leagueID == "41333" {
+                        Text("Record → head-to-head → points → division percentage")
+                            .font(.body)
+                            .accessibilityLabel("Record, then head-to-head, then points, then division percentage")
+                            .accessibilityIdentifier("standings-order-rule")
+                    }
+
+                    Label(
+                        "The standings are shown in the official order returned by MFL, including your league’s configured tiebreakers.",
+                        systemImage: "checkmark.seal"
+                    )
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle("Official league order")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        showingOrderInfo = false
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+        .frame(idealWidth: 340, idealHeight: 300)
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     private var divisions: [String] {
