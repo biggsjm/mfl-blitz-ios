@@ -12,12 +12,8 @@ extension LiveMFLRepository {
     func loadTeamRoster(franchiseID: String, lineupWeek: Int?, refresh: Bool) async throws -> TeamRosterSnapshot {
         let (client, _, workspace) = try requireSession()
         let policy: MFLRefreshPolicy = refresh ? .reloadIgnoringCache : .useCache
-        // Roster refreshes update membership and assignments, not daily league metadata.
-        async let leagueRead = client.league(refreshPolicy: .useCache)
-        // Current roster membership is independent of a viewed lineup week.
-        async let rosterRead = client.rosters(franchiseID: franchiseID, refreshPolicy: policy)
-        async let catalogRead = TeamPlayerMapper.optionalRead { try await client.players() }
-        let (league, rosters, catalog) = try await (leagueRead, rosterRead, catalogRead)
+        let (league, rosters, catalog) = try await Self.teamRosterSources(
+            client: client, franchiseID: franchiseID, policy: policy)
         try validateTeamPlayerSession(client: client, scope: workspace.storageScope)
         let teams = try TeamPlayerMapper.teams(in: league)
         guard let team = teams.first(where: { $0.id == franchiseID }) else {
@@ -51,6 +47,38 @@ extension LiveMFLRepository {
                 lineupAssignment: assignments[player.id], salary: player.salary,
                 contractYear: player.contractYear, contractStatus: TeamPlayerMapper.text(player.contractStatus))
         }, lineupWeek: lineupWeek, issues: issues, rosterVerifiedAt: verifiedAt)
+    }
+
+    private enum RosterSource: Sendable {
+        case league(MFLLeague)
+        case rosters(MFLRosterCollection)
+        case catalog(MFLPlayerCatalog?)
+    }
+
+    /// Finish child-task lifetimes before mapping or awaiting assignment reads.
+    /// Avoids Swift 6.1 async-let teardown corruption (swiftlang/swift#81771)
+    /// while retaining parallel requests and the same cache/cancellation policy.
+    private static func teamRosterSources(client: MFLClient, franchiseID: String,
+                                         policy: MFLRefreshPolicy) async throws
+        -> (MFLLeague, MFLRosterCollection, MFLPlayerCatalog?) {
+        try await withThrowingTaskGroup(of: RosterSource.self) { group in
+            // Refresh membership, not daily metadata; do not pass a week to rosters.
+            group.addTask { .league(try await client.league(refreshPolicy: .useCache)) }
+            group.addTask { .rosters(try await client.rosters(franchiseID: franchiseID, refreshPolicy: policy)) }
+            group.addTask { .catalog(try await TeamPlayerMapper.optionalRead { try await client.players() }) }
+            var league: MFLLeague?
+            var rosters: MFLRosterCollection?
+            var catalog: MFLPlayerCatalog?
+            for try await source in group {
+                switch source {
+                case .league(let value): league = value
+                case .rosters(let value): rosters = value
+                case .catalog(let value): catalog = value
+                }
+            }
+            guard let league, let rosters else { throw CancellationError() }
+            return (league, rosters, catalog)
+        }
     }
 
     func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot {

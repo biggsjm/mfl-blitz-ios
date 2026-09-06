@@ -7,7 +7,7 @@ These checks remain open unless explicitly marked with an observation. They are 
 ## Already observed
 
 - Josh reported successfully submitting a lineup and seeing Week 1 projections.
-- Build 0.4.1 (18) is installed on Josh's phone; its launch check was blocked by the device relocking. Build 0.4.0 (17) had installed/launched successfully. Josh reported the My Team screen looked good; its detailed update timer was then simplified. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse. Full schedule comparison remains unchecked below.
+- Build 0.4.1 (18)'s Board revision is installed on Josh's phone; its launch check was blocked by the device relocking. The final pre-merge compatibility rebuild still needs reinstall when the phone is reachable. Build 0.4.0 (17) had installed/launched successfully. Josh reported the My Team screen looked good; its detailed update timer was then simplified. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse. Full schedule comparison remains unchecked below.
 - Core, app-model and native UI checks passed as described in [current status](current-status.md). Four synthetic managers completed two accelerated weeks; those are not actual Week 1 results.
 
 ## Before kickoff

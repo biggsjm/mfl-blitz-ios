@@ -8,6 +8,7 @@ Implemented private-build history through September 6, 2026. The [roadmap](docs/
 - A visible Drafts section on Board opens saved new threads and replies. Threads with an unfinished reply offer Resume reply.
 - Removed the storage-specific composer callout. Empty drafts are omitted; confirmed save/discard failures keep the composer open, and discarded/posted drafts cannot be recreated by late field callbacks.
 - Added focused model/native draft regression tests and updated the [Board contract](docs/board-drafts.md), owner checklist, privacy notes and remaining plan. Trade composer controls are unchanged by this Board-specific update.
+- Pre-merge compatibility fixes: roster requests use a bounded task group to avoid Swift 6.1 async-let cleanup crashes; player ownership headings/rows have stable accessibility identifiers across iOS versions. No tests were removed or skipped.
 
 ## 0.4.0 (17) — September 6, 2026
 

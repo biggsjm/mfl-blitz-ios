@@ -25,6 +25,7 @@ struct PlayerDetailView: View {
                 Section {
                     PlayerIdentityView(player: detail.identity)
                         .padding(.vertical, 8)
+                        .accessibilityIdentifier("player-detail-\(playerID)")
                 }
                 ownershipSection(detail)
                 if let metrics {
@@ -83,7 +84,6 @@ struct PlayerDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task(id: "\(model.workspace?.storageScope ?? "none")|\(playerID)") { await load(refresh: false) }
         .refreshable { await load(refresh: true) }
-        .accessibilityIdentifier("player-detail-\(playerID)")
     }
 
     private var detail: PlayerDetailSnapshot? {
@@ -123,6 +123,7 @@ struct PlayerDetailView: View {
                         }
                         .frame(minHeight: BlitzMetrics.minimumTapTarget)
                     }
+                    .accessibilityIdentifier("player-owner-\(assignment.team.id)")
                 }
                 if ownership.assignments.isEmpty, ownership.isFreeAgent != true {
                     Text("Ownership not provided").foregroundStyle(.secondary)
@@ -136,6 +137,8 @@ struct PlayerDetailView: View {
             }
         } header: {
             Text("Current league status")
+                .textCase(nil)
+                .accessibilityIdentifier("player-ownership-heading")
         } footer: {
             Text(model.workspace?.leagueName ?? "Ownership is specific to your league.")
         }
