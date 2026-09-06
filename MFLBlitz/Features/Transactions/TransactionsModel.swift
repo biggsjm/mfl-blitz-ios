@@ -28,9 +28,12 @@ final class TransactionsModel {
          privateStore: any PrivateStore = KeychainPrivateStore(), isDemo: Bool = false) {
         self.repository = repository; self.workspace = workspace
         self.privateStore = privateStore; self.isDemo = isDemo
-        if isDemo { snapshot = SampleData.trades }
+        if isDemo { snapshot = SampleData.tradePreview }
         if !isDemo, let workspace {
-            do { draft = try privateStore.decode(TradeDraft.self, key: "trade.draft.\(workspace.storageScope)") }
+            do {
+                let saved = try privateStore.decode(TradeDraft.self, key: "trade.draft.\(workspace.storageScope)")
+                draft = saved?.hasContent == true ? saved : nil
+            }
             catch { readError = error.localizedDescription }
         }
     }
@@ -41,6 +44,9 @@ final class TransactionsModel {
     var unresolved: [TradeOffer] { snapshot.offers.filter { $0.offeredBy == nil && $0.offeredTo != ownerID } }
     var needsAttentionCount: Int { incoming.filter { !$0.isExpired }.count + unresolved.count + (pending == nil ? 0 : 1) }
     var canAct: Bool { workspace != nil && snapshot.updatedAt != nil && readError == nil && pending == nil && !isBusy && !isLoading }
+    var hasConfirmedEmptyInbox: Bool {
+        snapshot.updatedAt != nil && snapshot.offers.isEmpty && !isLoading && !isBusy && readError == nil && pending == nil
+    }
     func team(_ id: String?) -> TradeTeam? { snapshot.teams.first { $0.id == id } }
 
     func refresh(ifNeeded: Bool = false) async {
@@ -90,6 +96,7 @@ final class TransactionsModel {
 
     func saveDraft(_ value: TradeDraft?) {
         guard !isBusy else { return }
+        let value = value?.hasContent == true ? value : nil
         draft = value
         guard !isDemo, let workspace else { return }
         do {

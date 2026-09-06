@@ -54,12 +54,52 @@ struct TransactionsView: View {
 
 struct TradesView: View {
     @Environment(TransactionsModel.self) private var trades
-    @State private var showingComposer = false
+    @State private var composerSession: TradeComposerSession?
     @State private var selectedOffer: TradeOffer?
     @State private var showingManualResolution = false
     @State private var showingDiscard = false
 
     var body: some View {
+        VStack(spacing: 0) {
+            PrimaryActionButton(
+                title: trades.draft == nil ? "Create trade" : "Resume trade",
+                systemImage: trades.draft == nil ? "plus" : "square.and.pencil",
+                isDisabled: trades.draft == nil ? !trades.canAct : trades.isBusy
+            ) { composerSession = TradeComposerSession(savedDraft: trades.draft) }
+            .accessibilityLabel(trades.draft == nil ? "Create trade" : "Resume trade")
+            .accessibilityIdentifier(trades.draft == nil ? "trade-new" : "trade-resume-draft")
+            .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
+
+            inbox
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("Refresh offers", systemImage: "arrow.clockwise") { Task { await trades.refresh() } }
+                        .disabled(trades.isLoading || trades.isBusy || (trades.retryAfter.map { $0 > Date() } ?? false))
+                    mflLink
+                    if trades.draft != nil {
+                        Button("Discard draft", role: .destructive) { showingDiscard = true }
+                            .disabled(trades.isBusy)
+                    }
+                } label: { Label("Trade options", systemImage: "ellipsis") }
+                .accessibilityIdentifier("trade-options")
+            }
+        }
+        .task { await trades.refresh(ifNeeded: true) }
+        .refreshable { await trades.refresh() }
+        .sheet(item: $composerSession) { session in TradeComposerView(session: session).id(session.id) }
+        .sheet(item: $selectedOffer) { TradeDetailView(initial: $0) }
+        .confirmationDialog("Clear the unconfirmed-action warning?", isPresented: $showingManualResolution, titleVisibility: .visible) {
+            Button("I verified the outcome on MFL") { Task { await trades.resolveAfterManualCheck() } }
+        } message: { Text("Only clear this after checking MFL’s pending offers, transaction history, and roster. This does not send, accept, decline, or undo a trade.") }
+        .alert("Discard trade draft?", isPresented: $showingDiscard) {
+            Button("Cancel", role: .cancel) {}
+            Button("Discard draft", role: .destructive) { trades.saveDraft(nil) }
+        } message: { Text("Sent offers won’t change.") }
+    }
+
+    private var inbox: some View {
         List {
             if trades.isDemo { DemoBanner().listRowInsets(EdgeInsets()) }
             if trades.isLoading { TransactionLoadingRow(title: "Checking offers and tradable assets…") }
@@ -85,66 +125,50 @@ struct TradesView: View {
                     Button("I checked the outcome on MFL…") { showingManualResolution = true }.disabled(trades.isBusy)
                 }
             }
-            if trades.draft != nil {
-                Section {
-                    Button { showingComposer = true } label: {
-                        Label("Resume saved trade draft", systemImage: "square.and.pencil")
-                    }
-                    .accessibilityIdentifier("trade-resume-draft")
-                    Button("Discard draft", role: .destructive) { showingDiscard = true }.disabled(trades.isBusy)
-                } footer: { Text("Private to this device. No offer is sent until you review and confirm.") }
+            if trades.hasConfirmedEmptyInbox {
+                ContentUnavailableView("No active trades", systemImage: "arrow.triangle.swap")
+                    .listRowBackground(Color.clear)
+                    .accessibilityIdentifier("trade-empty-inbox")
             }
-            Section {
-                ForEach(trades.incoming) { offer in
-                    Button { selectedOffer = offer } label: { TradeOfferRow(offer: offer) }
-                        .buttonStyle(.plain).accessibilityIdentifier("trade-offer-\(offer.id)")
-                }
-                if trades.incoming.isEmpty && !trades.isLoading {
-                    Label(trades.readError == nil ? "No incoming offers" : "Incoming offers unavailable", systemImage: "tray")
-                        .foregroundStyle(.secondary)
-                }
-            } header: { Text("Received · \(trades.incoming.count)") }
-            Section {
-                ForEach(trades.outgoing) { offer in
-                    Button { selectedOffer = offer } label: { TradeOfferRow(offer: offer) }
-                        .buttonStyle(.plain).accessibilityIdentifier("trade-offer-\(offer.id)")
-                }
-                if trades.outgoing.isEmpty && !trades.isLoading {
-                    Text(trades.readError == nil ? "No sent offers" : "Sent offers unavailable").foregroundStyle(.secondary)
-                }
-            } header: { Text("Sent · \(trades.outgoing.count)") }
+            if !trades.incoming.isEmpty {
+                Section {
+                    ForEach(trades.incoming) { offer in
+                        Button { selectedOffer = offer } label: { TradeOfferRow(offer: offer) }
+                            .buttonStyle(.plain).accessibilityIdentifier("trade-offer-\(offer.id)")
+                    }
+                } header: { Text("Received · \(trades.incoming.count)") }
+            }
+            if !trades.outgoing.isEmpty {
+                Section {
+                    ForEach(trades.outgoing) { offer in
+                        Button { selectedOffer = offer } label: { TradeOfferRow(offer: offer) }
+                            .buttonStyle(.plain).accessibilityIdentifier("trade-offer-\(offer.id)")
+                    }
+                } header: { Text("Sent · \(trades.outgoing.count)") }
+            }
             if !trades.unresolved.isEmpty {
                 Section("Needs review on MFL") {
                     Text("MFL returned \(trades.unresolved.count) offer(s) whose sender could not be verified. Open MFL to review the complete terms.")
                     mflLink
                 }
             }
-            Section {
-                mflLink
-                if let date = trades.snapshot.updatedAt { Text("Checked \(date.formatted(date: .omitted, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
-            } footer: { Text("MFL enforces trading deadlines, roster limits, and league approval rules. Accepting an offer may not move players immediately.") }
-        }
-        .listStyle(.insetGrouped)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("New trade", systemImage: "plus") { showingComposer = true }
-                    .disabled(!trades.canAct).accessibilityIdentifier("trade-new")
+            if let date = trades.snapshot.updatedAt {
+                Text("Checked \(date.formatted(date: .omitted, time: .shortened))")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
         }
-        .task { await trades.refresh(ifNeeded: true) }
-        .refreshable { await trades.refresh() }
-        .sheet(isPresented: $showingComposer) { TradeComposerView(initial: trades.draft ?? TradeDraft()) }
-        .sheet(item: $selectedOffer) { TradeDetailView(initial: $0) }
-        .confirmationDialog("Clear the unconfirmed-action warning?", isPresented: $showingManualResolution, titleVisibility: .visible) {
-            Button("I verified the outcome on MFL") { Task { await trades.resolveAfterManualCheck() } }
-        } message: { Text("Only clear this after checking MFL’s pending offers, transaction history, and roster. This does not send, accept, decline, or undo a trade.") }
-        .confirmationDialog("Discard this device’s trade draft?", isPresented: $showingDiscard, titleVisibility: .visible) {
-            Button("Discard draft", role: .destructive) { trades.saveDraft(nil) }
-        } message: { Text("No offer on MFL will be changed.") }
+        .listStyle(.insetGrouped)
+        .contentMargins(.top, 12, for: .scrollContent)
     }
 
     @ViewBuilder private var mflLink: some View {
-        if let workspace = trades.workspace { Link("Open trades on MFL", destination: workspace.reportURL("05")) }
+        if let workspace = trades.workspace {
+            Link(destination: workspace.reportURL("05")) { Label("Open on MFL", systemImage: "arrow.up.right.square") }
+                .accessibilityIdentifier("trade-open-mfl")
+        }
     }
 }
 
@@ -223,10 +247,16 @@ private struct TradeDetailView: View {
     @Environment(TransactionsModel.self) private var trades
     @Environment(\.dismiss) private var dismiss
     let initial: TradeOffer
-    @State private var showingResponse = false
-    @State private var response = MFLTradeResponse.accept
-    @State private var showingCounter = false
+    @State private var response: ResponseSelection?
+    @State private var counterSession: TradeComposerSession?
     private var current: TradeOffer? { trades.snapshot.offers.first { $0.id == initial.id } }
+
+    // Carry the selected action into presentation atomically. Separate action
+    // and visibility state can present the previous action on the first tap.
+    private struct ResponseSelection: Identifiable {
+        let id = UUID()
+        let action: MFLTradeResponse
+    }
 
     var body: some View {
         NavigationStack {
@@ -241,17 +271,17 @@ private struct TradeDetailView: View {
                     }
                     Section {
                         if offer.offeredTo == trades.ownerID {
-                            Button("Review acceptance", systemImage: "checkmark.circle") { response = .accept; showingResponse = true }
+                            Button("Review acceptance", systemImage: "checkmark.circle") { response = ResponseSelection(action: .accept) }
                                 .accessibilityIdentifier("trade-review-accept")
                             Button("Draft counteroffer", systemImage: "arrow.triangle.swap") {
-                                trades.saveDraft(TradeDraft(partnerID: offer.offeredBy ?? "",
-                                    giving: Set(offer.receiving.map(\.id)), receiving: Set(offer.giving.map(\.id)), countering: offer))
-                                showingCounter = true
+                                let draft = TradeDraft(partnerID: offer.offeredBy ?? "",
+                                    giving: Set(offer.receiving.map(\.id)), receiving: Set(offer.giving.map(\.id)), countering: offer)
+                                counterSession = TradeComposerSession(savedDraft: trades.draft, counteroffer: draft)
                             }.disabled(trades.draft != nil)
-                            Button("Decline offer", role: .destructive) { response = .reject; showingResponse = true }
+                            Button("Decline offer", role: .destructive) { response = ResponseSelection(action: .reject) }
                                 .accessibilityIdentifier("trade-review-decline")
                         } else if offer.offeredBy == trades.ownerID {
-                            Button("Withdraw offer", role: .destructive) { response = .revoke; showingResponse = true }
+                            Button("Withdraw offer", role: .destructive) { response = ResponseSelection(action: .revoke) }
                                 .accessibilityIdentifier("trade-review-withdraw")
                         }
                     } footer: {
@@ -267,8 +297,10 @@ private struct TradeDetailView: View {
             .navigationTitle("Trade offer").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() }.disabled(trades.isBusy) } }
             .refreshable { await trades.refresh() }
-            .sheet(isPresented: $showingResponse) { if let current { TradeResponseReviewView(offer: current, response: response) } }
-            .sheet(isPresented: $showingCounter) { if let draft = trades.draft { TradeComposerView(initial: draft) } }
+            .sheet(item: $response) { selection in
+                if let current { TradeResponseReviewView(offer: current, response: selection.action).id(selection.id) }
+            }
+            .sheet(item: $counterSession) { session in TradeComposerView(session: session).id(session.id) }
         }.interactiveDismissDisabled(trades.isBusy)
     }
 }

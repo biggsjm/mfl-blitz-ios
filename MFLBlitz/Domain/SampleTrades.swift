@@ -1,6 +1,17 @@
 import Foundation
 
 extension SampleData {
+    /// Debug scenarios affect the offline preview only, never a signed-in league.
+    static var tradePreview: TradeSnapshot {
+        var preview = trades
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--preview-empty-trades") {
+            preview.offers = []
+        }
+        #endif
+        return preview
+    }
+
     static let trades: TradeSnapshot = {
         let ownerAssets = lineupPlayers.map { TradeAsset(id: $0.id, name: $0.name, detail: "\($0.position) · \($0.nflTeam)", kind: .player) }
         let otherAssets = [

@@ -2,6 +2,139 @@ import XCTest
 
 final class MFLBlitzUITests: XCTestCase {
     @MainActor
+    func testDecliningPreviewOfferOpensDeclineReviewFirst() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        app.tabBars.buttons["Transactions"].tap()
+        app.segmentedControls.buttons["Trades"].tap()
+        let incoming = app.buttons["trade-offer-demo-incoming"]
+        XCTAssertTrue(incoming.waitForExistence(timeout: 5))
+        incoming.tap()
+        let decline = app.buttons["trade-review-decline"]
+        for _ in 0..<4 where !decline.isHittable { app.swipeUp() }
+        decline.tap() // Must work without opening acceptance first.
+        XCTAssertTrue(app.navigationBars["Decline offer"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.textFields["Message to the sender"].exists)
+        let confirm = app.buttons["trade-confirm-response"]
+        for _ in 0..<4 where !confirm.isHittable { app.swipeUp() }
+        XCTAssertEqual(confirm.label, "Decline offer")
+        XCTAssertFalse(app.navigationBars["Accept trade"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Decline offer — correct first-tap review"; screenshot.lifetime = .keepAlways; add(screenshot)
+        app.buttons["Cancel"].tap()
+        app.buttons["Draft counteroffer"].tap()
+        XCTAssertTrue(app.navigationBars["Counteroffer"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["trade-save-draft"].isEnabled)
+        app.buttons["trade-cancel-draft"].tap()
+        XCTAssertTrue(app.navigationBars["Trade offer"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Draft counteroffer"].isEnabled)
+        app.buttons["Done"].tap()
+        XCTAssertTrue(incoming.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["trade-new"].exists) // Cancel didn't leave a counteroffer draft.
+    }
+
+    @MainActor
+    func testTradeActionStaysVisibleWithLargeText() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL", "-AppleInterfaceStyle", "Dark"]
+        app.launch()
+        let preview = app.buttons["Preview Champion Hall"]
+        for _ in 0..<6 where !preview.isHittable { app.swipeUp() }
+        preview.tap()
+        app.tabBars.buttons["Transactions"].tap()
+        app.segmentedControls.buttons["Trades"].tap()
+        let create = app.buttons["trade-new"]
+        XCTAssertTrue(create.waitForExistence(timeout: 5))
+        XCTAssertTrue(create.isHittable && create.isEnabled)
+        XCTAssertEqual(create.label, "Create trade")
+        XCTAssertGreaterThan(create.frame.minY, app.segmentedControls.firstMatch.frame.maxY)
+        app.swipeUp()
+        app.swipeUp()
+        XCTAssertTrue(create.isHittable)
+        XCTAssertLessThan(create.frame.maxY, app.tabBars.firstMatch.frame.minY)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Trade inbox — large text and pinned action"; screenshot.lifetime = .keepAlways; add(screenshot)
+        create.tap()
+        XCTAssertTrue(app.navigationBars["Build a trade"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["trade-save-draft"].isEnabled)
+        app.buttons["trade-cancel-draft"].tap()
+        XCTAssertTrue(create.waitForExistence(timeout: 3))
+    }
+
+    @MainActor
+    func testEmptyTradeInboxMakesCreatingAndResumingObvious() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-empty-trades"]
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        app.tabBars.buttons["Transactions"].tap()
+        app.segmentedControls.buttons["Trades"].tap()
+        let create = app.buttons["trade-new"]
+        XCTAssertTrue(create.waitForExistence(timeout: 5))
+        XCTAssertTrue(create.isEnabled && create.isHittable)
+        XCTAssertEqual(create.label, "Create trade")
+        XCTAssertGreaterThan(create.frame.width, app.frame.width * 0.8)
+        XCTAssertGreaterThanOrEqual(create.frame.height, 44)
+        XCTAssertGreaterThan(create.frame.minY, app.segmentedControls.firstMatch.frame.maxY)
+        XCTAssertLessThan(create.frame.minY - app.segmentedControls.firstMatch.frame.maxY, 24)
+        XCTAssertTrue(app.staticTexts["No active trades"].exists)
+        XCTAssertFalse(app.staticTexts["No incoming offers"].exists)
+        XCTAssertFalse(app.staticTexts["No sent offers"].exists)
+        let externalLink = app.descendants(matching: .any).matching(identifier: "trade-open-mfl").firstMatch
+        XCTAssertFalse(externalLink.exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Empty trade inbox — prominent Create trade"; screenshot.lifetime = .keepAlways; add(screenshot)
+        app.buttons["trade-options"].tap()
+        let menuScreenshot = XCTAttachment(screenshot: app.screenshot())
+        menuScreenshot.name = "Trade options — secondary MFL link"; menuScreenshot.lifetime = .keepAlways; add(menuScreenshot)
+        let menuTree = XCTAttachment(string: app.debugDescription)
+        menuTree.name = "Trade options accessibility"; menuTree.lifetime = .keepAlways; add(menuTree)
+        XCTAssertTrue(externalLink.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Refresh offers"].exists)
+        // Refresh the offline inbox without opening the external site.
+        app.buttons["Refresh offers"].tap()
+        let enabled = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: create)
+        wait(for: [enabled], timeout: 3)
+        create.tap()
+        XCTAssertTrue(app.navigationBars["Build a trade"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["trade-save-draft"].isEnabled)
+        XCTAssertTrue(app.buttons["trade-cancel-draft"].isHittable)
+        let blank = XCTAttachment(screenshot: app.screenshot())
+        blank.name = "Blank trade — Cancel and disabled Save & close"; blank.lifetime = .keepAlways; add(blank)
+        app.buttons["trade-cancel-draft"].tap()
+        XCTAssertTrue(create.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["trade-resume-draft"].exists)
+        create.tap()
+        app.buttons["trade-partner"].tap()
+        app.buttons["Route Runners"].tap()
+        XCTAssertTrue(app.buttons["trade-save-draft"].isEnabled)
+        app.buttons["Save & close"].tap()
+        let resume = app.buttons["trade-resume-draft"]
+        XCTAssertTrue(resume.waitForExistence(timeout: 3))
+        XCTAssertEqual(resume.label, "Resume trade")
+        XCTAssertTrue(resume.isHittable)
+        resume.tap()
+        XCTAssertTrue(app.navigationBars["Build a trade"].waitForExistence(timeout: 3))
+        app.buttons["Save & close"].tap()
+        app.buttons["trade-options"].tap()
+        app.buttons["Discard draft"].tap()
+        XCTAssertTrue(app.staticTexts["Sent offers won’t change."].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.alerts["Discard trade draft?"].exists)
+        let confirmation = XCTAttachment(screenshot: app.screenshot())
+        confirmation.name = "Discard draft — centered confirmation"; confirmation.lifetime = .keepAlways; add(confirmation)
+        app.alerts.buttons["Cancel"].tap()
+        XCTAssertTrue(resume.isHittable)
+        app.buttons["trade-options"].tap()
+        app.buttons["Discard draft"].tap()
+        XCTAssertTrue(app.alerts["Discard trade draft?"].waitForExistence(timeout: 3))
+        app.alerts.buttons["Discard draft"].tap()
+        XCTAssertTrue(create.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["No active trades"].exists)
+        // No send or response actions are exercised against a live league.
+    }
+
+    @MainActor
     func testScoresToolbarKeepsWeekAndSettingsInCorners() throws {
         let app = XCUIApplication()
         app.launch()
@@ -288,20 +421,48 @@ final class MFLBlitzUITests: XCTestCase {
         app.segmentedControls.buttons["Trades"].tap()
         let incoming = app.buttons["trade-offer-demo-incoming"]
         XCTAssertTrue(incoming.waitForExistence(timeout: 5))
+        let create = app.buttons["trade-new"]
+        XCTAssertTrue(create.isHittable)
+        XCTAssertEqual(create.label, "Create trade")
+        XCTAssertLessThan(create.frame.maxY, incoming.frame.minY)
+        XCTAssertFalse(app.staticTexts["No active trades"].exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "trade-open-mfl").firstMatch.exists)
         let hub = XCTAttachment(screenshot: app.screenshot())
         hub.name = "Transactions trade inbox"; hub.lifetime = .keepAlways; add(hub)
         incoming.tap()
+        XCTAssertTrue(app.navigationBars["Trade offer"].waitForExistence(timeout: 3))
+        let detail = XCTAttachment(screenshot: app.screenshot())
+        detail.name = "Received trade — full offer and response options"; detail.lifetime = .keepAlways; add(detail)
         let review = app.buttons["trade-review-accept"]
         for _ in 0..<4 where !review.isHittable { app.swipeUp() }
         review.tap()
         let confirm = app.buttons["trade-confirm-response"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        XCTAssertEqual(confirm.label, "Accept trade")
         XCTAssertTrue(app.staticTexts["You send"].exists || app.staticTexts["YOU SEND"].exists)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Review exact trade before acceptance"; screenshot.lifetime = .keepAlways; add(screenshot)
         app.buttons["Cancel"].tap()
         app.buttons["Done"].tap()
         XCTAssertTrue(incoming.waitForExistence(timeout: 3))
+        let outgoing = app.buttons["trade-offer-demo-sent"]
+        for _ in 0..<4 where !outgoing.isHittable { app.swipeUp() }
+        outgoing.tap()
+        XCTAssertTrue(app.navigationBars["Trade offer"].waitForExistence(timeout: 3))
+        let sent = XCTAttachment(screenshot: app.screenshot())
+        sent.name = "Sent trade — full offer and withdraw option"; sent.lifetime = .keepAlways; add(sent)
+        XCTAssertFalse(app.buttons["trade-review-accept"].exists)
+        let withdraw = app.buttons["trade-review-withdraw"]
+        for _ in 0..<4 where !withdraw.isHittable { app.swipeUp() }
+        withdraw.tap()
+        XCTAssertTrue(app.navigationBars["Withdraw offer"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["trade-confirm-response"].exists)
+        XCTAssertEqual(app.buttons["trade-confirm-response"].label, "Withdraw offer")
+        let withdrawal = XCTAttachment(screenshot: app.screenshot())
+        withdrawal.name = "Withdraw offer — correct first-tap review"; withdrawal.lifetime = .keepAlways; add(withdrawal)
+        app.buttons["Cancel"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(outgoing.waitForExistence(timeout: 3)) // No offer changed.
     }
 
     @MainActor
@@ -333,6 +494,19 @@ final class MFLBlitzUITests: XCTestCase {
         beforeSaving.name = "Trade draft before save"; beforeSaving.lifetime = .keepAlways; add(beforeSaving)
         app.buttons["Save & close"].tap()
         app.buttons["trade-resume-draft"].tap()
+        XCTAssertTrue(app.staticTexts["CeeDee Lamb"].exists)
+        XCTAssertTrue(app.staticTexts["Dak Prescott"].exists)
+        // Editing and canceling a resumed trade restores the saved terms.
+        app.buttons["trade-partner"].tap()
+        app.buttons["Croton Bug Eaters"].tap()
+        app.buttons["trade-cancel-draft"].tap()
+        XCTAssertTrue(app.alerts["Discard changes?"].waitForExistence(timeout: 3))
+        app.alerts.buttons["Keep editing"].tap()
+        XCTAssertTrue(app.navigationBars["Build a trade"].exists)
+        app.buttons["trade-cancel-draft"].tap()
+        app.alerts.buttons["Discard changes"].tap()
+        app.buttons["trade-resume-draft"].tap()
+        XCTAssertTrue(app.staticTexts["Route Runners"].exists)
         XCTAssertTrue(app.staticTexts["CeeDee Lamb"].exists)
         XCTAssertTrue(app.staticTexts["Dak Prescott"].exists)
         let review = app.buttons["trade-review-offer"]

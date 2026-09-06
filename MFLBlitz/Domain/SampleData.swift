@@ -322,7 +322,7 @@ enum SampleData {
 }
 
 actor DemoLeagueRepository: LeagueRepository {
-    var demoTrades = SampleData.trades
+    var demoTrades = SampleData.tradePreview
     func signIn(with credentials: LoginCredentials) async throws -> LeagueWorkspace {
         try await shortDelay()
         guard !credentials.username.isEmpty, !credentials.password.isEmpty else {

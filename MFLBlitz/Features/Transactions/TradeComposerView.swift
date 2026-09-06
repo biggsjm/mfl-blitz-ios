@@ -1,18 +1,51 @@
 import SwiftUI
 import MFLCore
 
+/// A fresh presentation identity and immutable rollback snapshot for each edit.
+struct TradeComposerSession: Identifiable {
+    let id = UUID()
+    let initial: TradeDraft
+    let savedDraft: TradeDraft?
+
+    init(savedDraft: TradeDraft?, counteroffer: TradeDraft? = nil) {
+        self.savedDraft = savedDraft
+        initial = counteroffer ?? savedDraft ?? TradeDraft()
+    }
+}
+
 struct TradeComposerView: View {
     @Environment(TransactionsModel.self) private var trades
     @Environment(\.dismiss) private var dismiss
+    private let session: TradeComposerSession
     @State private var draft: TradeDraft
+    @State private var appeared = false
+    @State private var isClosing = false
+    @State private var showingDiscardChanges = false
 
-    init(initial: TradeDraft) { _draft = State(initialValue: initial) }
+    init(session: TradeComposerSession) {
+        self.session = session
+        _draft = State(initialValue: session.initial)
+    }
+
+    private var hasChanges: Bool { draft != session.initial }
+
+    private func cancel() {
+        isClosing = true
+        trades.saveDraft(session.savedDraft)
+        dismiss()
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("Trade with", selection: $draft.partnerID) {
+                    Picker("Trade with", selection: Binding(get: { draft.partnerID }, set: { partnerID in
+                        guard partnerID != draft.partnerID else { return }
+                        var updated = draft
+                        updated.partnerID = partnerID
+                        updated.receiving = []
+                        draft = updated
+                    })) {
                         Text("Choose a team").tag("")
                         ForEach(trades.snapshot.teams.filter { $0.id != trades.ownerID }) { Text($0.name).tag($0.id) }
                     }
@@ -39,7 +72,7 @@ struct TradeComposerView: View {
                 }
                 Section {
                     NavigationLink {
-                        TradeProposalReviewView(draft: draft) { dismiss() }
+                        TradeProposalReviewView(draft: draft) { isClosing = true; dismiss() }
                     } label: {
                         Label("Review offer", systemImage: "list.clipboard").font(.headline).frame(minHeight: 44)
                     }
@@ -52,13 +85,31 @@ struct TradeComposerView: View {
             .navigationTitle(draft.countering == nil ? "Build a trade" : "Counteroffer")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Save & close") { trades.saveDraft(draft); dismiss() }.disabled(trades.isBusy) }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        if hasChanges { showingDiscardChanges = true } else { cancel() }
+                    }.disabled(trades.isBusy).accessibilityIdentifier("trade-cancel-draft")
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save & close") { isClosing = true; trades.saveDraft(draft); dismiss() }
+                        .disabled(!draft.hasContent || trades.isBusy).accessibilityIdentifier("trade-save-draft")
+                }
             }
-            .onAppear { trades.saveDraft(draft) }
-            .onChange(of: draft) { _, newValue in trades.saveDraft(newValue) }
-            .onChange(of: draft.partnerID) { old, new in if old != new { draft.receiving = [] } }
+            .onAppear {
+                guard !appeared, !isClosing else { return }
+                appeared = true
+                if draft.hasContent { trades.saveDraft(draft) }
+            }
+            .onChange(of: draft) { _, newValue in
+                guard !isClosing else { return }
+                trades.saveDraft(newValue)
+            }
+            .alert("Discard changes?", isPresented: $showingDiscardChanges) {
+                Button("Keep editing", role: .cancel) {}
+                Button("Discard changes", role: .destructive) { cancel() }
+            }
         }
-        .interactiveDismissDisabled(trades.isBusy)
+        .interactiveDismissDisabled(trades.isBusy || hasChanges)
     }
 
     private func assetSection(title: String, teamID: String, selection: Binding<Set<String>>) -> some View {
@@ -157,7 +208,7 @@ private struct TradeProposalReviewView: View {
             Section {
                 if !draft.comments.isEmpty { Text(draft.comments) }
                 LabeledContent("Expires", value: draft.expires.formatted(date: .abbreviated, time: .shortened))
-                Text("This sends an actual offer and may notify the other owner. They can accept until it expires or you withdraw it. MFL’s league rules still apply.").font(.subheadline)
+                Text("The other owner can accept until this offer expires or you withdraw it. League deadlines, roster limits, and approval rules apply.").font(.subheadline)
                 if draft.countering != nil { Text("The original offer remains open. Decline it separately if you no longer want it.").foregroundStyle(.orange) }
                 if trades.isDemo { Text("Preview only · Nothing will be sent to MFL.").foregroundStyle(.orange) }
                 Button {

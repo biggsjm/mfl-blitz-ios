@@ -1,0 +1,29 @@
+# Trade inbox — 0.3.7 (16)
+
+Native trading is the primary path. A full-width **Create trade** button sits directly below the transaction selector and remains visible while the inbox scrolls. A saved draft changes that same action to **Resume trade**; there is no duplicate draft card.
+
+- A successfully loaded, empty inbox shows one **No active trades** state. Loading, failed reads, unverified actions, and unresolved offers never masquerade as an empty inbox.
+- Received and Sent sections appear only when they contain offers. Offer rows retain the trading partner, both sides of the deal, and expiration.
+- **Trade options** contains Refresh offers, Open on MFL, and (when relevant) Discard draft. Discard uses a centered confirmation with an explicit Cancel action and does not change sent offers.
+- MFL recovery links remain visible beside errors and unverified actions. Important safeguards are not hidden in the menu.
+- The last-checked time is secondary text, not an external-link card. League constraints appear in the final review where the owner decides whether to send or accept.
+
+Trade API preflight and readback safeguards remain unchanged. New offers remain gated on a successful inbox read; a saved draft can still be resumed after a read failure, but sending remains blocked until data and verification are safe. No action is automatically sent from the inbox.
+
+## Composer and response reviews
+
+Cancel is at the leading edge; Save & close is at the trailing edge and disabled for a blank/whitespace-only draft. Choosing a partner, assets, or entering a message enables saving even if the offer is not ready to send. Merely opening a blank composer does not create a resumable draft, and blank drafts from older builds are ignored on restore.
+
+Meaningful edits retain crash-safe autosaving. Cancel restores the saved draft from before the composer opened; edited drafts require a centered Discard changes confirmation. An unchanged blank composer cancels immediately. Counteroffers are staged separately so canceling a newly opened counteroffer does not leave an unwanted draft.
+
+Every editor opening uses a unique, explicit SwiftUI view identity and an immutable rollback snapshot. Click-through tracing found that presentation reuse could retain a previous editor's unsaved on-screen state even after the saved data had been restored correctly. Fresh view identity prevents that stale state from reappearing; closing also stops late autosave callbacks. Changing partners clears receiving selections in the same update.
+
+Click-through QA uncovered a first-presentation bug: separate response-action and sheet-visibility state could show the default Accept review after tapping Withdraw or Decline. The response sheet now receives the selected action as one identifiable payload. The API role checks remain in place; UI tests also assert the exact first-tap Decline/Withdraw titles and confirmation labels, then cancel without performing an action.
+
+## Regression coverage
+
+`TradeInboxPresentationTests` checks confirmed-empty states, loading/errors, pending verification, unresolved offers, and draft changes that must not alter existing offers. Existing trade safety and transaction refresh suites cover ownership, preflight, authoritative readback, duplicate prevention, cancellation, caching, and cooldowns.
+
+Native UI tests cover the full-width action and overflow menu, creating/resuming/discarding a draft, populated offer review, draft asset persistence, and scrolling with accessibility-size text. The `--preview-empty-trades` debug argument affects only the offline preview fixture; signed-in leagues never use it. UI journeys stop before sending or accepting any offer.
+
+September 6 final build-16 verification completed the full app unit suite plus five native trade journeys: 96 test functions (121 executions including parameterized cases), with no failures or runtime warnings. The existing two-week synthetic simulation also passed as part of the unit suite. Screenshots cover dark/light appearance across the UI passes, accessibility-size text, empty and populated inboxes, the options menu, blank-draft controls, correct Accept/Decline/Withdraw reviews, and canceling/confirming draft discard. Canceling edits and resuming must restore both the original partner and every selected asset. All QA used preview/in-memory data; no live offers or responses were submitted.

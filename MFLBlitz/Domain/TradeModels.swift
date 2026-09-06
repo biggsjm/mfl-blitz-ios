@@ -55,6 +55,11 @@ struct TradeDraft: Codable, Equatable, Identifiable, Sendable {
     var expires = Date(timeIntervalSince1970: floor(Date().addingTimeInterval(7 * 86_400).timeIntervalSince1970))
     var countering: TradeOffer?
     var acknowledgesOriginalStaysOpen = false
+
+    var hasContent: Bool {
+        !partnerID.isEmpty || !giving.isEmpty || !receiving.isEmpty
+            || !comments.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || countering != nil
+    }
 }
 
 struct TradeSnapshot: Sendable {
