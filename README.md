@@ -8,7 +8,7 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
-This repository contains a polished, runnable product prototype and a tested MFL API foundation. The app includes an interactive **Champion Hall** preview based on league `41333`; connect mode uses MFL's direct-device API architecture. Live lineup editing and submission are enabled with explicit review and exact saved-starter verification. MFL accepts lineup tiebreakers but does not expose their saved state for readback. Non-transactional waiver replacement and message-board writes remain gated while those paths are validated across MFL configurations.
+This is a private Week 1 testing build with a tested MFL API foundation. The app includes an interactive **Champion Hall** preview based on league `41333`. Connect mode talks directly to MFL. Lineup submission, supported conditional blind-bid queues, and board posts are enabled with server readback and no automatic write retries. MFL accepts lineup tiebreakers but does not expose their saved state for confirmation. Fixture tests do not replace live league validation: follow the [Week 1 checklist](docs/week-1-testing.md) before inviting the league.
 
 The current build includes:
 
@@ -18,6 +18,9 @@ The current build includes:
 - division and overall standings that preserve MFL's official ordering;
 - the existing MFL message board presented as readable native threads, with compose and reply flows;
 - a no-account interactive preview for Champion Hall;
+- one foreground-only scoreboard/detail poller, foreground refresh, and official completed-week result reconciliation;
+- MFL current/lineup-week guidance, Keychain session restoration, and team-scoped lineup, waiver-queue, and board drafts;
+- explicit partial-round waiver recovery, cancellation of all saved bids, and persistent duplicate-post protection;
 - iPhone, iPad, dark mode, Dynamic Type, VoiceOver summaries, Reduce Motion, and 44-point controls;
 - no ads, analytics SDK, cross-app tracking, or proprietary chat network.
 
@@ -44,13 +47,13 @@ AppModel / repository boundary
     ↓
 MFLCore (local Swift package)
     ├── authenticated account/franchise mapping + host discovery
-    ├── HTTPS login + in-memory session-cookie authorization
+    ├── HTTPS login + device-only Keychain session-cookie authorization
     ├── tolerant DTO decoding + body-level error checks
     ├── request spacing + response caching
     └── lineup, waiver, and message-board imports
 ```
 
-The local package isolates MFL's legacy wire format from the UI. IDs remain strings, API errors are detected even inside HTTP 200 responses, league hosts are resolved per session, and writes are never blindly retried. Version 0.1 intentionally does not persist the MFL session: closing the app requires signing in again.
+The local package isolates MFL's legacy wire format from the UI. IDs remain strings, API errors are detected even inside HTTP 200 responses, league hosts are resolved per session, and writes are never blindly retried. Sessions restore from the device-only Keychain after fresh membership verification. Unsaved lineup edits, queued waiver changes, and message drafts survive a restart and are isolated by season, league, and franchise. Refreshes preserve drafts and surface conflicts rather than silently overwriting them.
 
 Read [API integration notes](docs/api-integration.md) for endpoint details and risks.
 

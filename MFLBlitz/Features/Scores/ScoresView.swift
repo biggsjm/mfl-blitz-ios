@@ -10,6 +10,22 @@ struct ScoresView: View {
         ScrollView {
             LazyVStack(spacing: 14) {
                 if model.isDemo { DemoBanner() }
+                if model.workspace?.weekIsConfirmed == false {
+                    Label("MFL’s current week couldn’t be confirmed. Choose a week below.", systemImage: "calendar.badge.exclamationmark")
+                        .font(.footnote).foregroundStyle(.orange)
+                        .padding(.horizontal, BlitzMetrics.pagePadding)
+                }
+                if let message = model.scoreRefreshError {
+                    Label(message, systemImage: "wifi.exclamationmark")
+                        .font(.footnote).foregroundStyle(.orange)
+                        .padding(.horizontal, BlitzMetrics.pagePadding)
+                }
+                if model.selectedWeek != model.currentWeek && !model.isDemo {
+                    Button("Go to current week · \(model.currentWeek)") {
+                        Task { await model.changeWeek(to: model.currentWeek, followingCurrent: true) }
+                    }
+                    .font(.subheadline)
+                }
 
                 HStack {
                     WeekPicker(selection: weekBinding, range: 1...18)

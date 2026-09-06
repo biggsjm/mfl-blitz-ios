@@ -348,7 +348,7 @@ actor DemoLeagueRepository: LeagueRepository {
 
     func submitLineup(_ lineup: LineupSnapshot) async throws { try await shortDelay() }
     func loadWaivers() async throws -> WaiverSnapshot { try await shortDelay(); return SampleData.waivers }
-    func submitWaivers(_ claims: [WaiverClaim]) async throws { try await shortDelay() }
+    func submitWaivers(_ claims: [WaiverClaim], replacing baseline: [WaiverClaim]) async throws { try await shortDelay() }
     func loadStandings() async throws -> [StandingRow] { try await shortDelay(); return SampleData.standings }
     func loadBoard() async throws -> [BoardThread] { try await shortDelay(); return SampleData.board }
     func loadThread(id: String) async throws -> BoardThread {

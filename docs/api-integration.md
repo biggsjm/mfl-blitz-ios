@@ -41,6 +41,12 @@ All league calls use `https://{resolved-host}/{season}/` and include `L={leagueI
 
 For a blind bid, `0000` is the no-drop sentinel. Conditional leagues require `ROUND`; `REPLACE=1` means the app must send the complete desired state for that round. MFL offers no idempotency key or dry-run mode.
 
+The private Week 1 build persists the cookie and scoped drafts in device-only Keychain items using [Apple’s When Unlocked accessibility](https://developer.apple.com/documentation/security/ksecattraccessiblewhenunlockedthisdeviceonly). Restored cookies undergo fresh membership/franchise verification. The public `mfl_status` request carries no cookie; its `CurrentWeek`, `LineupWeek`, and `CompletedWeek` are distinct. Completed weeks use fresh `weeklyResults` reads.
+
+Blind-bid writes compare fresh pending requests with the user-reviewed baseline, then verify the entire intermediate queue after each changed round. Empty `PICKS` explicitly clears a round. A failed request stops the sequence and triggers readback, not resubmission. Unknown queue structures fail closed. Calendar dates use explicit future `WAIVER_BBID` events when available; recurrence is not guessed. Recent processed acquisitions use `transactions` filtered to `BBID_WAIVER,WAIVER,FREE_AGENT`; the MFL website remains the full processing report.
+
+Before a board import, a durable marker records the intended body, subject/thread, and existing IDs. Readback must find a new post with the same owner and full body; new threads require a thread-detail fetch, not just a matching summary subject. An ambiguous send remains blocked across relaunch until readback confirms it or the user explicitly verifies MFL and resolves the warning.
+
 ## League 41333 profile
 
 The supplied [Champion Hall league metadata](https://www45.myfantasyleague.com/2026/export?TYPE=league&L=41333&JSON=1) reports:

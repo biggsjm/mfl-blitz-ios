@@ -104,6 +104,7 @@ public actor MFLClient {
     private var cookie: MFLAuthenticationCookie?
     private var leagueHost: MFLAPIHost?
     private var nextRequestInstant: ContinuousClock.Instant?
+    private var rateLimitedUntil: Date?
     private var cache: [CacheKey: CacheEntry] = [:]
 
     public init(
@@ -186,6 +187,45 @@ public actor MFLClient {
     }
 
     // MARK: Reads
+
+    /// No authentication cookie is sent to this public static resource.
+    public func seasonStatus() async throws -> MFLSeasonStatus {
+        guard let url = URL(string: "https://api.myfantasyleague.com/fflnetdynamic\(configuration.league.season)/mfl_status.json") else {
+            throw MFLCoreError.invalidResponse
+        }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData,
+                                 timeoutInterval: configuration.requestTimeout)
+        request.setValue(configuration.userAgent, forHTTPHeaderField: "User-Agent")
+        let response = try await send(request)
+        try validateHTTP(response)
+        let status = try responseDecoder.decode(MFLSeasonStatus.self, from: response.data)
+        guard status.year == configuration.league.season else { throw MFLCoreError.invalidResponse }
+        return status
+    }
+
+    public func weeklyResults(week: Int) async throws -> MFLLiveScoring {
+        try validateWeek(week)
+        let result: MFLWeeklyResultsResponse = try await export(
+            MFLWeeklyResultsResponse.self, endpoint: .weeklyResults,
+            host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
+            parameters: ["W": String(week)], ttl: 0, refreshPolicy: .reloadIgnoringCache
+        )
+        guard result.weeklyResults.week == week else { throw MFLCoreError.invalidResponse }
+        return result.weeklyResults
+    }
+
+    public func calendar() async throws -> MFLJSONValue {
+        try await export(MFLJSONValue.self, endpoint: .calendar,
+                         host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
+                         parameters: [:], ttl: 60, refreshPolicy: .reloadIgnoringCache)
+    }
+
+    public func waiverResults() async throws -> MFLJSONValue {
+        try await export(MFLJSONValue.self, endpoint: .transactions,
+                         host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
+                         parameters: ["TRANS_TYPE": "BBID_WAIVER,WAIVER,FREE_AGENT", "COUNT": "30"],
+                         ttl: 30, refreshPolicy: .reloadIgnoringCache)
+    }
 
     /// Returns the signed-in user's leagues for this client's season. Besides
     /// enabling a future league picker, this is the authoritative mapping from
@@ -644,7 +684,9 @@ public actor MFLClient {
     }
 
     private func send(_ request: URLRequest) async throws -> MFLHTTPResponse {
+        try checkRateLimit()
         try await waitForRequestSlot()
+        try checkRateLimit()
         do {
             return try await transport.send(request)
         } catch is CancellationError {
@@ -653,6 +695,12 @@ public actor MFLClient {
             throw error
         } catch {
             throw MFLCoreError.transport(String(describing: error))
+        }
+    }
+
+    private func checkRateLimit() throws {
+        if let deadline = rateLimitedUntil, deadline > Date() {
+            throw MFLCoreError.rateLimited(retryAfter: deadline.timeIntervalSinceNow)
         }
     }
 
@@ -673,6 +721,7 @@ public actor MFLClient {
     private func validateHTTP(_ response: MFLHTTPResponse) throws {
         if response.statusCode == 429 {
             let retryAfter = response.value(forHeader: "Retry-After").flatMap(TimeInterval.init)
+            rateLimitedUntil = Date().addingTimeInterval(max(90, retryAfter ?? 90))
             throw MFLCoreError.rateLimited(retryAfter: retryAfter)
         }
         guard (200 ... 299).contains(response.statusCode) else {

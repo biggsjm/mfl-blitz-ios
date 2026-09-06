@@ -316,6 +316,10 @@ struct ClientTests {
         } catch let error as MFLCoreError {
             #expect(error == .rateLimited(retryAfter: 7))
         }
+        // A new caller/poller during the cooldown must not hit MFL again.
+        await #expect(throws: (any Error).self) {
+            try await client.liveScoring(week: 7, refreshPolicy: .reloadIgnoringCache)
+        }
         #expect(await transport.recordedRequests().count == 1)
     }
 

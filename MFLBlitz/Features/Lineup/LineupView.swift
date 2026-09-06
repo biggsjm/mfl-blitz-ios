@@ -2,13 +2,17 @@ import SwiftUI
 
 struct LineupView: View {
     @Environment(AppModel.self) private var model
-    @State private var submittedStarterIDs: Set<String> = []
-    @State private var submittedTiebreakerIDs: [String] = []
-    @State private var hasSubmissionBaseline = false
     @State private var showingSubmitConfirmation = false
 
     var body: some View {
         List {
+            if !model.isDemo, let upcoming = model.workspace?.lineupWeek, upcoming != model.selectedWeek {
+                Section {
+                    Button("Open MFL’s lineup week · \(upcoming)") {
+                        Task { await model.changeWeek(to: upcoming) }
+                    }
+                }
+            }
             if model.isDemo {
                 DemoBanner()
                     .listRowInsets(EdgeInsets())
@@ -16,10 +20,17 @@ struct LineupView: View {
             } else if !model.canEditLineup {
                 LiveWriteSafetyBanner(
                     message: model.lineup.editState.unavailableMessage
-                        ?? "Safety preview · Lineup changes unavailable"
+                        ?? "Lineup changes unavailable"
                 )
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
+            }
+
+            if let conflict = model.lineupConflict {
+                Section("Draft needs review") {
+                    Text(conflict).font(.subheadline)
+                    Button("Discard draft and load MFL starters", role: .destructive) { model.discardLineupDraft() }
+                }
             }
 
             if model.lineup.players.isEmpty {
@@ -129,30 +140,17 @@ struct LineupView: View {
         ) {
             Button("Submit \(model.lineup.starters.count) starters") {
                 Task {
-                    if let receipt = await model.submitLineup(), receipt.week == model.lineup.week {
-                        submittedStarterIDs = receipt.starterIDs
-                        submittedTiebreakerIDs = receipt.tiebreakerPlayerIDs
-                        hasSubmissionBaseline = true
-                    }
+                    await model.submitLineup()
                 }
             }
             Button("Keep editing", role: .cancel) {}
         } message: {
             Text(confirmationMessage)
         }
-        .onAppear {
-            synchronizeSubmissionBaseline()
-        }
-        .onChange(of: model.lineupRevision) { _, _ in
-            synchronizeSubmissionBaseline()
-        }
     }
 
     private var isDirty: Bool {
-        hasSubmissionBaseline
-            && (submittedStarterIDs != Set(model.lineup.starters.map(\.id))
-            || submittedTiebreakerIDs != model.lineup.tiebreakerPlayerIDs
-            )
+        model.hasLineupChanges
     }
 
     private var displayedValidationMessage: String? {
@@ -204,11 +202,6 @@ struct LineupView: View {
         return message
     }
 
-    private func synchronizeSubmissionBaseline() {
-        submittedStarterIDs = Set(model.lineup.starters.map(\.id))
-        submittedTiebreakerIDs = model.lineup.tiebreakerPlayerIDs
-        hasSubmissionBaseline = true
-    }
 }
 
 private struct LineupSummaryCard: View {

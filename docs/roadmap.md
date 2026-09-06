@@ -15,6 +15,8 @@
 
 ## 0.2 — Read-only TestFlight
 
+The private Week 1 milestone now includes foreground scoring refresh/final reconciliation, MFL week selection, secure session restoration, scoped drafts, conditional bid replacement/cancellation with partial-failure recovery, and verified board posts/replies. See [the live testing checklist](week-1-testing.md). TestFlight distribution and public validation remain pending; the broader items below are not all implemented.
+
 - Live league picker and multi-league switching
 - Server-host rediscovery and session-expiry UI
 - Cached cold start with explicit stale state

@@ -8,8 +8,9 @@ MFL Blitz is an independent, open-source iOS client for MyFantasyLeague. It has 
 
 - Your MFL username, password, league ID, and season are sent directly from your device to MyFantasyLeague over HTTPS when you sign in.
 - Your password is used only for that login request. MFL Blitz does not persist it.
-- The MFL session value is held in app memory only for the current run. It is discarded when you disconnect or the app terminates.
+- The MFL session value is stored in this device’s Keychain, accessible while unlocked and not synchronized to iCloud Keychain or migrated to another device. It is used to reconnect after app termination; your password is never saved.
 - League information requested from MFL can include rosters, scores, standings, pending waiver bids, and message-board content. Version 0.1 uses only an in-memory response cache.
+- Lineup drafts, queued waiver edits, board drafts, and an unconfirmed-post marker are stored in the same device-only Keychain, scoped to season, league, and franchise. The marker prevents an interrupted send from being automatically repeated after relaunch.
 
 No MFL account or league data is sent to the developer or to an MFL Blitz server. Apple and MyFantasyLeague may process network or platform data under their own policies.
 
@@ -19,11 +20,11 @@ MFL Blitz does not sell or share personal information and does not track you acr
 
 ## Retention and deletion
 
-Disconnecting clears the active session and in-memory league data. Closing the app also removes the active session and cache. MFL data remains on MyFantasyLeague and must be managed according to MyFantasyLeague's controls and policies.
+Disconnecting a live team clears its saved session, local drafts, unconfirmed-post marker, and in-memory league data. Session expiry preserves drafts so you can recover them by signing in to the same franchise. Closing the app clears the response cache but retains the protected session and drafts. Data already submitted to MFL remains on MyFantasyLeague. Resolve any unconfirmed post on MFL before disconnecting, since disconnecting removes the local duplicate-prevention marker too.
 
-## Connected-league safety preview
+## Connected-league actions
 
-Version 0.1 permits live reads and user-confirmed lineup submissions. A submitted lineup is sent directly to MFL and then reloaded for exact saved-starter verification. MFL accepts tiebreakers but does not expose their saved state for readback. Waiver and message-board writes remain disabled by default until the production API client and those mutation flows have been validated in disposable leagues. The interactive Champion Hall preview uses local sample data and sends nothing to MFL.
+This private testing build permits live reads and user-confirmed lineup, supported conditional blind-bid, and message-board submissions. Each is sent directly to MFL and read back for confirmation. MFL does not expose saved lineup tiebreakers. A multi-round waiver save can partially succeed; the app stops and asks you to compare saved versus drafted rounds. An unconfirmed post is not automatically resent. Unsupported waiver configurations use the league website. The interactive Champion Hall preview uses local sample data and sends nothing to MFL.
 
 ## Contact
 

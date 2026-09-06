@@ -23,16 +23,52 @@ struct WaiversView: View {
                 DemoBanner()
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
-            } else if !model.canSubmitWaivers {
-                LiveWriteSafetyBanner(message: "Safety preview · Waiver requests can’t be submitted yet")
+            } else if let reason = model.waivers.unavailableReason {
+                LiveWriteSafetyBanner(message: reason)
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
+            }
+
+            if let conflict = model.waiverConflict {
+                Section("Save needs review") {
+                    Text(conflict).font(.subheadline)
+                    if model.waiverServerReadFailed {
+                        Label("Saved queue unavailable. Pull to refresh before resolving this save.", systemImage: "wifi.exclamationmark")
+                            .font(.footnote).foregroundStyle(.orange)
+                    }
+                    if model.savedWaiverClaims.isEmpty {
+                        Text("MFL currently has no saved bids.").foregroundStyle(.secondary)
+                    }
+                    ForEach(groupClaims(model.savedWaiverClaims)) { group in
+                        Text("Saved on MFL · Round \(group.round)").font(.caption.bold())
+                        ForEach(group.claims) { ClaimRow(claim: $0) }
+                    }
+                    Button("I reviewed MFL’s queue · keep my draft") {
+                        model.resolveWaiverConflict(keepDraft: true)
+                    }
+                    .disabled(model.waiverServerReadFailed || model.isBusy)
+                    Button("Discard my draft and use MFL’s queue", role: .destructive) {
+                        model.resolveWaiverConflict(keepDraft: false)
+                    }
+                    .disabled(model.waiverServerReadFailed || model.isBusy)
+                }
+            }
+
+            if model.hasWaiverChanges {
+                Section {
+                    Label(model.waivers.claims.isEmpty ? "Draft: cancel every saved bid" : "Draft saved on this device · not submitted yet", systemImage: "square.and.pencil")
+                        .font(.footnote).foregroundStyle(.orange)
+                }
             }
 
             Section {
                 WaiverHeaderCard(snapshot: model.waivers)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .listRowBackground(Color.clear)
+                if let workspace = model.workspace {
+                    Link("Calendar, full results & first-come adds on MFL", destination: workspace.leagueURL)
+                        .font(.footnote)
+                }
             }
 
             if !model.waivers.claims.isEmpty {
@@ -66,6 +102,10 @@ struct WaiversView: View {
             }
 
             Section {
+                DisclosureGroup("Recent waiver results") { resultRows }
+            }
+
+            Section {
                 filterControls
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
                     .listRowBackground(Color.clear)
@@ -83,7 +123,7 @@ struct WaiversView: View {
                             let round = suggestedRound
                             editingClaim = WaiverClaim(
                                 player: candidate,
-                                bid: model.waivers.increment,
+                                bid: max(model.waivers.minimumBid, model.waivers.increment),
                                 dropPlayerID: nil,
                                 dropPlayerName: nil,
                                 round: round,
@@ -99,6 +139,7 @@ struct WaiversView: View {
                     Text("No players match these filters.")
                 }
             }
+
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Waivers")
@@ -107,17 +148,19 @@ struct WaiversView: View {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if !model.waivers.claims.isEmpty {
                     EditButton()
+                }
+                if model.hasWaiverChanges {
                     Button("Review \(model.waivers.claims.count)") { showingReview = true }
                         .fontWeight(.semibold)
                 }
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if !model.waivers.claims.isEmpty {
+            if model.hasWaiverChanges {
                 Button {
                     showingReview = true
                 } label: {
-                    Label("Review \(model.waivers.claims.count) request\(model.waivers.claims.count == 1 ? "" : "s")", systemImage: "list.clipboard.fill")
+                    Label(model.waivers.claims.isEmpty ? "Review cancellation of all bids" : "Review \(model.waivers.claims.count) requests", systemImage: "list.clipboard.fill")
                         .font(.headline)
                         .foregroundStyle(Color.blitzNavy)
                         .frame(maxWidth: .infinity, minHeight: 52)
@@ -171,6 +214,23 @@ struct WaiversView: View {
                 }
                 .pickerStyle(.menu)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var resultRows: some View {
+        ForEach(model.waivers.results) { result in
+            VStack(alignment: .leading, spacing: 4) {
+                Text(result.franchise).font(.subheadline.bold())
+                Text(result.description).font(.subheadline)
+                if let date = result.date {
+                    Text(date, format: .dateTime.month().day().hour().minute()).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+        if model.waivers.results.isEmpty {
+            Text(model.waivers.resultsUnavailable ? "Results couldn’t be loaded. Check MFL for the latest processing report." : "No recent processed claims returned by MFL.")
+                .font(.footnote).foregroundStyle(.secondary)
         }
     }
 
@@ -413,7 +473,7 @@ private struct ClaimEditorView: View {
 
     private var validBid: Bool {
         guard let parsedBid else { return false }
-        return parsedBid >= 0
+        return parsedBid >= model.waivers.minimumBid
             && parsedBid <= model.waivers.availableBudget
             && parsedBid.isWholeMultiple(of: model.waivers.increment)
     }
@@ -427,6 +487,13 @@ private struct WaiverReviewView: View {
     var body: some View {
         NavigationStack {
             List {
+                if model.waivers.claims.isEmpty {
+                    Section {
+                        Label("Cancel all saved blind-bid requests", systemImage: "trash")
+                        Text("This clears every saved acquisition round after you confirm. It does not drop any players from your roster.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    }
+                }
                 ForEach(groupClaims(model.waivers.claims)) { group in
                     Section("Acquisition round \(group.round)") {
                         ForEach(group.claims) { claim in
@@ -444,7 +511,7 @@ private struct WaiverReviewView: View {
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .bottom) {
                 PrimaryActionButton(
-                    title: "Submit to MFL",
+                    title: model.waivers.claims.isEmpty ? "Cancel saved bids on MFL" : "Submit to MFL",
                     systemImage: "paperplane.fill",
                     isBusy: model.isBusy,
                     isDisabled: !model.canSubmitWaivers
@@ -459,7 +526,7 @@ private struct WaiverReviewView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
             }
             .confirmationDialog("Replace saved waiver rounds?", isPresented: $showingConfirmation, titleVisibility: .visible) {
-                Button("Submit \(model.waivers.claims.count) requests") {
+                Button(model.waivers.claims.isEmpty ? "Cancel all saved bids" : "Submit \(model.waivers.claims.count) requests") {
                     Task {
                         if await model.submitWaivers() {
                             dismiss()

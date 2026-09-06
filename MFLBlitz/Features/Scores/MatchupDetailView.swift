@@ -10,6 +10,10 @@ struct MatchupDetailView: View {
         ScrollView {
             if let matchup {
                 LazyVStack(alignment: .leading, spacing: 16) {
+                    if let message = model.scoreRefreshError {
+                        Label(message, systemImage: "wifi.exclamationmark")
+                            .font(.footnote).foregroundStyle(.orange)
+                    }
                     MatchupFreshnessLabel(
                         date: model.scores.lastUpdated,
                         isRefreshing: model.isRefreshing
@@ -164,21 +168,6 @@ struct MatchupDetailView: View {
             }
         }
         .refreshable { await model.refreshScores() }
-        .task(id: matchupID) {
-            guard !model.isDemo else { return }
-            while !Task.isCancelled {
-                guard let currentMatchup = matchup else { return }
-                if case .final = currentMatchup.status { return }
-                do {
-                    try await Task.sleep(for: .seconds(90))
-                } catch {
-                    return
-                }
-                if !model.isRefreshing {
-                    await model.refreshScores()
-                }
-            }
-        }
         .accessibilityIdentifier("matchup-detail")
     }
 

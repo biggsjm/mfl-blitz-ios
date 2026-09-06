@@ -112,7 +112,7 @@ public struct MFLMessage: Decodable, Equatable, Sendable, Identifiable {
         body = values.mflString("body", "message", "text") ?? ""
         timestamp = values.mflInt("timestamp", "postTime", "post_time", "time", "date")
         id = values.mflString("id", "post_id", "postId")
-            ?? "\(franchiseID ?? "unknown")-\(timestamp ?? 0)-\(body.hashValue)"
+            ?? "\(franchiseID ?? "unknown")-\(timestamp ?? 0)-\(Data(body.utf8).base64EncodedString())"
         attributes = values
     }
 }
@@ -122,7 +122,27 @@ public struct MFLPendingWaivers: Decodable, Equatable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let value = try MFLJSONValue(from: decoder)
+        try Self.validateContainer(value)
         requests = Self.extractRequests(from: value)
+    }
+
+    private static func validateContainer(_ value: MFLJSONValue) throws {
+        guard let object = value.objectValue else {
+            throw MFLCoreError.decoding("Pending waivers did not contain an authoritative queue.")
+        }
+        let requestKeys = ["waiverRequest", "waiver", "request", "transaction"]
+        let knownKeys = Set(requestKeys + ["franchise", "id", "franchise_id"])
+        guard Set(object.keys).isSubset(of: knownKeys) else {
+            throw MFLCoreError.decoding("Unknown pending waiver structure; replacement is unavailable.")
+        }
+        for key in requestKeys {
+            if let rows = object[key]?.arrayValue {
+                guard rows.allSatisfy({ $0.objectValue != nil }) else { throw MFLCoreError.invalidResponse }
+            }
+        }
+        if let franchises = object["franchise"]?.arrayValue {
+            for franchise in franchises { try validateContainer(franchise) }
+        }
     }
 
     private static func extractRequests(from value: MFLJSONValue) -> [MFLPendingWaiver] {

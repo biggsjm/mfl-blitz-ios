@@ -2,6 +2,35 @@ import XCTest
 
 final class MFLBlitzUITests: XCTestCase {
     @MainActor
+    func testBoardDraftSurvivesClosingComposer() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let preview = app.buttons["Preview Champion Hall"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        preview.tap()
+        let board = app.tabBars.buttons["Board"]
+        XCTAssertTrue(board.waitForExistence(timeout: 5))
+        board.tap()
+        app.buttons["New thread"].tap()
+        let subject = app.textFields["What’s the topic?"]
+        XCTAssertTrue(subject.waitForExistence(timeout: 5))
+        subject.tap()
+        subject.typeText("Week one test")
+        let body = app.textViews["Message body"]
+        body.tap()
+        body.typeText("A draft, not a league post.")
+        app.buttons["Save & close"].tap()
+        app.buttons["New thread"].tap()
+        XCTAssertTrue(subject.waitForExistence(timeout: 5))
+        XCTAssertEqual(subject.value as? String, "Week one test")
+        XCTAssertEqual(body.value as? String, "A draft, not a league post.")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Saved private board draft"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
     func testPreviewShowsPriorityTabs() throws {
         let app = XCUIApplication()
         app.launch()

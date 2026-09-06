@@ -11,10 +11,11 @@ struct BoardView: View {
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             } else if !model.canPostToBoard {
-                LiveWriteSafetyBanner(message: "Safety preview · Posting is unavailable")
+                LiveWriteSafetyBanner(message: "Posting is unavailable")
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
+            if model.unconfirmedBoardPost != nil { UnconfirmedPostSection() }
 
             if model.boardThreads.isEmpty {
                 EmptyState(title: "Quiet huddle", message: "The next league message will appear here.", systemImage: "bubble.left.and.bubble.right")
@@ -115,6 +116,7 @@ private struct ThreadDetailView: View {
                     }
                 }
                 .listStyle(.plain)
+                .refreshable { await model.loadThread(id: threadID) }
                 .navigationTitle(thread.subject)
                 .navigationBarTitleDisplayMode(.inline)
                 .safeAreaInset(edge: .bottom) {
@@ -186,10 +188,17 @@ struct MessageComposerView: View {
     @State private var subject = ""
     @State private var bodyText = ""
     @FocusState private var bodyFocused: Bool
+    @State private var loadedDraft = false
+
+    private var threadID: String? {
+        if case .reply(let id, _) = mode { return id }
+        return nil
+    }
 
     var body: some View {
         NavigationStack {
             Form {
+                if model.unconfirmedBoardPost != nil { UnconfirmedPostSection() }
                 if case .newThread = mode {
                     Section("Subject") {
                         TextField("What’s the topic?", text: $subject)
@@ -207,15 +216,21 @@ struct MessageComposerView: View {
                 }
 
                 Section {
+                    Label("Draft saved privately on this device", systemImage: "lock.shield")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+
+                Section {
                     Label("Your post is sent to the existing MFL message board and will be visible to league members.", systemImage: "person.2")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
+            .disabled(model.isBusy)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Save & close") { dismiss() }.disabled(model.isBusy) }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Post") {
                         Task {
@@ -232,11 +247,31 @@ struct MessageComposerView: View {
                         }
                     }
                     .fontWeight(.semibold)
-                    .disabled(!isValid || model.isBusy || !model.canPostToBoard)
+                    .disabled(!isValid || model.isBusy || !model.canPostToBoard || model.unconfirmedBoardPost != nil)
                 }
             }
-            .onAppear { bodyFocused = true }
+            .onAppear {
+                guard !loadedDraft else { return }
+                let draft = model.boardDraft(threadID: threadID)
+                subject = draft.subject
+                bodyText = draft.body
+                loadedDraft = true
+                bodyFocused = true
+            }
+            .onChange(of: subject) { _, _ in saveDraft() }
+            .onChange(of: bodyText) { _, _ in saveDraft() }
+            .onChange(of: model.boardDraftRevision) { _, _ in
+                let saved = model.boardDraft(threadID: threadID)
+                subject = saved.subject
+                bodyText = saved.body
+            }
+            .interactiveDismissDisabled(model.isBusy)
         }
+    }
+
+    private func saveDraft() {
+        guard loadedDraft else { return }
+        model.saveBoardDraft(subject: subject, body: bodyText, threadID: threadID)
     }
 
     private var title: String {
@@ -250,5 +285,31 @@ struct MessageComposerView: View {
             return hasBody && !subject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         return hasBody
+    }
+}
+
+private struct UnconfirmedPostSection: View {
+    @Environment(AppModel.self) private var model
+    @State private var showingAcknowledgment = false
+
+    var body: some View {
+        Section("Post awaiting confirmation") {
+            if let pending = model.unconfirmedBoardPost {
+                Text(pending.subject ?? "Reply").font(.subheadline.bold())
+                Text(pending.body).font(.subheadline).lineLimit(3).foregroundStyle(.secondary)
+            }
+            Text("MFL may have received your last post. Sending is paused to prevent a duplicate, and your draft is kept.")
+                .font(.subheadline)
+            Button("Check MFL without sending again") { Task { await model.checkUnconfirmedPost() } }
+            if let url = model.workspace?.leagueURL { Link("Open the MFL board to verify", destination: url) }
+            Button("I checked MFL · resolve this warning") { showingAcknowledgment = true }
+        }
+        .disabled(model.isBusy)
+        .confirmationDialog("Allow another post?", isPresented: $showingAcknowledgment, titleVisibility: .visible) {
+            Button("I verified the board · allow posting") { Task { await model.acknowledgeUnconfirmedPost() } }
+            Button("Keep checking", role: .cancel) {}
+        } message: {
+            Text("Only continue after checking MFL. If the previous message already exists, do not send the saved draft again.")
+        }
     }
 }

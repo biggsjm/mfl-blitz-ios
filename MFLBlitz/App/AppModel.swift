@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import SwiftUI
+import MFLCore
 
 @MainActor
 @Observable
@@ -45,12 +46,28 @@ final class AppModel {
     var isDemo = false
     var notice: AppNotice?
     var lineupRevision = 0
+    var currentWeek = 1
+    var scoreRefreshError: String?
+    var lineupConflict: String?
+    var waiverConflict: String?
+    var waiverServerReadFailed = false
+    var unconfirmedBoardPost: PendingBoardPost?
+    var boardDraftRevision = 0
+    var isRestoringSession = false
+    private var didAttemptRestore = false
+    private var followsCurrentWeek = true
+    private var scoreRequestInFlight = false
+    private var fullRefreshInFlight = false
+    private var drafts = LeagueDrafts()
+    private let privateStore: any PrivateStore
+    private var serverWaivers: [WaiverClaim] = []
+    private var latestServerLineup: LineupSnapshot?
 
     var canEditLineup: Bool {
         isDemo || (LiveWritePolicy.lineupsEnabled && lineup.editState.allowsEditing)
     }
-    var canSubmitLineup: Bool { canEditLineup && lineup.editState.allowsEditing }
-    var canSubmitWaivers: Bool { isDemo || LiveWritePolicy.waiversEnabled }
+    var canSubmitLineup: Bool { !isBusy && !isRefreshing && canEditLineup && lineup.editState.allowsEditing && lineupConflict == nil && lineup.week == selectedWeek }
+    var canSubmitWaivers: Bool { !isBusy && !isRefreshing && waiverConflict == nil && (isDemo || (LiveWritePolicy.waiversEnabled && waivers.unavailableReason == nil)) }
     var canPostToBoard: Bool { isDemo || LiveWritePolicy.boardEnabled }
     var hasRestrictedLiveActions: Bool {
         !canEditLineup || !canSubmitWaivers || !canPostToBoard
@@ -63,10 +80,33 @@ final class AppModel {
     private var activeRefreshIDs: Set<Int> = []
     private var nextDemoMessageID = 0
 
-    init(repository: any LeagueRepository = LiveMFLRepository()) {
+    init(repository: any LeagueRepository = LiveMFLRepository(), privateStore: any PrivateStore = KeychainPrivateStore()) {
         self.repository = repository
+        self.privateStore = privateStore
         if repository is DemoLeagueRepository {
             installDemoContent()
+        }
+    }
+
+    func restoreSession() async {
+        guard !didAttemptRestore, phase == .onboarding, !isDemo else { return }
+        didAttemptRestore = true
+        isRestoringSession = true
+        isBusy = true
+        defer { isRestoringSession = false; isBusy = false }
+        let generation = sessionGeneration
+        do {
+            guard let restored = try await repository.restoreSession(), generation == sessionGeneration else { return }
+            workspace = restored
+            selectedWeek = restored.week
+            currentWeek = restored.week
+            try restoreDrafts()
+            phase = .signedIn
+            unconfirmedBoardPost = try await repository.pendingBoardPost()
+            await refreshAll(showSpinner: false)
+        } catch {
+            guard generation == sessionGeneration else { return }
+            notice = .error("Couldn’t restore your MFL session. Sign in to reconnect. Your saved drafts are kept for the same team. \(error.localizedDescription)")
         }
     }
 
@@ -78,6 +118,7 @@ final class AppModel {
         isBusy = true
         defer { isBusy = false }
         notice = nil
+        drafts = LeagueDrafts()
         installDemoContent()
         phase = .signedIn
     }
@@ -102,8 +143,12 @@ final class AppModel {
 
             workspace = authenticatedWorkspace
             selectedWeek = authenticatedWorkspace.week
+            currentWeek = authenticatedWorkspace.week
+            followsCurrentWeek = true
             isDemo = activeRepository is DemoLeagueRepository
             resetContent(for: selectedWeek)
+            try restoreDrafts()
+            unconfirmedBoardPost = try await activeRepository.pendingBoardPost()
             // Authentication is complete. Enter the app now; optional league
             // sections load independently and may legitimately be unavailable
             // during the preseason.
@@ -117,6 +162,9 @@ final class AppModel {
     }
 
     func refreshAll(showSpinner: Bool = true) async {
+        guard !fullRefreshInFlight, !isBusy || lineup.players.isEmpty || isRestoringSession else { return }
+        fullRefreshInFlight = true
+        defer { fullRefreshInFlight = false }
         let refreshID = showSpinner ? beginRefreshing() : nil
         defer {
             if let refreshID { endRefreshing(refreshID) }
@@ -126,51 +174,60 @@ final class AppModel {
         let generation = sessionGeneration
         let requestedWeek = selectedWeek
 
-        async let newScores: ScoresSnapshot? = try? await activeRepository.loadScores(week: requestedWeek)
-        async let newLineup: LineupSnapshot? = try? await activeRepository.loadLineup(week: requestedWeek)
-        async let newWaivers: WaiverSnapshot? = try? await activeRepository.loadWaivers()
-        async let newStandings: [StandingRow]? = try? await activeRepository.loadStandings()
-        async let newBoard: [BoardThread]? = try? await activeRepository.loadBoard()
+        async let newScores = Self.capture { try await activeRepository.refreshScores(week: requestedWeek) }
+        async let newLineup = Self.capture { try await activeRepository.loadLineup(week: requestedWeek) }
+        async let newWaivers = Self.capture { try await activeRepository.loadWaivers() }
+        async let newStandings = Self.capture { try await activeRepository.loadStandings() }
+        async let newBoard = Self.capture { try await activeRepository.loadBoard() }
         let values = await (newScores, newLineup, newWaivers, newStandings, newBoard)
 
+        guard generation == sessionGeneration else { return }
+        for error in [values.0.error, values.1.error, values.2.error, values.3.error, values.4.error].compactMap({ $0 }) {
+            handleSessionError(error)
+        }
         guard generation == sessionGeneration else { return }
 
         var failures: [String] = []
         if selectedWeek == requestedWeek {
-            if let scores = values.0 {
+            if let scores = values.0.value {
                 self.scores = scores
+                scoreRefreshError = nil
             } else {
+                scoreRefreshError = "Scores may be out of date. Pull to retry."
                 failures.append("scores")
             }
-            if let lineup = values.1 {
-                self.lineup = lineup
+            if let lineup = values.1.value {
+                mergeLineup(lineup)
                 lineupRevision &+= 1
             } else {
                 failures.append("lineup")
             }
         }
-        if let waivers = values.2 {
-            self.waivers = waivers
+        if let waivers = values.2.value {
+            mergeWaivers(waivers)
         } else {
             failures.append("waivers")
         }
-        if let standings = values.3 {
+        if let standings = values.3.value {
             self.standings = standings
         } else {
             failures.append("standings")
         }
-        if let board = values.4 {
+        if let board = values.4.value {
             boardThreads = board
         } else {
             failures.append("the message board")
         }
 
-        if !failures.isEmpty {
+        if !failures.isEmpty && !Task.isCancelled {
             notice = .error(refreshFailureMessage(for: failures))
         }
     }
 
-    func refreshScores() async {
+    func refreshScores(silent: Bool = false) async {
+        guard !scoreRequestInFlight, !fullRefreshInFlight, !isBusy else { return }
+        scoreRequestInFlight = true
+        defer { scoreRequestInFlight = false }
         let refreshID = beginRefreshing()
         defer { endRefreshing(refreshID) }
 
@@ -182,15 +239,22 @@ final class AppModel {
             let refreshedScores = try await activeRepository.refreshScores(week: requestedWeek)
             guard generation == sessionGeneration, selectedWeek == requestedWeek else { return }
             scores = refreshedScores
+            scoreRefreshError = nil
         } catch {
             guard generation == sessionGeneration, selectedWeek == requestedWeek else { return }
-            notice = .error("Couldn’t refresh live scores. Pull to try again.")
+            handleSessionError(error)
+            scoreRefreshError = "Scores may be out of date. Pull to retry."
+            if !silent { notice = .error(error.localizedDescription) }
         }
     }
 
-    func changeWeek(to week: Int) async {
-        guard week != selectedWeek else { return }
+    func changeWeek(to week: Int, followingCurrent: Bool = false) async {
+        guard !isBusy, (1...21).contains(week), week != selectedWeek else { return }
+        followsCurrentWeek = followingCurrent
         selectedWeek = week
+        lineup = emptyLineup(for: week)
+        scores = emptyScores(for: week)
+        lineupConflict = nil
         weekLoadGeneration &+= 1
         let requestGeneration = weekLoadGeneration
         let generation = sessionGeneration
@@ -214,7 +278,7 @@ final class AppModel {
             failures.append("scores")
         }
         if let lineup = values.1 {
-            self.lineup = lineup
+            mergeLineup(lineup)
         } else {
             self.lineup = emptyLineup(for: week)
             failures.append("lineup")
@@ -227,19 +291,21 @@ final class AppModel {
     }
 
     func toggleStarter(_ playerID: String) {
-        guard canEditLineup,
+        guard !isBusy, canEditLineup,
               let index = lineup.players.firstIndex(where: { $0.id == playerID }),
               !lineup.players[index].isLocked else { return }
         lineup.players[index].isStarter.toggle()
         if lineup.players[index].isStarter {
             lineup.tiebreakerPlayerIDs.removeAll(where: { $0 == playerID })
         }
+        saveLineupDraft()
     }
 
     func setTiebreaker(_ playerID: String) {
-        guard canEditLineup else { return }
+        guard !isBusy, canEditLineup else { return }
         guard !playerID.isEmpty else {
             lineup.tiebreakerPlayerIDs = []
+            saveLineupDraft()
             return
         }
         guard let player = lineup.players.first(where: { $0.id == playerID }),
@@ -248,6 +314,7 @@ final class AppModel {
               player.injuryStatus != .injuredReserve
         else { return }
         lineup.tiebreakerPlayerIDs = [playerID]
+        saveLineupDraft()
     }
 
     var lineupValidationMessage: String? {
@@ -308,6 +375,11 @@ final class AppModel {
             if lineup.week == submittedLineup.week {
                 lineup.lastSubmitted = Date()
                 lineup.serverStarterPlayerIDs = Set(submittedLineup.starters.map(\.id))
+                drafts.lineups[submittedLineup.week] = LineupDraft(
+                    baseline: lineup.serverStarterPlayerIDs, starters: lineup.serverStarterPlayerIDs,
+                    tiebreakers: submittedLineup.tiebreakerPlayerIDs,
+                    submittedTiebreakers: submittedLineup.tiebreakerPlayerIDs)
+                persistDrafts()
             }
             if isDemo {
                 notice = .success("Demo lineup saved on this device.")
@@ -326,11 +398,13 @@ final class AppModel {
         } catch {
             guard generation == sessionGeneration else { return nil }
             notice = .error(error.localizedDescription)
+            handleSessionError(error)
             return nil
         }
     }
 
     func upsertClaim(_ claim: WaiverClaim) {
+        guard !isBusy else { return }
         var updatedClaim = claim
         if let index = waivers.claims.firstIndex(where: { $0.id == claim.id }) {
             let previousRound = waivers.claims[index].round
@@ -345,9 +419,11 @@ final class AppModel {
             waivers.claims.append(updatedClaim)
         }
         normalizeClaimPriorities()
+        saveWaiverDraft()
     }
 
     func removeClaims(inRound round: Int, at offsets: IndexSet) {
+        guard !isBusy else { return }
         let orderedIDs = waivers.claims
             .filter { $0.round == round }
             .sorted(using: KeyPathComparator(\.priority))
@@ -355,9 +431,11 @@ final class AppModel {
         let removedIDs = Set(offsets.compactMap { orderedIDs.indices.contains($0) ? orderedIDs[$0] : nil })
         waivers.claims.removeAll(where: { removedIDs.contains($0.id) })
         normalizeClaimPriorities()
+        saveWaiverDraft()
     }
 
     func moveClaims(inRound round: Int, from offsets: IndexSet, to destination: Int) {
+        guard !isBusy else { return }
         var ordered = waivers.claims
             .filter { $0.round == round }
             .sorted(using: KeyPathComparator(\.priority))
@@ -369,21 +447,22 @@ final class AppModel {
             waivers.claims[index].priority = priorityByID[waivers.claims[index].id] ?? waivers.claims[index].priority
         }
         normalizeClaimPriorities()
+        saveWaiverDraft()
     }
 
     @discardableResult
     func submitWaivers() async -> Bool {
         guard canSubmitWaivers else {
-            notice = .error("Live waiver submission remains in safety preview while its multi-round replacement flow is validated.")
+            notice = .error(waiverConflict ?? waivers.unavailableReason ?? "Wait for the current request to finish.")
             return false
         }
-        guard !waivers.claims.isEmpty else { return false }
+        guard hasWaiverChanges else { return false }
         guard waivers.maxRounds > 0,
               waivers.claims.allSatisfy({ (1 ... waivers.maxRounds).contains($0.round) }) else {
             notice = .error("Every bid must belong to one of this league’s configured waiver rounds.")
             return false
         }
-        guard waivers.claims.allSatisfy({ $0.bid <= waivers.availableBudget && $0.bid >= 0 }) else {
+        guard waivers.claims.allSatisfy({ $0.bid <= waivers.availableBudget && $0.bid >= waivers.minimumBid }) else {
             notice = .error("Every bid must fit inside your available FAAB budget.")
             return false
         }
@@ -407,12 +486,25 @@ final class AppModel {
         isBusy = true
         defer { isBusy = false }
         do {
-            try await activeRepository.submitWaivers(submittedClaims)
+            try await activeRepository.submitWaivers(submittedClaims, replacing: drafts.waiverBaseline)
             guard generation == sessionGeneration else { return false }
-            notice = .success(isDemo ? "Demo waiver queue saved." : "Waiver requests submitted to MFL.")
+            serverWaivers = submittedClaims
+            drafts.waiverClaims = nil
+            drafts.waiverBaseline = submittedClaims
+            persistDrafts()
+            notice = .success(isDemo ? "Demo waiver queue saved." : "MFL confirmed every saved waiver round, including cancellations.")
             return true
         } catch {
             guard generation == sessionGeneration else { return false }
+            // A round may have saved before the connection failed. Preserve the
+            // desired queue, fetch reality, and require an explicit comparison.
+            if !isDemo {
+                if let refreshed = try? await activeRepository.loadWaivers(), generation == sessionGeneration {
+                    mergeWaivers(refreshed)
+                } else { waiverServerReadFailed = true }
+                waiverConflict = "The save stopped. Some rounds may already be on MFL. Compare the saved queue below before continuing."
+            }
+            handleSessionError(error)
             notice = .error(error.localizedDescription)
             return false
         }
@@ -420,8 +512,8 @@ final class AppModel {
 
     @discardableResult
     func post(subject: String?, body: String, threadID: String? = nil) async -> Bool {
-        guard canPostToBoard else {
-            notice = .error("Live message posting remains in safety preview while server confirmation is validated.")
+        guard canPostToBoard, !isBusy, !isRefreshing, unconfirmedBoardPost == nil else {
+            notice = .error("Resolve the previous unconfirmed post before sending another message.")
             return false
         }
         let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -441,6 +533,9 @@ final class AppModel {
         do {
             try await activeRepository.postMessage(subject: trimmedSubject, body: trimmedBody, threadID: threadID)
             guard generation == sessionGeneration else { return false }
+            drafts.board.removeValue(forKey: threadID ?? "new")
+            persistDrafts()
+            boardDraftRevision &+= 1
 
             var refreshedAfterPost = true
             if isDemo {
@@ -475,6 +570,8 @@ final class AppModel {
             return true
         } catch {
             guard generation == sessionGeneration else { return false }
+            unconfirmedBoardPost = try? await activeRepository.pendingBoardPost()
+            handleSessionError(error)
             notice = .error(error.localizedDescription)
             return false
         }
@@ -483,8 +580,10 @@ final class AppModel {
     func loadThread(id: String) async {
         if isDemo, id.hasPrefix("demo-local-thread-") { return }
 
+        let generation = sessionGeneration
         do {
             let loaded = try await repository.loadThread(id: id)
+            guard generation == sessionGeneration else { return }
             if let index = boardThreads.firstIndex(where: { $0.id == id }) {
                 boardThreads[index] = loaded
             }
@@ -494,6 +593,14 @@ final class AppModel {
     }
 
     func signOut() async {
+        guard !isBusy else { return }
+        if !isDemo, let workspace {
+            do {
+                try privateStore.remove("drafts.\(workspace.storageScope)")
+                try privateStore.remove("board.pending.\(workspace.storageScope)")
+                try privateStore.remove("session")
+            } catch { notice = .error(error.localizedDescription); return }
+        }
         let signedInRepository = repository
         sessionGeneration &+= 1
         weekLoadGeneration &+= 1
@@ -504,6 +611,8 @@ final class AppModel {
         activeRefreshIDs.removeAll()
         isRefreshing = false
         nextDemoMessageID = 0
+        drafts = LeagueDrafts()
+        unconfirmedBoardPost = nil
         resetContent(for: selectedWeek)
         repository = LiveMFLRepository()
         phase = .onboarding
@@ -540,6 +649,10 @@ final class AppModel {
     }
 
     private func resetContent(for week: Int) {
+        lineupConflict = nil
+        waiverConflict = nil
+        serverWaivers = []
+        latestServerLineup = nil
         scores = emptyScores(for: week)
         lineup = emptyLineup(for: week)
         waivers = WaiverSnapshot(
@@ -561,7 +674,12 @@ final class AppModel {
         selectedWeek = SampleData.workspace.week
         scores = SampleData.scores
         lineup = SampleData.lineup
+        lineup.serverStarterPlayerIDs = Set(lineup.starters.map(\.id))
+        drafts.lineups[lineup.week] = LineupDraft(baseline: lineup.serverStarterPlayerIDs,
+            starters: lineup.serverStarterPlayerIDs, tiebreakers: lineup.tiebreakerPlayerIDs,
+            submittedTiebreakers: lineup.tiebreakerPlayerIDs)
         waivers = SampleData.waivers
+        drafts.waiverBaseline = waivers.claims
         standings = SampleData.standings
         boardThreads = SampleData.board
         nextDemoMessageID = 0
@@ -630,5 +748,193 @@ final class AppModel {
             ),
             at: 0
         )
+    }
+}
+
+extension AppModel {
+    private struct ReadResult<Value: Sendable>: Sendable {
+        var value: Value?
+        var error: (any Error)?
+    }
+
+    private nonisolated static func capture<Value: Sendable>(
+        _ operation: @Sendable () async throws -> Value
+    ) async -> ReadResult<Value> {
+        do { return ReadResult(value: try await operation()) }
+        catch { return ReadResult(error: error) }
+    }
+    var hasLineupChanges: Bool {
+        guard let draft = drafts.lineups[lineup.week] else { return false }
+        return draft.starters != draft.baseline || draft.tiebreakers != draft.submittedTiebreakers
+    }
+
+    static func sameWaivers(_ lhs: [WaiverClaim], _ rhs: [WaiverClaim]) -> Bool {
+        func signature(_ claims: [WaiverClaim]) -> [String] {
+            claims.sorted { ($0.round, $0.priority) < ($1.round, $1.priority) }.map {
+                "\($0.round)|\($0.priority)|\($0.player.id)|\($0.dropPlayerID ?? "0000")|\($0.bid)"
+            }
+        }
+        return signature(lhs) == signature(rhs)
+    }
+
+    var hasWaiverChanges: Bool { !Self.sameWaivers(waivers.claims, drafts.waiverBaseline) }
+    var savedWaiverClaims: [WaiverClaim] { serverWaivers }
+
+    private func restoreDrafts() throws {
+        drafts = LeagueDrafts()
+        guard !isDemo, let workspace else { return }
+        drafts = try privateStore.decode(LeagueDrafts.self, key: "drafts.\(workspace.storageScope)") ?? LeagueDrafts()
+    }
+
+    private func persistDrafts() {
+        guard !isDemo, let workspace else { return }
+        do { try privateStore.encode(drafts, key: "drafts.\(workspace.storageScope)") }
+        catch { notice = .error(error.localizedDescription) }
+    }
+
+    private func saveLineupDraft() {
+        var draft = drafts.lineups[lineup.week] ?? LineupDraft(
+            baseline: lineup.serverStarterPlayerIDs, starters: [], tiebreakers: [])
+        draft.starters = Set(lineup.starters.map(\.id))
+        draft.tiebreakers = lineup.tiebreakerPlayerIDs
+        drafts.lineups[lineup.week] = draft
+        persistDrafts()
+    }
+
+    private func saveWaiverDraft() {
+        drafts.waiverClaims = waivers.claims
+        persistDrafts()
+    }
+
+    private func mergeLineup(_ fresh: LineupSnapshot) {
+        guard !isBusy || isRestoringSession || lineup.players.isEmpty else { return }
+        latestServerLineup = fresh
+        lineup = fresh
+        lineupConflict = nil
+        let saved = drafts.lineups[fresh.week]
+        let dirty = saved.map { $0.starters != $0.baseline || $0.tiebreakers != $0.submittedTiebreakers } ?? false
+        guard let saved, dirty else {
+            let retained = saved?.tiebreakers.filter { id in fresh.bench.contains { $0.id == id } } ?? []
+            lineup.tiebreakerPlayerIDs = retained
+            drafts.lineups[fresh.week] = LineupDraft(baseline: fresh.serverStarterPlayerIDs,
+                starters: Set(fresh.starters.map(\.id)), tiebreakers: retained,
+                submittedTiebreakers: retained)
+            persistDrafts()
+            return
+        }
+        let rosterIDs = Set(fresh.players.map(\.id))
+        if fresh.serverStarterPlayerIDs != saved.baseline || !saved.starters.isSubset(of: rosterIDs) {
+            lineupConflict = "Your MFL lineup or roster changed. Your draft is kept, but review the current MFL lineup before starting a new edit."
+        }
+        for index in lineup.players.indices {
+            let desired = saved.starters.contains(lineup.players[index].id)
+            if lineup.players[index].isLocked && desired != lineup.players[index].isStarter {
+                lineupConflict = "A player in your draft is now locked. Load the current MFL lineup before making more changes."
+            } else { lineup.players[index].isStarter = desired }
+        }
+        lineup.tiebreakerPlayerIDs = saved.tiebreakers
+    }
+
+    func discardLineupDraft() {
+        guard !isBusy, let fresh = latestServerLineup else { return }
+        drafts.lineups.removeValue(forKey: fresh.week)
+        mergeLineup(fresh)
+        lineupRevision &+= 1
+        persistDrafts()
+    }
+
+    private func mergeWaivers(_ fresh: WaiverSnapshot) {
+        waiverServerReadFailed = false
+        serverWaivers = fresh.claims
+        waivers = fresh
+        if let desired = drafts.waiverClaims,
+           !Self.sameWaivers(desired, drafts.waiverBaseline) {
+            waivers.claims = desired
+            if !Self.sameWaivers(fresh.claims, drafts.waiverBaseline) {
+                waiverConflict = "MFL’s saved requests changed while you had a draft. Compare both queues before continuing."
+            }
+        } else {
+            drafts.waiverBaseline = fresh.claims
+            drafts.waiverClaims = nil
+            waiverConflict = nil
+        }
+        persistDrafts()
+    }
+
+    /// Called only after the user reviews the server queue, never as an automatic retry.
+    func resolveWaiverConflict(keepDraft: Bool) {
+        guard !isBusy, !waiverServerReadFailed else { return }
+        if !keepDraft { waivers.claims = serverWaivers; drafts.waiverClaims = nil }
+        drafts.waiverBaseline = serverWaivers
+        waiverConflict = nil
+        persistDrafts()
+    }
+
+    func boardDraft(threadID: String?) -> BoardDraft { drafts.board[threadID ?? "new"] ?? BoardDraft() }
+
+    func saveBoardDraft(subject: String, body: String, threadID: String?) {
+        drafts.board[threadID ?? "new"] = BoardDraft(subject: subject, body: body)
+        persistDrafts()
+    }
+
+    func checkUnconfirmedPost() async {
+        guard !isBusy else { return }
+        isBusy = true
+        defer { isBusy = false }
+        let generation = sessionGeneration
+        do {
+            if try await repository.reconcileBoardPost(), generation == sessionGeneration {
+                drafts.board.removeValue(forKey: unconfirmedBoardPost?.threadID ?? "new")
+                unconfirmedBoardPost = nil
+                persistDrafts()
+                boardDraftRevision &+= 1
+                if let refreshed = try? await repository.loadBoard(), generation == sessionGeneration {
+                    boardThreads = refreshed
+                }
+                notice = .success("MFL confirmed your post. It was not sent again.")
+            } else if generation == sessionGeneration {
+                notice = .error("The post is not confirmed yet. Check the MFL board before allowing another send.")
+            }
+        } catch { if generation == sessionGeneration { notice = .error(error.localizedDescription) } }
+    }
+
+    func acknowledgeUnconfirmedPost() async {
+        guard !isBusy else { return }
+        do { try await repository.acknowledgeUnconfirmedPost(); unconfirmedBoardPost = nil }
+        catch { notice = .error(error.localizedDescription) }
+    }
+
+    func refreshForForeground() async {
+        guard phase == .signedIn, !isDemo, !isBusy else { return }
+        let generation = sessionGeneration
+        do {
+            let latest = try await repository.currentWeek()
+            guard generation == sessionGeneration, !Task.isCancelled else { return }
+            if let refreshedWorkspace = try? await repository.loadWorkspace(), generation == sessionGeneration {
+                workspace = refreshedWorkspace
+            }
+            guard generation == sessionGeneration else { return }
+            currentWeek = latest
+            if followsCurrentWeek && selectedWeek != latest {
+                await changeWeek(to: latest, followingCurrent: true)
+            }
+        } catch {
+            guard generation == sessionGeneration else { return }
+            handleSessionError(error)
+        }
+        guard phase == .signedIn, !Task.isCancelled else { return }
+        await refreshAll()
+    }
+
+    private func handleSessionError(_ error: any Error) {
+        let expired: Bool
+        if case MFLCoreError.unauthorized = error { expired = true }
+        else if case RepositoryError.missingSession = error { expired = true }
+        else { expired = false }
+        guard expired else { return }
+        persistDrafts()
+        sessionGeneration &+= 1
+        phase = .onboarding
+        notice = .error("Your MFL session expired. Sign in again; your drafts are kept for this team.")
     }
 }

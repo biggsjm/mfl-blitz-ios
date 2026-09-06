@@ -14,6 +14,7 @@ struct SettingsView: View {
                     LabeledContent("Team", value: model.workspace?.franchiseName ?? "—")
                     LabeledContent("Season", value: model.workspace.map { String($0.season) } ?? "—")
                     LabeledContent("League ID", value: model.workspace?.leagueID ?? "—")
+                    LabeledContent("Build", value: "\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"))")
                 } header: {
                     Text("Connected league")
                 }
@@ -21,7 +22,7 @@ struct SettingsView: View {
                 Section("Privacy") {
                     Label("No ads or cross-app tracking", systemImage: "hand.raised.fill")
                     Label("Password is never stored", systemImage: "key.fill")
-                    Label("Session ends when the app closes", systemImage: "lock.shield.fill")
+                    Label("Session and drafts protected in this device’s Keychain", systemImage: "lock.shield.fill")
                     Link(
                         "Read the privacy policy",
                         destination: URL(string: "https://github.com/biggsjm/mfl-blitz-ios/blob/main/PRIVACY.md")!
@@ -39,14 +40,13 @@ struct SettingsView: View {
                             Label("Lineup changes are unavailable this week", systemImage: "lock.shield.fill")
                                 .foregroundStyle(.orange)
                         }
-                        Label("Waiver submissions are unavailable", systemImage: "lock.shield.fill")
-                            .foregroundStyle(.orange)
-                        Label("Message-board posting is unavailable", systemImage: "lock.shield.fill")
-                            .foregroundStyle(.orange)
+                        Label(model.waivers.unavailableReason == nil ? "Blind-bid submissions are enabled" : "Use MFL for this waiver format or window", systemImage: model.waivers.unavailableReason == nil ? "checkmark.circle.fill" : "info.circle")
+                        Label("Message-board posting is enabled", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
                     } header: {
                         Text("Connected league access")
                     } footer: {
-                        Text("Saved starters are confirmed with MFL after submission. MFL does not expose saved tiebreakers for confirmation. Waiver and board writes remain disabled while those flows are verified.")
+                        Text("Saved starters, bid rounds, and posts are read back from MFL. MFL does not expose saved tiebreakers for confirmation. Interrupted writes are never automatically retried.")
                     }
                 }
 
@@ -88,7 +88,7 @@ struct SettingsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("The in-memory MFL session will end. Your league data stays on MyFantasyLeague.")
+                Text("This removes this team’s saved session and local drafts from this device. Submitted league data stays on MyFantasyLeague.")
             }
         }
     }

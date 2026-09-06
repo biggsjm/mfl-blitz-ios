@@ -16,6 +16,15 @@ struct RootView: View {
             }
         }
         .animation(reduceMotion ? nil : .snappy, value: model.phase)
+        .task { await model.restoreSession() }
+        .overlay {
+            if model.isRestoringSession {
+                ZStack {
+                    Color(uiColor: .systemBackground).ignoresSafeArea()
+                    ProgressView("Reconnecting to MFL…")
+                }
+            }
+        }
         .alert(
             model.notice.map { notice in
                 switch notice {

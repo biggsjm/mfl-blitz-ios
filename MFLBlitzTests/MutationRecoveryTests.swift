@@ -1,0 +1,189 @@
+import Foundation
+import MFLCore
+import Testing
+@testable import MFLBlitz
+
+/// Stateful synthetic MFL server. No network and no real account data.
+actor MutationFixtureTransport: MFLHTTPTransport {
+    var rounds = [1: "101_5_0000", 2: "102_6_0000"]
+    var imports: [String] = []
+    var failRound: Int?
+    var boardTimeout = false
+    var hidePost = false
+    var postedBody: String?
+    var postedSubject: String?
+    var postedThreadID: String?
+    var boardAuthor = "0001"
+    var currentWeek = 2
+    var completedWeek = 1
+    var membership = "0001"
+
+    func configure(failRound: Int? = nil, boardTimeout: Bool = false, hidePost: Bool = false, author: String = "0001") {
+        self.failRound = failRound; self.boardTimeout = boardTimeout; self.hidePost = hidePost; boardAuthor = author
+    }
+    func revealPost() { hidePost = false }
+    func changeMembership() { membership = "0002" }
+
+    func send(_ request: URLRequest) async throws -> MFLHTTPResponse {
+        let components = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!
+        let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        var formComponents = URLComponents()
+        formComponents.percentEncodedQuery = String(data: request.httpBody ?? Data(), encoding: .utf8)?.replacingOccurrences(of: "+", with: "%20")
+        let form = Dictionary(uniqueKeysWithValues: (formComponents.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        let type = query["TYPE"] ?? form["TYPE"] ?? ""
+        func response(_ value: [String: Any]) throws -> MFLHTTPResponse {
+            MFLHTTPResponse(data: try JSONSerialization.data(withJSONObject: value), statusCode: 200, url: request.url)
+        }
+        if request.url!.path.contains("mfl_status") {
+            #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+            return try response(["mfl_status": ["year": "2026", "weeks": ["CurrentWeek": currentWeek,
+                "LineupWeek": currentWeek, "CompletedWeek": completedWeek, "LiveScoringWeek": currentWeek]]])
+        }
+        if request.httpMethod == "POST" {
+            imports.append(type)
+            if type == "blindBidWaiverRequest" {
+                let round = Int(form["ROUND"] ?? "")!
+                if failRound == round { throw MFLCoreError.transport("Synthetic dropped connection") }
+                let picks = form["PICKS"] ?? ""
+                if picks.isEmpty { rounds.removeValue(forKey: round) } else { rounds[round] = picks }
+            } else if type == "messageBoard" {
+                postedBody = form["BODY"]; postedSubject = form["SUBJECT"]; postedThreadID = form["THREAD"]
+                if boardTimeout { throw MFLCoreError.transport("Synthetic timeout after save") }
+            }
+            return try response(["status": "OK"])
+        }
+        switch type {
+        case "myleagues":
+            return try response(["leagues": ["league": [["league_id": "41333", "franchise_id": membership,
+                "url": "https://www45.myfantasyleague.com/2026/home/41333"]]]])
+        case "league":
+            return try response(["league": ["id": "41333", "name": "Fixture League", "baseURL": "https://www45.myfantasyleague.com",
+                "startWeek": "1", "precision": "2", "bbidConditional": "Yes", "currentWaiverType": "BBID_FCFS",
+                "maxWaiverRounds": "8", "bbidMinimum": "1", "bbidIncrement": "1", "bbidSeasonLimit": "100",
+                "franchises": ["franchise": [["id": "0001", "name": "Fixture One", "bbidAvailableBalance": "100"],
+                                              ["id": "0002", "name": "Fixture Two"]]]]])
+        case "freeAgents":
+            return try response(["freeAgents": ["leagueUnit": ["unit": "LEAGUE", "player": [["id": "101"], ["id": "102"]]]]])
+        case "players":
+            return try response(["players": ["player": [["id": "101", "name": "One, Player", "position": "WR", "team": "CHI"],
+                                                         ["id": "102", "name": "Two, Player", "position": "RB", "team": "GB"]]]])
+        case "rosters":
+            return try response(["rosters": ["franchise": ["id": "0001", "player": [["id": "201", "status": "ROSTER"]]]]])
+        case "pendingWaivers":
+            return try response(["pendingWaivers": ["waiverRequest": rounds.keys.sorted().map {
+                ["round": String($0), "picks": rounds[$0]!, "franchise_id": "0001"]
+            }]])
+        case "calendar": return try response(["calendar": ["event": []]])
+        case "transactions": return try response(["transactions": ["transaction": []]])
+        case "weeklyResults":
+            return try response(["weeklyResults": ["week": "1", "matchup": ["franchise": [
+                ["id": "0001", "score": "103.25"], ["id": "0002", "score": "100.75"]]]]])
+        case "messageBoard":
+            let threads: [[String: String]] = postedBody != nil && !hidePost && postedThreadID == nil
+                ? [["id": "new-thread", "subject": postedSubject ?? "", "lastPostBy": boardAuthor]] : []
+            return try response(["messageBoard": ["thread": threads]])
+        case "messageBoardThread":
+            var messages: [[String: String]] = []
+            if postedBody != nil && !hidePost {
+                messages = [["id": "new-message", "franchise_id": boardAuthor, "body": postedBody!,
+                    "timestamp": String(Int(Date().timeIntervalSince1970))]]
+            }
+            return try response(["messageBoardThread": ["id": query["THREAD"] ?? "new-thread", "subject": postedSubject ?? "", "message": messages]])
+        default: throw MFLCoreError.invalidRequest("Unexpected fixture endpoint \(type)")
+        }
+    }
+}
+
+struct MutationRecoveryTests {
+    private func connected(_ transport: MutationFixtureTransport, store: MemoryPrivateStore = MemoryPrivateStore()) async throws -> LiveMFLRepository {
+        try store.encode(SavedSession(cookie: "synthetic-cookie", season: 2026, leagueID: "41333", franchiseID: "0001"), key: "session")
+        let repository = LiveMFLRepository(privateStore: store, transport: transport, requestInterval: .zero)
+        _ = try await repository.restoreSession()
+        return repository
+    }
+
+    @Test("Restoring authenticates membership and uses the current week, not league start week")
+    func restoreAndFinalScores() async throws {
+        let repository = try await connected(MutationFixtureTransport())
+        #expect(try await repository.loadWorkspace().week == 2)
+        let scores = try await repository.refreshScores(week: 1)
+        #expect(scores.matchups[0].away.score == 103.25)
+        #expect(scores.matchups[0].status == .final)
+        #expect(scores.scorePrecision == 2)
+    }
+
+    @Test("Restored sessions cannot silently move drafts to a different franchise")
+    func membershipChange() async throws {
+        let transport = MutationFixtureTransport()
+        await transport.changeMembership()
+        await #expect(throws: (any Error).self) { try await connected(transport) }
+    }
+
+    @Test("Clearing all bids explicitly clears and reads back every saved round")
+    func clearAll() async throws {
+        let transport = MutationFixtureTransport()
+        let repository = try await connected(transport)
+        let saved = try await repository.loadWaivers()
+        #expect(saved.claims.count == 2)
+        try await repository.submitWaivers([], replacing: saved.claims)
+        #expect(await transport.rounds.isEmpty)
+        #expect(await transport.imports.count == 2)
+    }
+
+    @Test("Partial waiver saves stop without retry; stale-baseline retries are refused")
+    func partialSave() async throws {
+        let transport = MutationFixtureTransport()
+        let repository = try await connected(transport)
+        let saved = try await repository.loadWaivers()
+        var desired = saved.claims
+        desired[0].bid = 10; desired[1].bid = 11
+        await transport.configure(failRound: 2)
+        await #expect(throws: (any Error).self) { try await repository.submitWaivers(desired, replacing: saved.claims) }
+        #expect(await transport.imports.count == 2)
+        #expect(await transport.rounds[1] == "101_10_0000")
+        #expect(await transport.rounds[2] == "102_6_0000")
+        await #expect(throws: (any Error).self) { try await repository.submitWaivers(desired, replacing: saved.claims) }
+        #expect(await transport.imports.count == 2)
+    }
+
+    @Test("A new thread saved before timeout is verified by owner and full body without resending")
+    func boardTimeout() async throws {
+        let transport = MutationFixtureTransport()
+        let repository = try await connected(transport)
+        await transport.configure(boardTimeout: true)
+        try await repository.postMessage(subject: "Fixture subject", body: "Fixture body", threadID: nil)
+        #expect(await transport.imports == ["messageBoard"])
+        #expect(try await repository.pendingBoardPost() == nil)
+    }
+
+    @Test("An ambiguous reply stays blocked across repository recreation until readback confirms it")
+    func ambiguousReply() async throws {
+        let transport = MutationFixtureTransport()
+        let store = MemoryPrivateStore()
+        let repository = try await connected(transport, store: store)
+        await transport.configure(boardTimeout: true, hidePost: true)
+        await #expect(throws: (any Error).self) {
+            try await repository.postMessage(subject: nil, body: "Fixture reply", threadID: "existing-thread")
+        }
+        #expect(try await repository.pendingBoardPost() != nil)
+        let restored = try await connected(transport, store: store)
+        await #expect(throws: (any Error).self) {
+            try await restored.postMessage(subject: nil, body: "Fixture reply", threadID: "existing-thread")
+        }
+        #expect(await transport.imports.count == 1)
+        await transport.revealPost()
+        #expect(try await restored.reconcileBoardPost())
+        #expect(try await restored.pendingBoardPost() == nil)
+    }
+
+    @Test("A matching subject and body from another owner is not confirmation")
+    func wrongOwner() async throws {
+        let transport = MutationFixtureTransport()
+        let repository = try await connected(transport)
+        await transport.configure(author: "0002")
+        await #expect(throws: (any Error).self) {
+            try await repository.postMessage(subject: "Same subject", body: "Same body", threadID: nil)
+        }
+        #expect(try await repository.pendingBoardPost() != nil)
+    }
+}

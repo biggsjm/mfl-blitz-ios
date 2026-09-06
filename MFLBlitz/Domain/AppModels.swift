@@ -15,6 +15,8 @@ struct LeagueWorkspace: Equatable, Sendable {
     let franchiseName: String
     let baseURL: URL
     let week: Int
+    var lineupWeek: Int? = nil
+    var weekIsConfirmed: Bool = true
 }
 
 struct ScoresSnapshot: Equatable, Sendable {
@@ -181,7 +183,7 @@ struct LineupPlayer: Identifiable, Equatable, Sendable {
     var gameTime: Date
 }
 
-enum InjuryStatus: String, Equatable, Sendable {
+enum InjuryStatus: String, Codable, Equatable, Sendable {
     case questionable = "Q"
     case doubtful = "D"
     case out = "OUT"
@@ -204,9 +206,20 @@ struct WaiverSnapshot: Equatable, Sendable {
     var candidates: [WaiverCandidate]
     var claims: [WaiverClaim]
     var processesAt: Date?
+    var minimumBid: Decimal = 0
+    var unavailableReason: String? = "Refresh waivers to check availability."
+    var results: [WaiverResult] = []
+    var resultsUnavailable = false
 }
 
-struct WaiverCandidate: Identifiable, Equatable, Sendable {
+struct WaiverResult: Identifiable, Equatable, Sendable {
+    var id: String
+    var franchise: String
+    var description: String
+    var date: Date?
+}
+
+struct WaiverCandidate: Identifiable, Codable, Equatable, Sendable {
     let id: String
     var name: String
     var position: String
@@ -218,7 +231,7 @@ struct WaiverCandidate: Identifiable, Equatable, Sendable {
     var injuryStatus: InjuryStatus?
 }
 
-struct WaiverClaim: Identifiable, Equatable, Sendable {
+struct WaiverClaim: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     var player: WaiverCandidate
     var bid: Decimal

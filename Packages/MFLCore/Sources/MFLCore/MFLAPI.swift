@@ -261,6 +261,9 @@ public enum MFLExportEndpoint: String, CaseIterable, Sendable {
     case messageBoard
     case messageBoardThread
     case pendingWaivers
+    case weeklyResults
+    case calendar
+    case transactions
 }
 
 public enum MFLImportEndpoint: String, CaseIterable, Sendable {

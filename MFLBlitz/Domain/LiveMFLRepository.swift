@@ -5,23 +5,56 @@ actor LiveMFLRepository: LeagueRepository {
     private var client: MFLClient?
     private var league: MFLLeague?
     private var workspace: LeagueWorkspace?
+    private let privateStore: any PrivateStore
+    private let transport: any MFLHTTPTransport
+    private let requestInterval: Duration
+    private var seasonStatus: MFLSeasonStatus?
+    private var statusUpdatedAt: Date = .distantPast
+
+    init(privateStore: any PrivateStore = KeychainPrivateStore(),
+         transport: any MFLHTTPTransport = MFLURLSessionTransport(), requestInterval: Duration = .seconds(1)) {
+        self.privateStore = privateStore
+        self.transport = transport
+        self.requestInterval = requestInterval
+    }
 
     func signIn(with credentials: LoginCredentials) async throws -> LeagueWorkspace {
         let reference = try MFLLeagueReference(season: credentials.season, leagueID: credentials.leagueID)
         let configuration = MFLClientConfiguration(
             league: reference,
             userAgent: "MFL Blitz/0.1 (com.biggsjm.MFLBlitz)",
-            minimumRequestInterval: .seconds(1)
+            minimumRequestInterval: requestInterval
         )
-        let newClient = MFLClient(configuration: configuration)
+        let newClient = MFLClient(configuration: configuration, transport: transport)
         _ = try await newClient.authenticate(username: credentials.username, password: credentials.password)
+        return try await finishSignIn(client: newClient, credentials: credentials)
+    }
+
+    func restoreSession() async throws -> LeagueWorkspace? {
+        guard let saved = try privateStore.decode(SavedSession.self, key: "session") else { return nil }
+        let reference = try MFLLeagueReference(season: saved.season, leagueID: saved.leagueID)
+        let newClient = MFLClient(configuration: MFLClientConfiguration(
+            league: reference, userAgent: "MFL Blitz/0.1 (com.biggsjm.MFLBlitz)", minimumRequestInterval: requestInterval),
+            transport: transport, authenticationCookie: try MFLAuthenticationCookie(value: saved.cookie))
+        do {
+            return try await finishSignIn(client: newClient,
+                credentials: LoginCredentials(leagueID: saved.leagueID, season: saved.season),
+                expectedFranchise: saved.franchiseID)
+        } catch let error as MFLCoreError {
+            if case .unauthorized = error { try privateStore.remove("session") }
+            throw error
+        }
+    }
+
+    private func finishSignIn(client newClient: MFLClient, credentials: LoginCredentials,
+                              expectedFranchise: String? = nil) async throws -> LeagueWorkspace {
         let memberships = try await newClient.myLeagues(
             includeFranchiseNames: false,
             refreshPolicy: .reloadIgnoringCache
         )
         guard !memberships.leagues.isEmpty else {
             throw RepositoryError.server(
-                "MFL accepted the credentials but returned no leagues for (credentials.season). Check the season or try signing in again."
+                "MFL returned no leagues for \(credentials.season). Check the season or sign in again."
             )
         }
         guard let membership = memberships.leagues.first(where: { $0.leagueID == credentials.leagueID }) else {
@@ -33,6 +66,9 @@ actor LiveMFLRepository: LeagueRepository {
             throw RepositoryError.server(
                 "This MFL account is the commissioner but is not assigned to a franchise in league \(credentials.leagueID)."
             )
+        }
+        if let expectedFranchise, expectedFranchise != membership.franchiseID {
+            throw RepositoryError.server("Your franchise assignment changed. Sign in again to confirm your team; saved drafts have not been applied.")
         }
         guard let host = membership.serverHost else {
             throw RepositoryError.server("MFL returned an invalid host for league \(credentials.leagueID).")
@@ -49,6 +85,7 @@ actor LiveMFLRepository: LeagueRepository {
             throw RepositoryError.server("MFL returned an invalid league host.")
         }
 
+        let status = try? await newClient.seasonStatus()
         let newWorkspace = LeagueWorkspace(
             leagueID: credentials.leagueID,
             season: credentials.season,
@@ -56,13 +93,38 @@ actor LiveMFLRepository: LeagueRepository {
             franchiseID: franchise.id,
             franchiseName: cleanText(franchise.name),
             baseURL: baseURL,
-            week: loadedLeague.startWeek ?? 1
+            week: status?.currentWeek ?? loadedLeague.startWeek ?? 1,
+            lineupWeek: status?.lineupWeek,
+            weekIsConfirmed: status != nil
         )
 
+        guard let cookie = await newClient.authenticationCookie() else { throw RepositoryError.missingSession }
+        try privateStore.encode(SavedSession(cookie: cookie.value, season: credentials.season,
+            leagueID: credentials.leagueID, franchiseID: franchise.id), key: "session")
         client = newClient
         league = loadedLeague
         workspace = newWorkspace
+        seasonStatus = status
+        statusUpdatedAt = status == nil ? .distantPast : Date()
         return newWorkspace
+    }
+
+    func currentWeek() async throws -> Int {
+        let (client, _, _) = try requireSession()
+        // A membership check lets the foreground refresh detect expired cookies
+        // even if the league's public scores are still accessible.
+        let memberships = try await client.myLeagues(refreshPolicy: .reloadIgnoringCache)
+        guard let workspace, memberships.leagues.contains(where: {
+            $0.leagueID == workspace.leagueID && $0.franchiseID == workspace.franchiseID
+        }) else { throw RepositoryError.missingSession }
+        let status = try await client.seasonStatus()
+        seasonStatus = status
+        statusUpdatedAt = Date()
+        self.workspace = LeagueWorkspace(leagueID: workspace.leagueID, season: workspace.season,
+            leagueName: workspace.leagueName, franchiseID: workspace.franchiseID,
+            franchiseName: workspace.franchiseName, baseURL: workspace.baseURL,
+            week: status.currentWeek, lineupWeek: status.lineupWeek)
+        return status.currentWeek
     }
 
     func loadWorkspace() async throws -> LeagueWorkspace {
@@ -82,12 +144,15 @@ actor LiveMFLRepository: LeagueRepository {
         refreshPolicy: MFLRefreshPolicy
     ) async throws -> ScoresSnapshot {
         let (client, _, workspace) = try requireSession()
-        async let liveTask = liveScoringIfAvailable(
-            from: client,
-            week: week,
-            includeBench: true,
-            refreshPolicy: refreshPolicy
-        )
+        if Date().timeIntervalSince(statusUpdatedAt) >= 90,
+           let status = try? await client.seasonStatus() {
+            seasonStatus = status
+            statusUpdatedAt = Date()
+        }
+        let isCompleted = week <= (seasonStatus?.completedWeek ?? 0)
+        async let liveTask: MFLLiveScoring? = isCompleted
+            ? client.weeklyResults(week: week)
+            : liveScoringIfAvailable(from: client, week: week, includeBench: true, refreshPolicy: refreshPolicy)
         async let leagueTask = client.league()
         let (live, refreshedLeague) = try await (liveTask, leagueTask)
         self.league = refreshedLeague
@@ -100,6 +165,9 @@ actor LiveMFLRepository: LeagueRepository {
                 isLive: false,
                 scorePrecision: scorePrecision(for: refreshedLeague)
             )
+        }
+        guard live.week == nil || live.week == week else {
+            throw RepositoryError.server("MFL returned a different scoring week. Your existing scores were kept.")
         }
 
         let livePlayerIDs = Set(
@@ -131,19 +199,21 @@ actor LiveMFLRepository: LeagueRepository {
             let awayTeam = makeMatchupTeam(
                 away,
                 franchise: franchiseByID[away.franchiseID],
-                playerCatalog: catalogByID
+                playerCatalog: catalogByID,
+                completed: isCompleted
             )
             let homeTeam = makeMatchupTeam(
                 home,
                 franchise: franchiseByID[home.franchiseID],
-                playerCatalog: catalogByID
+                playerCatalog: catalogByID,
+                completed: isCompleted
             )
             return Matchup(
                 id: matchup.id,
                 away: awayTeam,
                 home: homeTeam,
                 isUserMatchup: away.franchiseID == workspace.franchiseID || home.franchiseID == workspace.franchiseID,
-                status: gameStatus(for: [away, home])
+                status: isCompleted ? .final : gameStatus(for: [away, home])
             )
         }
 
@@ -167,7 +237,8 @@ actor LiveMFLRepository: LeagueRepository {
         }
         let rosterCollection = try await client.rosters(
             franchiseID: workspace.franchiseID,
-            week: week
+            week: week,
+            refreshPolicy: .reloadIgnoringCache
         )
         guard let roster = rosterCollection.rosters.first(where: { $0.franchiseID == workspace.franchiseID }) else {
             return unavailableLineup(
@@ -243,7 +314,7 @@ actor LiveMFLRepository: LeagueRepository {
         let hasCompleteGameState = live == nil || playerIDs.allSatisfy { playerID in
             guard let assignment = assignmentByID[playerID] else { return false }
             if assignment.status == .injuredReserve || assignment.status == .taxiSquad { return true }
-            return liveByID[playerID] != nil
+            return liveByID[playerID]?.hasReportedGameSecondsRemaining == true
         }
         let hasSupportedRules = supportsLineupEditing(for: league)
         let editState: LineupEditState
@@ -269,7 +340,7 @@ actor LiveMFLRepository: LeagueRepository {
             } else if let livePlayer {
                 // This only detects an NFL game that has begun. MFL remains
                 // authoritative for every league-specific lineup deadline.
-                livePlayer.gameSecondsRemaining < 3_600
+                !livePlayer.hasReportedGameSecondsRemaining || livePlayer.gameSecondsRemaining < 3_600
             } else {
                 false
             }
@@ -493,13 +564,20 @@ actor LiveMFLRepository: LeagueRepository {
     }
 
     func loadWaivers() async throws -> WaiverSnapshot {
-        let (client, league, workspace) = try requireSession()
-        async let freeAgentTask = client.freeAgents()
-        async let pendingTask = client.pendingWaivers()
+        let (client, _, workspace) = try requireSession()
+        let league = try await client.league(refreshPolicy: .reloadIgnoringCache)
+        self.league = league
+        async let freeAgentTask = client.freeAgents(refreshPolicy: .reloadIgnoringCache)
+        async let pendingTask = client.pendingWaivers(franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache)
+        async let calendarTask: MFLJSONValue? = try? await client.calendar()
+        async let resultsTask: MFLJSONValue? = try? await client.waiverResults()
         let (freeAgentPool, pending) = try await (freeAgentTask, pendingTask)
+        // A malformed non-empty response must never become an apparently empty
+        // queue that a replacement could erase.
+        _ = try waiverVerificationClaims(from: pending, franchiseID: workspace.franchiseID)
         let catalog = try await client.players()
         let playerByID = Dictionary(uniqueKeysWithValues: catalog.players.map { ($0.id, $0) })
-        let ownedRoster = try await client.rosters(franchiseID: workspace.franchiseID)
+        let ownedRoster = try await client.rosters(franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache)
         let ownedIDs = Set(ownedRoster.rosters.first?.players.map(\.id) ?? [])
         let ownedNames = Dictionary(uniqueKeysWithValues: catalog.players.filter { ownedIDs.contains($0.id) }.map { ($0.id, $0.displayName) })
 
@@ -524,7 +602,8 @@ actor LiveMFLRepository: LeagueRepository {
             .filter { $0.franchiseID == nil || $0.franchiseID == workspace.franchiseID }
             .flatMap { request in
                 request.claims.enumerated().compactMap { index, claim -> WaiverClaim? in
-                    guard let player = candidateByID[claim.playerID] ?? makeFallbackCandidate(id: claim.playerID, catalog: playerByID) else { return nil }
+                    let player = candidateByID[claim.playerID] ?? makeFallbackCandidate(id: claim.playerID, catalog: playerByID)
+                        ?? WaiverCandidate(id: claim.playerID, name: "Player \(claim.playerID)", position: "—", nflTeam: "—", rosteredPercent: 0, projectedPoints: nil, seasonPoints: 0, trend: 0, injuryStatus: nil)
                     return WaiverClaim(
                         player: player,
                         bid: claim.bidAmount ?? 0,
@@ -541,19 +620,42 @@ actor LiveMFLRepository: LeagueRepository {
             }
 
         let franchise = league.franchises.first(where: { $0.id == workspace.franchiseID })
+        let (calendar, results) = await (calendarTask, resultsTask)
         return WaiverSnapshot(
             availableBudget: franchise?.blindBidAvailableBalance ?? league.blindBidSeasonLimit ?? 0,
             increment: league.blindBidIncrement ?? league.blindBidMinimum ?? 1,
             maxRounds: league.maxWaiverRounds ?? 1,
             candidates: candidates,
             claims: claims,
-            processesAt: nil
+            processesAt: Self.nextBlindBidDate(in: calendar),
+            minimumBid: league.blindBidMinimum ?? 0,
+            unavailableReason: franchise?.blindBidAvailableBalance == nil
+                ? "MFL didn’t return your remaining bid balance. Check MFL before making changes."
+                : waiverAvailability(league),
+            results: waiverResults(from: results, catalog: playerByID, league: league),
+            resultsUnavailable: results == nil
         )
     }
 
-    func submitWaivers(_ claims: [WaiverClaim]) async throws {
-        let (client, league, workspace) = try requireSession()
+    func submitWaivers(_ claims: [WaiverClaim], replacing baseline: [WaiverClaim]) async throws {
+        let (client, _, workspace) = try requireSession()
+        let fresh = try await loadWaivers()
+        if let reason = fresh.unavailableReason { throw RepositoryError.server(reason) }
+        let (_, league, _) = try requireSession()
         let expectedClaims = try waiverVerificationClaims(from: claims)
+        let baselineClaims = try waiverVerificationClaims(from: baseline)
+        let worstCaseSpend = Dictionary(grouping: claims, by: \.round).values
+            .reduce(Decimal.zero) { $0 + ($1.map(\.bid).max() ?? 0) }
+        let availableIDs = Set(fresh.candidates.map(\.id))
+        let owned = try await client.rosters(franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache)
+        let ownedIDs = Set(owned.rosters.first(where: { $0.franchiseID == workspace.franchiseID })?.players.map(\.id) ?? [])
+        guard worstCaseSpend <= fresh.availableBudget,
+              claims.allSatisfy({ $0.bid >= fresh.minimumBid && $0.bid.isWholeMultiple(of: fresh.increment)
+                && availableIDs.contains($0.player.id)
+                && ($0.dropPlayerID == nil || ownedIDs.contains($0.dropPlayerID!)) }),
+              Dictionary(grouping: claims, by: \.round).values.allSatisfy({ Set($0.map(\.player.id)).count == $0.count }) else {
+            throw RepositoryError.server("Your budget, player availability, drop roster, or bid rules changed. Refresh and review before submitting; nothing was sent.")
+        }
         let highestSubmittedRound = expectedClaims.map(\.round).max() ?? 0
 
         if let configuredMaximum = league.maxWaiverRounds,
@@ -575,6 +677,10 @@ actor LiveMFLRepository: LeagueRepository {
             from: pendingBeforeWrite,
             franchiseID: workspace.franchiseID
         )
+        if existingClaims == expectedClaims { return }
+        guard existingClaims == baselineClaims else {
+            throw RepositoryError.server("Your saved MFL waiver queue changed. Compare it with your draft before replacing anything; nothing was sent.")
+        }
         let expectedByRound = Dictionary(grouping: expectedClaims, by: \.round)
         let existingByRound = Dictionary(grouping: existingClaims, by: \.round)
         let affectedRounds = Set(expectedByRound.keys)
@@ -590,6 +696,7 @@ actor LiveMFLRepository: LeagueRepository {
                 return lhs < rhs
             }
 
+        var completedRounds: [Int] = []
         for round in affectedRounds {
             let bids = expectedByRound[round, default: []].map {
                 MFLBlindBid(
@@ -598,13 +705,24 @@ actor LiveMFLRepository: LeagueRepository {
                     dropPlayerID: $0.dropPlayerID
                 )
             }
-            _ = try await client.submitBlindBidWaiverRequest(
-                MFLBlindBidWaiverRequest(
-                    round: round,
-                    bids: bids,
-                    replaceExisting: true
-                )
-            )
+            do {
+                _ = try await client.submitBlindBidWaiverRequest(
+                    MFLBlindBidWaiverRequest(round: round, bids: bids, replaceExisting: true))
+                let readback = try await client.pendingWaivers(franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache)
+                let saved = try waiverVerificationClaims(from: readback, franchiseID: workspace.franchiseID)
+                // Verify the whole intermediate queue, not just the modified round.
+                let expectedIntermediate = existingClaims.filter { !Set(completedRounds + [round]).contains($0.round) }
+                    + expectedClaims.filter { Set(completedRounds + [round]).contains($0.round) }
+                guard saved == expectedIntermediate.sorted(by: { ($0.round, $0.position) < ($1.round, $1.position) }) else {
+                    throw waiverVerificationUnavailable()
+                }
+                completedRounds.append(round)
+            } catch {
+                if let readback = try? await client.pendingWaivers(franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache),
+                   let saved = try? waiverVerificationClaims(from: readback, franchiseID: workspace.franchiseID),
+                   saved == expectedClaims { return }
+                throw RepositoryError.server("Waiver save stopped at round \(round). Confirmed earlier rounds: \(completedRounds.map(String.init).joined(separator: ", ").isEmpty ? "none" : completedRounds.map(String.init).joined(separator: ", ")). The interrupted round may have saved. No request was retried. Compare MFL’s saved queue before continuing. \(error.localizedDescription)")
+            }
         }
 
         if !affectedRounds.isEmpty {
@@ -652,7 +770,7 @@ actor LiveMFLRepository: LeagueRepository {
 
     func loadBoard() async throws -> [BoardThread] {
         let (client, league, _) = try requireSession()
-        let board = try await client.messageBoard(count: 30)
+        let board = try await client.messageBoard(count: 30, refreshPolicy: .reloadIgnoringCache)
         let franchiseByID = Dictionary(uniqueKeysWithValues: league.franchises.map { ($0.id, cleanText($0.name)) })
 
         return board.threads.map { summary in
@@ -674,7 +792,7 @@ actor LiveMFLRepository: LeagueRepository {
 
     func loadThread(id: String) async throws -> BoardThread {
         let (client, league, workspace) = try requireSession()
-        let loaded = try await client.messageBoardThread(id: id)
+        let loaded = try await client.messageBoardThread(id: id, refreshPolicy: .reloadIgnoringCache)
         let franchiseByID = Dictionary(uniqueKeysWithValues: league.franchises.map { ($0.id, cleanText($0.name)) })
         let existing = try? await loadBoard().first(where: { $0.id == id })
         let posts = loaded.messages.map { message in
@@ -700,75 +818,80 @@ actor LiveMFLRepository: LeagueRepository {
 
     func postMessage(subject: String?, body: String, threadID: String?) async throws {
         let (client, _, workspace) = try requireSession()
-        let expectedBody = cleanText(body)
-
+        guard try await pendingBoardPost() == nil else {
+            throw messageVerificationUnavailable()
+        }
+        let existingIDs: Set<String>
         if let threadID {
             let before = try await client.messageBoardThread(
                 id: threadID,
                 refreshPolicy: .reloadIgnoringCache
             )
-            let existingMessageIDs = Set(before.messages.map(\.id))
-
-            _ = try await client.postMessageBoard(
-                MFLMessageBoardPost(threadID: threadID, subject: subject, body: body)
-            )
-            let verified = try await client.messageBoardThread(
-                id: threadID,
-                refreshPolicy: .reloadIgnoringCache
-            )
-            let newMessages = verified.messages.filter { !existingMessageIDs.contains($0.id) }
-            let confirmed = newMessages.reversed().contains { message in
-                message.franchiseID == workspace.franchiseID
-                    && cleanText(message.body) == expectedBody
-            } || newMessages.reversed().contains { message in
-                message.franchiseID == nil
-                    && cleanText(message.body) == expectedBody
-            }
-            guard confirmed else {
-                throw messageVerificationUnavailable()
-            }
-            return
+            existingIDs = Set(before.messages.map(\.id))
+        } else {
+            let before = try await client.messageBoard(count: 100, refreshPolicy: .reloadIgnoringCache)
+            existingIDs = Set(before.threads.map(\.id))
         }
-
-        let expectedSubject = cleanText(subject ?? "")
-        let before = try await client.messageBoard(
-            count: 30,
-            refreshPolicy: .reloadIgnoringCache
-        )
-        let existingThreadIDs = Set(before.threads.map(\.id))
-        _ = try await client.postMessageBoard(
-            MFLMessageBoardPost(threadID: threadID, subject: subject, body: body)
-        )
-
-        let verified = try await client.messageBoard(
-            count: 30,
-            refreshPolicy: .reloadIgnoringCache
-        )
-        let confirmed = verified.threads.contains { thread in
-            guard !existingThreadIDs.contains(thread.id),
-                  cleanText(thread.subject) == expectedSubject,
-                  thread.lastPostFranchiseID == nil || thread.lastPostFranchiseID == workspace.franchiseID
-            else {
-                return false
-            }
-            guard let serverBody = messageBody(in: thread.attributes) else {
-                // The documented summary export does not promise a body. A new
-                // server id plus the exact subject (and author when supplied) is
-                // the strongest available confirmation in that representation.
-                return true
-            }
-            return cleanText(serverBody) == expectedBody
-        }
-        guard confirmed else {
+        let pending = PendingBoardPost(subject: subject, body: body, threadID: threadID,
+                                       existingIDs: existingIDs, startedAt: Date())
+        // Fail closed if the marker cannot be persisted BEFORE a possible write.
+        try privateStore.encode(pending, key: "board.pending.\(workspace.storageScope)")
+        do {
+            _ = try await client.postMessageBoard(MFLMessageBoardPost(threadID: threadID, subject: subject, body: body))
+        } catch {
+            if (try? await reconcileBoardPost()) == true { return }
             throw messageVerificationUnavailable()
         }
+        guard try await reconcileBoardPost() else { throw messageVerificationUnavailable() }
+    }
+
+    func pendingBoardPost() async throws -> PendingBoardPost? {
+        let workspace = try requireWorkspace()
+        return try privateStore.decode(PendingBoardPost.self, key: "board.pending.\(workspace.storageScope)")
+    }
+
+    func reconcileBoardPost() async throws -> Bool {
+        let (client, _, workspace) = try requireSession()
+        guard let pending = try await pendingBoardPost() else { return true }
+        var confirmed = false
+        if let threadID = pending.threadID {
+            let thread = try await client.messageBoardThread(id: threadID, refreshPolicy: .reloadIgnoringCache)
+            confirmed = thread.messages.contains {
+                !pending.existingIDs.contains($0.id) && $0.franchiseID == workspace.franchiseID
+                    && cleanText($0.body) == cleanText(pending.body)
+            }
+        } else {
+            let board = try await client.messageBoard(count: 100, refreshPolicy: .reloadIgnoringCache)
+            for summary in board.threads where !pending.existingIDs.contains(summary.id)
+                && cleanText(summary.subject) == cleanText(pending.subject ?? "") {
+                let thread = try await client.messageBoardThread(id: summary.id, refreshPolicy: .reloadIgnoringCache)
+                // Verify the new thread's original body and owner, not just a
+                // matching subject in a summary list.
+                if let first = thread.messages.first,
+                   first.franchiseID == workspace.franchiseID,
+                   cleanText(first.body) == cleanText(pending.body),
+                   first.date.map({ $0 >= pending.startedAt.addingTimeInterval(-120) }) ?? true {
+                    confirmed = true
+                    break
+                }
+            }
+        }
+        if confirmed { try privateStore.remove("board.pending.\(workspace.storageScope)") }
+        return confirmed
+    }
+
+    func acknowledgeUnconfirmedPost() async throws {
+        let workspace = try requireWorkspace()
+        try privateStore.remove("board.pending.\(workspace.storageScope)")
     }
 
     func signOut() async {
+        try? privateStore.remove("session")
         await client?.setAuthenticationCookie(nil)
         client = nil
         league = nil
         workspace = nil
+        seasonStatus = nil
     }
 
     private func requireWorkspace() throws -> LeagueWorkspace {
@@ -784,10 +907,13 @@ actor LiveMFLRepository: LeagueRepository {
     private func makeMatchupTeam(
         _ value: MFLLiveFranchise,
         franchise: MFLFranchise?,
-        playerCatalog: [String: MFLPlayer]
+        playerCatalog: [String: MFLPlayer],
+        completed: Bool = false
     ) -> MatchupTeam {
         let players = value.players.map { livePlayer in
-            makeMatchupPlayer(livePlayer, catalogPlayer: playerCatalog[livePlayer.id])
+            var player = makeMatchupPlayer(livePlayer, catalogPlayer: playerCatalog[livePlayer.id])
+            if completed { player.gameSecondsRemaining = 0 }
+            return player
         }
         return MatchupTeam(
             id: value.franchiseID,
@@ -843,7 +969,61 @@ actor LiveMFLRepository: LeagueRepository {
         if franchises.contains(where: { $0.playersYetToPlay > 0 }) {
             return .pregame(nil)
         }
-        return .final
+        // Missing clocks/zero preseason totals are not evidence of a final game.
+        let starters = franchises.flatMap(\.players).filter(\.isStarter)
+        if !starters.isEmpty, starters.allSatisfy({ $0.hasReportedGameSecondsRemaining && $0.gameSecondsRemaining == 0 }) {
+            return .final
+        }
+        return .pregame(nil)
+    }
+
+    private func waiverAvailability(_ league: MFLLeague) -> String? {
+        guard league.conditionalBlindBidding == true,
+              league.currentWaiverType?.uppercased().contains("BBID") == true,
+              let rounds = league.maxWaiverRounds, rounds > 0,
+              league.blindBidMinimum != nil, league.blindBidSeasonLimit != nil else {
+            return "This waiver window or league format is not supported for native bidding. Use MFL for first-come adds or other waiver formats."
+        }
+        return nil
+    }
+
+    static func nextBlindBidDate(in value: MFLJSONValue?, now: Date = Date()) -> Date? {
+        let events = value?.objectValue?["calendar"]?.objectValue?["event"]?.arrayValue ?? []
+        return events.compactMap { event -> Date? in
+            guard let fields = event.objectValue,
+                  (fields["type"]?.stringValue ?? fields["event_type"]?.stringValue) == "WAIVER_BBID",
+                  let raw = fields["start_time"]?.stringValue ?? fields["timestamp"]?.stringValue,
+                  let timestamp = TimeInterval(raw) else { return nil }
+            let date = Date(timeIntervalSince1970: timestamp)
+            // Only explicit future occurrences are shown. Do not guess recurring
+            // events across time zones/DST from an old occurrence.
+            return date > now ? date : nil
+        }.min()
+    }
+
+    private func waiverResults(from value: MFLJSONValue?, catalog: [String: MFLPlayer], league: MFLLeague) -> [WaiverResult] {
+        let rows = value?.objectValue?["transactions"]?.objectValue?["transaction"]?.arrayValue ?? []
+        return rows.enumerated().compactMap { index, item in
+            guard let fields = item.objectValue,
+                  let type = fields["type"]?.stringValue,
+                  ["BBID_WAIVER", "WAIVER", "FREE_AGENT"].contains(type) else { return nil }
+            let franchiseID = fields["franchise"]?.stringValue ?? fields["franchise_id"]?.stringValue
+            let franchise = league.franchises.first { $0.id == franchiseID }
+            let raw = fields["transaction"]?.stringValue ?? ""
+            let parts = raw.components(separatedBy: "|")
+            func names(_ part: String) -> String {
+                part.split(separator: ",").map { id in cleanText(catalog[String(id)]?.displayName ?? "Player \(id)") }.joined(separator: ", ")
+            }
+            var detail = type == "BBID_WAIVER" ? "Blind-bid waiver processed" : "Player acquisition"
+            if let adds = parts.first, !adds.isEmpty { detail = "Added \(names(adds))" }
+            if parts.count > 1, !parts[1].isEmpty { detail += " · Dropped \(names(parts[1]))" }
+            if parts.count > 2, let amount = Decimal(string: parts[2]), amount >= 0 {
+                detail += " · \(amount.formatted(.currency(code: "USD")))"
+            }
+            return WaiverResult(id: fields["id"]?.stringValue ?? "\(index)-\(raw)",
+                franchise: cleanText(franchise?.name ?? "League member"), description: detail,
+                date: fields["timestamp"]?.stringValue.flatMap(TimeInterval.init).map { Date(timeIntervalSince1970: $0) })
+        }
     }
 
     private func makeFallbackCandidate(
@@ -968,7 +1148,18 @@ actor LiveMFLRepository: LeagueRepository {
         var claimsByRound: [Int: [ServerWaiverClaim]] = [:]
 
         for request in pending.requests where requestBelongsToFranchise(request, franchiseID: franchiseID) {
-            guard !request.claims.isEmpty else { continue }
+            guard rawClaimCount(in: request) == request.claims.count else {
+                throw waiverVerificationUnavailable()
+            }
+            guard !request.claims.isEmpty else {
+                // Empty requests are only authoritative if an explicit empty
+                // claim/picks field was supplied; an unknown request is not empty.
+                let known = ["pick", "claim", "bid", "request", "picks", "PICKS"]
+                guard known.contains(where: { request.attributes[$0] != nil }) else {
+                    throw waiverVerificationUnavailable()
+                }
+                continue
+            }
             guard let round = request.round, round > 0 else {
                 throw waiverVerificationUnavailable()
             }
@@ -1093,7 +1284,7 @@ actor LiveMFLRepository: LeagueRepository {
         )
     }
 
-    private func cleanText(_ raw: String) -> String {
+    private nonisolated func cleanText(_ raw: String) -> String {
         raw
             .replacingOccurrences(of: "<br\\s*/?>", with: "\n", options: .regularExpression)
             .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
