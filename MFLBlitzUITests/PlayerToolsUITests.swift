@@ -17,8 +17,7 @@ final class PlayerToolsUITests: XCTestCase {
         let manage = app.buttons["Manage roster"]
         for _ in 0..<6 where !manage.isHittable { app.swipeDown() }
         manage.tap()
-        let menu = rosterMenu("13319", in: app)
-        for _ in 0..<6 where !menu.isHittable { app.swipeUp() }
+        let menu = revealRosterMenu("13319", in: app)
         menu.tap()
         XCTAssertTrue(move.waitForExistence(timeout: 5))
         XCTAssertFalse(move.isEnabled)
@@ -53,8 +52,7 @@ final class PlayerToolsUITests: XCTestCase {
         app.buttons["Close"].tap()
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         app.segmentedControls.buttons["My roster"].tap()
-        let retained = rosterMenu("12620", in: app)
-        for _ in 0..<5 where !retained.isHittable { app.swipeUp() }
+        let retained = revealRosterMenu("12620", in: app)
         XCTAssertTrue(retained.exists)
     }
 
@@ -99,8 +97,7 @@ final class PlayerToolsUITests: XCTestCase {
         let manage = app.buttons["Manage roster"]
         XCTAssertTrue(manage.waitForExistence(timeout: 5))
         manage.tap()
-        let playerMenu = rosterMenu("12620", in: app)
-        for _ in 0..<5 where !playerMenu.isHittable { app.swipeUp() }
+        let playerMenu = revealRosterMenu("12620", in: app)
         XCTAssertTrue(playerMenu.waitForExistence(timeout: 5))
         playerMenu.tap()
         app.buttons["Drop player"].tap()
@@ -134,9 +131,9 @@ final class PlayerToolsUITests: XCTestCase {
         for _ in 0..<6 where !manage.isHittable { app.swipeUp() }
         XCTAssertTrue(manage.waitForExistence(timeout: 5))
         manage.tap()
-        let menu = rosterMenu("12620", in: app)
-        for _ in 0..<8 where !menu.isHittable { app.swipeUp() }
-        XCTAssertTrue(menu.isHittable)
+        let menu = revealRosterMenu("12620", in: app)
+        XCTAssertTrue(menu.exists)
+        XCTAssertGreaterThanOrEqual(menu.frame.height, 44)
         menu.tap()
         app.buttons["Drop player"].tap()
         XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 5))
@@ -149,9 +146,24 @@ final class PlayerToolsUITests: XCTestCase {
         app.buttons["Close"].tap()
     }
 
-    @MainActor private func rosterMenu(_ playerID: String, in app: XCUIApplication) -> XCUIElement {
-        // SwiftUI Menu is exposed as Button or PopUpButton depending on OS/SDK.
-        app.descendants(matching: .any).matching(identifier: "roster-manage-\(playerID)").firstMatch
+    @MainActor private func revealRosterMenu(_ playerID: String, in app: XCUIApplication) -> XCUIElement {
+        let container = app.descendants(matching: .any).matching(identifier: "roster-manage-\(playerID)").firstMatch
+        for _ in 0..<12 {
+            // iOS 18 exposes a labeled accessibility wrapper around the actual
+            // UIKit menu button. The wrapper itself has no hittable point.
+            let nativeButton = container.buttons.firstMatch
+            let target = nativeButton.exists ? nativeButton : container
+            // Native tap scrolls a realized UIKit control into view. Testing
+            // wrapper isHittable first incorrectly scrolls past it on iOS 18.
+            if target.exists { return target }
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+            start.press(forDuration: 0.01, thenDragTo: end)
+        }
+        let nativeButton = container.buttons.firstMatch
+        let target = nativeButton.exists ? nativeButton : container
+        XCTAssertTrue(target.exists, "Roster action must exist for \(playerID)")
+        return target
     }
 
     @MainActor private func preview(arguments: [String] = []) -> XCUIApplication {
