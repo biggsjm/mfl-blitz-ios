@@ -68,8 +68,7 @@ extension LiveMFLRepository {
                 franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache)
             let entries = status.statuses.filter { $0.id == request.playerID }
             guard pool.players.filter({ $0.id == request.playerID }).count == 1, entries.count == 1,
-                  entries[0].isFreeAgent == true, entries[0].cannotAdd != true,
-                  entries[0].isLocked == false, entries[0].rosterFranchises.isEmpty else {
+                  entries[0].canAddImmediately else {
                 throw RepositoryError.server("This player is not confirmed available for an immediate add. Check the waiver options on MFL.")
             }
         }

@@ -6,6 +6,27 @@ import Testing
 @testable import MFLCore
 
 struct PlayerToolsTests {
+    @Test("Only explicit free agents with absent or false restriction flags can be added")
+    func acquisitionFlags() throws {
+        func allowed(_ json: String) throws -> Bool {
+            try JSONDecoder().decode(MFLPlayerRosterStatus.self, from: Data(json.utf8)).canAddImmediately
+        }
+        #expect(try allowed(#"{"id":"301","is_fa":"1"}"#))
+        #expect(try allowed(#"{"id":"301","is_fa":"1","cant_add":"0","locked":false}"#))
+        for json in [
+            #"{"id":"9431","roster_franchise":{"franchise_id":"0008","status":"S"}}"#,
+            #"{"id":"301"}"#,
+            #"{"id":"301","is_fa":"1","locked":"1"}"#,
+            #"{"id":"301","is_fa":"1","cant_add":"1"}"#,
+            #"{"id":"301","is_fa":"1","locked":"unknown"}"#,
+            #"{"id":"301","is_fa":"1","locked":null}"#,
+            #"{"id":"301","is_fa":"1","cant_add":"unknown"}"#,
+            #"{"id":"301","is_fa":"1","isFA":"0"}"#,
+            #"{"id":"301","is_fa":"1","locked":"0","isLocked":"1"}"#,
+            #"{"id":"301","is_fa":"1","roster_franchise":{"franchise_id":"0008","status":"S"}}"#
+        ] { #expect(try !allowed(json)) }
+    }
+
     @Test("Availability handles singleton rows, unknown statuses, missing kickoffs and duplicate byes")
     func availabilityShapes() throws {
         let injuries = try JSONDecoder().decode(MFLInjuriesResponse.self,

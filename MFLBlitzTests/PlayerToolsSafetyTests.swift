@@ -73,7 +73,7 @@ struct PlayerToolsSafetyTests {
         #expect(try await repository.pendingRosterAction() == nil)
     }
 
-    @Test("Roster races, acquisition locks, denied permissions and duplicate-player formats fail before POST", arguments: ["race", "locked", "closed", "duplicate"])
+    @Test("Roster races, acquisition restrictions, denied permissions and duplicate-player formats fail before POST", arguments: ["race", "locked", "closed", "duplicate", "cantAdd", "invalidLock", "owned"])
     func preflight(mode: String) async throws {
         let server = PlayerToolsFixtureServer()
         let repository = try await connected(server)
@@ -248,7 +248,13 @@ private actor PlayerToolsFixtureServer: MFLHTTPTransport {
         case "players": return try response(["players": ["player": ["201", "202", "301"].map { ["id": $0, "name": "Player, \($0)", "position": "RB", "team": "CHI"] }]])
         case "rosters": return try response(["rosters": ["franchise": ["id": "0001", "player": membership.map { ["id": $0.key, "status": $0.value] }]]])
         case "freeAgents": return try response(["freeAgents": ["player": [["id": "301"]]]])
-        case "playerRosterStatus": return try response(["playerRosterStatuses": ["playerStatus": ["id": "301", "is_fa": "1", "cant_add": "0", "locked": mode == "locked" ? "1" : "0"]]])
+        case "playerRosterStatus":
+            var status: [String: Any] = ["id": "301", "is_fa": "1"]
+            if mode == "locked" { status["locked"] = "1" }
+            if mode == "cantAdd" { status["cant_add"] = "1" }
+            if mode == "invalidLock" { status["locked"] = "unknown" }
+            if mode == "owned" { status = ["id": "301", "roster_franchise": ["franchise_id": "0008", "status": "S"]] }
+            return try response(["playerRosterStatuses": ["playerStatus": status]])
         case "injuries": return try response(["injuries": ["week": query["W"] ?? "7", "injury": ["id": "201", "status": mode == "questionable" ? "Questionable" : "Out"]]])
         case "nflByeWeeks": return try response(["nflByeWeeks": ["year": "2026", "team": ["id": "CHI", "bye_week": "2"]]])
         case "nflSchedule": return try response(["nflSchedule": ["week": query["W"] ?? "1", "matchup": ["kickoff": "1788999600", "team": [["id": "CHI", "isHome": "1"], ["id": "DET", "isHome": "0"]]]]])

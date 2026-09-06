@@ -85,7 +85,7 @@ Later candidates, not authorized as part of 1–5: keeper selection, draft tools
 
 ## Verified wire evidence — September 6
 
-Josh supplied owner-scoped `abilities.franchise(id).ability(id,value,desc)`: WAIVERS, DROP and INJURED_RESERVE are explicit permissions. Unknown/duplicate IDs, another franchise and non-1 values cannot grant a write. Josh also verified empty `myWatchList: {}` and singleton `player: {id}` responses. No credential was requested or retained.
+Josh supplied owner-scoped `abilities.franchise(id).ability(id,value,desc)`: WAIVERS, DROP and INJURED_RESERVE are explicit permissions. Unknown/duplicate IDs, another franchise and non-1 values cannot grant a write. Josh also verified empty `myWatchList: {}` and singleton `player: {id}` responses, plus watched player 9431's `roster_franchise(franchise_id: 0008, status: S)`. Watching another team's player is valid, but never authorizes acquiring them. No credential was requested or retained.
 
 Public injury/schedule/bye feeds were checked against 2026. The nonempty 2025 pointsAllowed export uses `team(id).position(name,points)`; 2026 is currently empty. The implementation labels position totals correctly and does not reuse 2025 figures in 2026. MFL’s league rules page currently requires Out/IR for this league, and none of the owner’s current players was eligible when checked. Synthetic writes are not proof of a real successful FCFS/IR move.
 

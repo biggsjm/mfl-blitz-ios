@@ -77,7 +77,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 Do not invite the league until P0 [release gates](roadmap.md) are complete: live Week 1 evidence, intended-write verification, regression/manual usability checks, production MFL registration/exact User-Agent, Apple signing/TestFlight/privacy/review setup, safe support/security reporting and Josh's go-ahead. Unsupported formats must be clearly excluded from the release scope with a usable MFL fallback.
 
-My Team, initial read-only player detail and fantasy schedules are included in the 0.4.0 private build and need the live comparisons above. Full player history, native FCFS/IR/taxi management, notifications, widgets and Live Activities remain unavailable and must not be advertised as implemented.
+My Team, player detail and fantasy schedules are included and need the live comparisons above. The 0.5.0 player-tools increment adds progressive fantasy history, watchlists, native FCFS and IR for supported formats; use the checks below before considering those live-owner certified. Taxi management, notifications, widgets and Live Activities remain unavailable.
 
 ## Record findings safely
 

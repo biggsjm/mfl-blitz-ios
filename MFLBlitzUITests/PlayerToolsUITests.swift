@@ -2,6 +2,34 @@ import XCTest
 
 final class PlayerToolsUITests: XCTestCase {
     @MainActor
+    func testFreeAgentAddReviewDoesNotChangeRosterOnCancel() {
+        let app = preview()
+        app.tabBars.buttons["My Team"].firstMatch.tap()
+        app.buttons["Manage roster"].tap()
+        app.segmentedControls.buttons["Free agents"].tap()
+        let add = app.buttons["Add Isaiah Bond"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        add.tap()
+        let drop = app.buttons["roster-drop-player"]
+        XCTAssertTrue(drop.waitForExistence(timeout: 5))
+        drop.tap()
+        app.buttons["Dak Prescott"].tap()
+        let confirm = app.buttons["confirm-roster-move"]
+        for _ in 0..<5 where !confirm.isHittable { app.swipeUp() }
+        XCTAssertTrue(confirm.isHittable && confirm.isEnabled)
+        capture(app, "Free-agent add — explicit paired drop review")
+        confirm.tap()
+        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 3))
+        app.alerts.buttons["Cancel"].tap()
+        app.buttons["Close"].tap()
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        app.segmentedControls.buttons["My roster"].tap()
+        let retained = app.buttons["Manage Dak Prescott"]
+        for _ in 0..<5 where !retained.isHittable { app.swipeUp() }
+        XCTAssertTrue(retained.exists)
+    }
+
+    @MainActor
     func testWatchlistAndResearchKeepMyTeamNavigation() {
         let app = preview()
         app.tabBars.buttons["My Team"].firstMatch.tap()

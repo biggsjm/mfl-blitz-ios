@@ -29,6 +29,7 @@ struct RosterActionSheet: View {
                                 }
                             }
                             .disabled(submitting || receipt != nil)
+                            .accessibilityIdentifier("roster-drop-player")
                         }
                     }
                     if let problem = context.problem(for: request) {
@@ -187,6 +188,9 @@ struct RosterManagementView: View {
         .navigationTitle("Roster moves").navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, prompt: "Find a player")
         .task(id: "\(model.workspace?.storageScope ?? "")|\(model.rosterRevision)") { await load() }
+        .task(id: showFreeAgents) {
+            if showFreeAgents, model.waivers.candidates.isEmpty { await model.refreshWaivers() }
+        }
         .refreshable { await load(); if showFreeAgents { await model.refreshWaivers() } }
         .sheet(item: $selected) { request in
             RosterActionSheet(player: identity(request.playerID), request: request)

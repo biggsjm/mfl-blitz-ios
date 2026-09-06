@@ -1,6 +1,6 @@
 # MFL 2026 API integration
 
-Implementation audit: September 6, 2026, **0.4.1 (18)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
+Implementation audit: September 6, 2026, **0.5.0 (19)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
 
 Primary sources: [general API guidance](https://api.myfantasyleague.com/2026/api_info), [request reference](https://api.myfantasyleague.com/2026/api_info?STATE=details), and [sample code](https://api.myfantasyleague.com/2026/api_info?STATE=example).
 
@@ -178,7 +178,7 @@ The API does not include raw NFL player statistics or third-party news because o
 
 Abilities use the owner-verified `abilities.franchise.id` and unique ability IDs WAIVERS, DROP, INJURED_RESERVE with value 1. Descriptions do not grant permissions. The supported initial write path requires one roster per player, league-wide ownership, no salaries/contracts, known positive roster limits and explicit current active/IR statuses. Unknown formats/capabilities stay non-actionable.
 
-FCFS adds additionally require FCFS/BBID_FCFS configuration, fresh free-agent membership, is_fa=true, no cant_add denial, explicit locked=false and no existing ownership. IR deactivation requires an Out/IR report; MFL enforces final league-specific eligibility, positional limits and deadlines. No reserve move is inferred from the displayed FLEX/starting slot.
+FCFS adds additionally require FCFS/BBID_FCFS configuration, fresh free-agent membership, explicit is_fa=true and no existing ownership. MFL documents cant_add/locked as optional restrictions on free agents: omitted or false flags pass this part of preflight; present null, unknown, true or conflicting aliases block it. Omission alone never proves free agency or a lineup unlock. The owner's supplied player 9431 response is rostered to franchise 0008 with status S and correctly cannot pass an add preflight. IR deactivation requires an Out/IR report; MFL enforces final league-specific eligibility, positional limits and deadlines. No reserve move is inferred from the displayed FLEX/starting slot.
 
 All roster reviews reload current roster, limits and abilities; submission compares the complete reviewed membership/limits against another fresh preflight. A device-only scoped marker is saved before the only POST. Exact full membership/status and any explicit drop are read back uncached. A timeout does not cause retry; unresolved changes remain discoverable in My Team with Check status/MFL/acknowledgement. Roster-affecting imports share a repository gate. Acknowledgement clears only the marker, not an MFL move. Successful changes invalidate roster/pool/status/activity caches and refresh existing draft-safe mergers.
 

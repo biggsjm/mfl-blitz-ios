@@ -613,6 +613,11 @@ final class MFLBlitzUITests: XCTestCase {
         for _ in 0..<5 where !player.isHittable { app.swipeUp() }
         player.tap()
         XCTAssertTrue(player.label.hasSuffix(", selected"))
+        app.buttons["trade-research-12620"].tap()
+        XCTAssertTrue(app.buttons["player-watch-12620"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(player.waitForExistence(timeout: 5))
+        XCTAssertTrue(player.label.hasSuffix(", selected"))
         app.buttons["Done"].tap()
         let beforeSaving = XCTAttachment(screenshot: app.screenshot())
         beforeSaving.name = "Trade draft before save"; beforeSaving.lifetime = .keepAlways; add(beforeSaving)
