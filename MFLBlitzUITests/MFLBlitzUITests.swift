@@ -161,6 +161,9 @@ final class MFLBlitzUITests: XCTestCase {
         replaceDak.tap()
 
         XCTAssertTrue(app.navigationBars["Replace QB"].waitForExistence(timeout: 3))
+        let starterProjection = app.staticTexts["lineup-replacement-starter-projection"]
+        XCTAssertTrue(starterProjection.exists)
+        XCTAssertEqual(starterProjection.label, "22.4")
         let kyler = app.buttons["lineup-replacement-14056"]
         XCTAssertTrue(kyler.exists)
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "lineup-replacement-")).count, 1)

@@ -231,6 +231,14 @@ private struct LineupReplacementPicker: View {
                             Text("Currently starting · Week \(request.week)")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
+                        Spacer(minLength: 8)
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(request.starter.projectedPoints.pointsText)
+                                .font(.body.bold().monospacedDigit())
+                                .accessibilityIdentifier("lineup-replacement-starter-projection")
+                            Text("proj").font(.caption2).foregroundStyle(.secondary)
+                        }
+                        .fixedSize(horizontal: true, vertical: false)
                     }
                 }
 
