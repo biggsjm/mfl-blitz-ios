@@ -8,17 +8,20 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
-This is a private Week 1 testing build with a tested MFL API foundation. The app includes an interactive **Champion Hall** preview based on league `41333`. Connect mode talks directly to MFL. Lineup submission, supported conditional blind-bid queues, and board posts are enabled with server readback and no automatic write retries. MFL accepts lineup tiebreakers but does not expose their saved state for confirmation. Fixture tests do not replace live league validation: follow the [Week 1 checklist](docs/week-1-testing.md) before inviting the league.
+**0.3.7 (16) — private Week 1 testing, September 6, 2026.** Built, installed, and launched on Josh's iPhone; app code is on `main` at [`e779e4b`](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b). This is not yet a public or TestFlight release.
 
-The [0.3.3 performance audit and two-week synthetic-manager scenarios](docs/two-week-synthetic-testing.md) document cache/request improvements, bug fixes, test coverage, and remaining live-testing limits.
+Connect mode talks directly to MFL and permits user-reviewed lineup, supported conditional blind-bid, trade, and board actions with readback and no automatic write retries. MFL does not expose saved lineup tiebreakers for confirmation; accepted trades may still need league approval/processing. **Preview Champion Hall** uses sample data and sends nothing to MFL, including its fictional trade offers.
+
+The final build-16 verification passed **96 app/UI test functions, 121 executions including parameterized cases**, with no failures or runtime warnings. This includes the two-week synthetic model scenarios and five native trade journeys—not two real game weeks or a human usability study. See [current status and known limits](docs/current-status.md), the [historical performance report](docs/two-week-synthetic-testing.md), and the [Week 1 checklist](docs/week-1-testing.md) before inviting the league.
 
 The current build includes:
 
 - a scores-first game-day dashboard with the user's matchup featured and tappable position-by-position live scoring for every matchup;
-- a tap- and swipe-accessible lineup editor with league-aware FLEX and required-position replacement pickers, lock, injury, deadline, projection, validation, review, and receipt states;
+- a tap- and swipe-accessible lineup editor with league-aware bench/starter/FLEX replacements and rotations, projections, validation, review, and saved-starter receipts;
+- explicit Week N calendar controls on Scores and Lineup, Settings at the upper left of Scores, and an original crossing-play-route Lineup icon;
 - an ordered conditional-FAAB queue with search, useful sorting, bid/drop editing, budget checks, reordering, and explicit full-queue confirmation;
 - a Transactions hub with Waivers, Trades, and Activity; native player/pick/FAAB offers, acceptance, decline, withdrawal, and explicitly separate counteroffers;
-- saved private trade drafts, exact two-sided review, fresh ownership checks, and restart-safe protection against repeating an unconfirmed trade action;
+- a prominent Create trade / Resume trade action, Cancel with draft rollback, Save & close disabled for blank drafts, exact two-sided review, fresh ownership checks, and restart-safe protection against repeating an unconfirmed trade action;
 - division and overall standings with owner names from MFL that preserve its official ordering;
 - league team artwork in scores, matchup details, and standings, with initials as an offline/missing-image fallback;
 - the existing MFL message board presented as readable native threads, with compose and reply flows;
@@ -29,20 +32,24 @@ The current build includes:
 - explicit partial-round waiver recovery, cancellation of all saved bids, and persistent duplicate-post protection;
 - independent tab loading after account verification, plus bounded/cancellable session reconnection;
 - one shared, persistent 24-hour public player directory, with separate freshness limits for stable league settings, displayed balances, and submission checks;
-- iPhone, iPad, dark mode, Dynamic Type, VoiceOver summaries, Reduce Motion, and 44-point controls;
+- adaptive iPhone/iPad layouts, light/dark appearance, Dynamic Type, VoiceOver summaries, non-gesture actions, and Reduce Motion; the full manual accessibility/device audit remains a release gate;
 - no ads, analytics SDK, cross-app tracking, or proprietary chat network.
+
+## What is next
+
+First: owner-led live Week 1 validation, MFL client registration/User-Agent confirmation, accessibility/device checks, and Apple/TestFlight preparation. Week 2 invitations depend on those gates, not just automated tests.
+
+The coordinated **My Team, schedule, and player-detail designs are not implemented**. Proposed tabs are Scores / Lineup / My Team / Standings / Board, keeping Lineup and moving Transactions inside My Team. Existing waiver search is reused; there is no extra Players tab or new global search destination. See the [remaining execution plan](docs/roadmap.md).
 
 ## Why this app
 
-The incumbents are feature-rich, but the opportunity is reliability and clarity—not another checklist:
+The September 5, 2026 [research snapshot](docs/competitive-review.md) informed the focus on reliability and clarity. It is not a continuously updated market comparison:
 
-- [MFL Mobile](https://apps.apple.com/us/app/mfl-mobile-myfantasyleague/id639397317) has broad coverage and a large rating base, while current reviews still identify weak waiver sorting and an interface behind newer fantasy platforms.
-- [MFL Platinum](https://apps.apple.com/us/app/mfl-platinum/id452910130) handles unusual league formats well, but its rating and review history point to navigation and draft-flow friction.
-- [MFL Modern](https://apps.apple.com/us/app/mfl-modern/id6751516222) looks newer, but has a very small validation base and user reports of stale or configuration-sensitive data.
-- [MFL Live](https://apps.apple.com/us/app/mfl-live/id6670762804) is focused, but does not cover the full set of requested waiver and board workflows.
-- MFL Pro is an ambitious 2026 newcomer with Live Activities and commissioner tooling, but writes are subscription-gated and it is currently iPhone-only in indexed storefronts.
+- Make deadline-sensitive actions easy to find and review.
+- Keep league rules, freshness, ambiguous outcomes, and missing data honest.
+- Use the league's existing conversations, native controls, and privacy-preserving storage.
 
-MFL Blitz differentiates on server-confirmed actions, transparent freshness, rule-driven validation, accessibility, iPad support, privacy, and keeping core league actions free and open.
+The product intent is to keep core league actions free and open. No subscription system is implemented.
 
 See [the competitive review](docs/competitive-review.md) and [product brief](docs/product-brief.md).
 
@@ -51,7 +58,7 @@ See [the competitive review](docs/competitive-review.md) and [product brief](doc
 ```text
 SwiftUI features
     ↓ view data + explicit user intents
-AppModel / repository boundary
+AppModel / TransactionsModel / repository boundary
     ↓
 MFLCore (local Swift package)
     ├── authenticated account/franchise mapping + host discovery
@@ -59,9 +66,14 @@ MFLCore (local Swift package)
     ├── tolerant DTO decoding + body-level error checks
     ├── request spacing + response caching
     └── lineup, waiver, trade, and message-board imports
+
+App-owned storage
+    ├── device-only Keychain: session, scoped drafts, unconfirmed-action markers
+    ├── daily public player disk cache + decoded memory reuse
+    └── private response caches and isolated artwork thumbnails: memory only
 ```
 
-The local package isolates MFL's legacy wire format from the UI. IDs remain strings, API errors are detected even inside HTTP 200 responses, league hosts are resolved per session, and writes are never blindly retried. Sessions restore from the device-only Keychain after fresh membership verification. Unsaved lineup edits, queued waiver changes, and message drafts survive a restart and are isolated by season, league, and franchise. Refreshes preserve drafts and surface conflicts rather than silently overwriting them.
+The local package isolates MFL's legacy wire format from the UI. IDs remain strings, API errors are detected even inside HTTP 200 responses, league hosts are resolved per session, and writes are never blindly retried. Sessions restore from the device-only Keychain after fresh membership verification. Lineup, waiver, board, and trade drafts survive a restart and are isolated by season, league, and franchise. Refreshes preserve drafts and surface conflicts rather than silently overwriting them. The app owns reviewed mutation workflows, secure storage, and readback; there is no MFL Blitz backend.
 
 Read [API integration notes](docs/api-integration.md) for endpoint details and risks.
 
@@ -69,9 +81,10 @@ Read [API integration notes](docs/api-integration.md) for endpoint details and r
 
 Requirements:
 
-- Xcode 16 or later
-- iOS 18 or later deployment target
+- An Xcode toolchain supporting Swift 6 and the iOS 18 deployment target
 - macOS 15 or later for package tests
+
+Latest local verification used **Xcode 27 beta and an iOS 27 iPhone 17 Pro simulator**. This is not evidence that every supported OS/device has been manually validated. GitHub CI runs on `macos-15` and also builds/tests the app.
 
 1. Open `MFLBlitz.xcodeproj`.
 2. Select the `MFLBlitz` scheme and an iPhone or iPad simulator.
@@ -82,20 +95,38 @@ Requirements:
    swift test --package-path Packages/MFLCore
    ```
 
-5. Run the app and UI suites with Xcode, or:
+5. Find an installed simulator with `xcodebuild -showdestinations -project MFLBlitz.xcodeproj -scheme MFLBlitz`. Run the app/UI suites serially with Xcode, or:
 
    ```sh
-   xcodebuild test -project MFLBlitz.xcodeproj -scheme MFLBlitz -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
+   xcodebuild test -project MFLBlitz.xcodeproj -scheme MFLBlitz \
+     -destination 'platform=iOS Simulator,id=YOUR_SIMULATOR_UDID' \
+     -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
    ```
+
+Do not run overlapping jobs on one simulator. See [contributing](CONTRIBUTING.md) for test scope and safe fixtures.
+
+## Documentation
+
+| Document | Purpose |
+| --- | --- |
+| [Current status](docs/current-status.md) | Shipped build, evidence, known limits and release gates |
+| [Roadmap](docs/roadmap.md) / [Changelog](CHANGELOG.md) | Remaining execution plan / implemented release history |
+| [Product brief](docs/product-brief.md) | Priorities, current navigation and design principles |
+| [API integration](docs/api-integration.md) / [MFLCore](Packages/MFLCore/README.md) | Endpoints, cache policies, implementation boundaries |
+| [Week 1 testing](docs/week-1-testing.md) / [Synthetic report](docs/two-week-synthetic-testing.md) | Live checklist / historical automated evidence |
+| [Lineup swaps](docs/lineup-starter-swaps.md) / [Trade inbox](docs/trade-inbox-ux.md) | Shipped interaction contracts and regressions |
+| [Schedule proposal](docs/schedule-ux.md) / [Player-detail proposal](docs/player-detail-ux.md) | Coordinated future work, not implemented features |
+| [Competitive research](docs/competitive-review.md) / [Icon brief](docs/icon-brief.md) | Dated research and artwork rationale |
+| [Privacy](PRIVACY.md) / [Security](SECURITY.md) / [Contributing](CONTRIBUTING.md) | Data handling, safe reporting and development workflow |
 
 ## API configuration before distribution
 
 MFL monitors and throttles API clients. Before a public/TestFlight build:
 
 1. Register a client on MFL's API Client Registration page.
-2. Set the exact registered User-Agent in the transport configuration.
+2. Set the exact registered User-Agent in the transport configuration. The app currently supplies `MFL Blitz/0.1 (com.biggsjm.MFLBlitz)`; registration of that string is not confirmed.
 3. Verify every import call in a disposable test league.
-4. Complete the configuration matrix in [the roadmap](docs/roadmap.md).
+4. Complete the [release gates](docs/roadmap.md) and configuration coverage for the advertised supported scope; do not imply all MFL formats are validated.
 
 Do not put MFL credentials, session cookies, private message content, trade terms, or blind-bid amounts in logs, fixtures, issues, or screenshots. Automated tests use synthetic data.
 

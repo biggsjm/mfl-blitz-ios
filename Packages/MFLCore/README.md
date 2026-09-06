@@ -3,24 +3,26 @@
 `MFLCore` is the dependency-free networking and model layer for **MFL Blitz**.
 It targets Swift 6, iOS 18, and macOS 15.
 
+Documentation audited with app **0.3.7 (16)**, September 6, 2026. The app owns Keychain persistence, reviewed workflows, drafts and reconciliation; this package supplies lower-level transport/models. Calling an import directly does not provide the app's complete confirmation/duplicate-prevention workflow.
+
 ## Quick start
 
 ```swift
 import MFLCore
 
 let reference = try MFLLeagueReference(
-    leagueURL: URL(string: "https://www45.myfantasyleague.com/2026/home/41366#0")!
+    leagueURL: URL(string: "https://www45.myfantasyleague.com/2026/home/41333#0")!
 )
 let client = MFLClient(
     configuration: MFLClientConfiguration(
         league: reference,
         // Use the exact User-Agent registered with MFL in a production app.
-        userAgent: "MFL Blitz/1.0"
+        userAgent: registeredUserAgent
     )
 )
 
 // Store only the resulting value in an app-owned Keychain item. The client
-// does not retain the password and manually sends MFL_USER_ID on later calls.
+// does not retain the password and sends the MFL_USER_ID cookie on later calls.
 let cookie = try await client.authenticate(username: username, password: password)
 
 async let league = client.league()
@@ -29,9 +31,11 @@ async let scores = client.liveScoring(week: 7, includeBench: true)
 async let standings = client.standings()
 ```
 
-The primary reads are `league`, `players`, `freeAgents`, `rosters`,
-`liveScoring`, `standings`, `messageBoard`, `messageBoardThread`, and
-`pendingWaivers`. The three owner writes are:
+The caller supplies credentials, `registeredUserAgent`, and verified franchise/season/week context; these are not hardcoded production defaults. Resolve authenticated membership/host through `myLeagues` before acting for an owner. The package default `MFL Blitz/1.0` and app-supplied `MFL Blitz/0.1 (com.biggsjm.MFLBlitz)` are not evidence of client registration.
+
+Reads include `myLeagues`, `league`, `players`, `freeAgents`, `rosters`, `playerRosterStatus`, `seasonStatus`, `liveScoring`, `projectedScores`, `weeklyResults`, `standings`, `messageBoard`, `messageBoardThread`, `pendingWaivers`, `pendingTrades`, `tradeAssets`, and calendar/activity/capability reads.
+
+Owner imports include `submitLineup`, `submitBlindBidWaiverRequest`, `postMessageBoard`, `proposeTrade`, and `respondToTrade`. Illustrative calls below require explicit owner review and app-level preflight/readback; never execute them as a live smoke test:
 
 ```swift
 try await client.submitLineup(
@@ -53,18 +57,18 @@ try await client.postMessageBoard(
 ## API behavior
 
 - All traffic is HTTPS. Login is form-encoded POST, as recommended by MFL.
-- `MFL_USER_ID` is installed explicitly as a request header. The package does
+- `MFL_USER_ID` is sent explicitly inside the HTTP `Cookie` header. The package does
   not persist credentials; Keychain ownership remains with the app.
-- League hosts are validated, discovered from `league.baseURL`, and retained
-  for the actor's session. Shared player requests use `api.myfantasyleague.com`.
+- The app resolves authenticated membership and host through `myleagues`; the client can also discover a validated `league.baseURL` or narrowly validated league-export GET redirect. Hosts are session-scoped. Login/mutation redirects remain blocked, and cookies are stripped from permitted discovery redirects. Shared player requests use `api.myfantasyleague.com`.
 - Calls are spaced by one second by default. A 429 is surfaced with
   `Retry-After` and is never retried automatically.
-- The player catalog is cached for 24 hours. Live scoring uses a conservative
-  90-second TTL matching the source-data cadence; other league data has shorter
-  endpoint-specific TTLs. Pull-to-refresh can use `.reloadIgnoringCache`, but
-  the one-second request gate still applies.
+- Public players and stable league reads default to 24-hour caching. The app injects a season-specific disk cache only for the full public catalog; decoded memory reuse shares its original expiration. League/private responses remain memory-only. Waiver display limits league/balance age to 60 seconds; mutation preflight is fresh.
+- Projections use 15 minutes; live scores 90 seconds; rosters 30 seconds; roster state 15 seconds; free agents/standings 60 seconds; board list 30 seconds; thread/pending waivers 15 seconds. Weekly results and trade snapshots use forced reads. See the [cache table](../../docs/api-integration.md) for app-level exceptions and request reuse.
+- `.reloadIgnoringCache` still obeys request spacing. Concurrent cacheable reads share a request; forced preflight/readback does not join it, and older responses cannot overwrite newer cache entries. No import is blindly retried after timeout or HTTP failure.
 - MFL's singleton-versus-array and string-versus-number JSON variations are
   normalized. Variable standings and pending-waiver fields remain available in
   each model's `values` or `attributes` dictionary.
+- Body-level JSON/XML errors are checked even with HTTP 200. Anonymous projection placeholders are skipped; identified missing values stay missing. Duplicate catalog IDs and malformed trade dates fail safely.
+- Player detail and season schedule aggregation are not implemented in the app. Optional `players(ids:details:)` fields need live-population verification; do not treat whole-week results as a complete player-history API.
 
-Run verification with `swift test` from this directory.
+Run verification with `swift test` from this directory. The September 6 documentation-audit rerun passed 62 tests in nine suites. App/UI and real-owner validation are separate: see [current status](../../docs/current-status.md), [integration notes](../../docs/api-integration.md) and [contributing](../../CONTRIBUTING.md).

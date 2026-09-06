@@ -1,5 +1,7 @@
 # Starter and FLEX swaps — 0.3.5 (13)
 
+Still implemented in **0.3.7 (16)**. The versioned evidence below records when this behavior shipped; [current status](current-status.md) and the [live checklist](week-1-testing.md) track latest validation. Proposed player/team navigation does not create a second lineup editor or change this submission contract.
+
 The replacement picker includes eligible bench players and other starters. It separates them into **Bench** and **Already starting**, sorts each group by projection, and labels each starter's current slot.
 
 Keep visible copy minimal: short titles and player/slot arrows. Per-option arrows show the actual destinations instead of a paragraph explaining every possible outcome. VoiceOver retains explicit move descriptions. Storage and API details belong in developer documentation, not in the lineup picker.

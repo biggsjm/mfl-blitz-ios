@@ -1,77 +1,78 @@
-# Week 1 private test plan
+# Week 1 owner test and Week 2 go/no-go
 
-These are live actions only when **you** submit them in the app. Automated tests use synthetic data and have not posted or changed any league roster, bid, trade, or message.
+Updated September 6, 2026 for **0.3.7 (16)**. See [current status](current-status.md) for test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
+
+These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
+
+## Already observed
+
+- Josh reported successfully submitting a lineup and seeing Week 1 projections.
+- Build 16 was installed/launched on Josh's phone. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse.
+- Core, app-model and native UI checks passed as described in [current status](current-status.md). Four synthetic managers completed two accelerated weeks; those are not actual Week 1 results.
 
 ## Before kickoff
 
-1. Sign in once on the updated build. Confirm your league, franchise, season, and selected week.
-2. Make an unfinished lineup edit, switch tabs, pull to refresh, close the app, and reopen. Confirm the draft is retained and not submitted. Verify a submitted lineup on MFL, including the write-only tiebreaker.
-3. Draft a board thread and reply, close each composer, and reopen. Post a short test message when ready; verify exactly one copy on MFL.
-4. Build two conditional bid rounds, edit an amount/drop, reorder alternatives, and review before submission. Compare every round on the MFL website. Test removing an alternative, clearing one round, and cancelling all saved bids **only on bids you intend to cancel**.
-5. Check the displayed calendar event against MFL. If no explicit future blind-bid date is returned, use the league-calendar link. First-come adds and unsupported waiver types still use MFL.
+- [ ] Confirm version/build, league, franchise, season and Week N after sign-in/restore. Reconnect must finish or offer cancellation, not block indefinitely; each section loads independently.
+- [ ] Make a lineup edit, switch tabs, refresh, close/reopen and confirm the draft survives without submission. On an intended submission, compare saved starters on MFL. Verify the tiebreaker on MFL separately: the API cannot read its saved state back.
+- [ ] Check a starter's projection beside candidates, including a genuinely missing value. Missing values remain a dash, not zero; projections are pregame, not a live forecast.
+- [ ] Check Week N controls on Scores/Lineup and Settings upper-left on Scores. Avoid changing an active draft's week unintentionally.
+- [ ] Confirm owner names and official standings order in Divisions and Overall. Info opens an anchored popover; missing owner names are not guessed. Check artwork fallback and long names.
+
+### Starter and FLEX replacement
+
+MFL stores starter IDs, not named FLEX slots. The app allocates league-required minimums first, then qualifying extras as FLEX. Champion Hall's reviewed rules are nine starters: QB 1, RB 2–4, WR 3–5, TE 1–3, yielding two RB/WR/TE FLEX positions. Other leagues must use their own rules.
+
+- [ ] Required-position replacement includes eligible bench players and compatible starters in FLEX, not just the bench. FLEX offers every qualifying position permitted by league limits, not only the occupant's NFL position.
+- [ ] Swap RB/WR/TE with FLEX and reverse it. Compatible starter-only swaps keep everyone starting and require no MFL membership write.
+- [ ] Try a cross-position move into FLEX. Cancel/Back before the second choice must change nothing; completing the follow-up applies the rotation atomically. Review any resulting bench-to-starter change before submission.
+- [ ] Confirm locked/reserve players are excluded, stale/conflicting picks are rejected, and a promoted bench tiebreaker requires another valid tiebreaker before submitting. Observe lock behavior; test deliberately invalid submissions only in a disposable league.
+
+### Waivers and Activity
+
+- [ ] Search stays below Waivers / Trades / Activity and survives section changes. Loading is centered; a failed read is not an empty pool/history. Retry respects MFL's cooldown.
+- [ ] Build two conditional rounds, edit amount/drop, reorder alternatives and review the complete queue. When you intend to submit, compare every saved round on MFL. Remove/clear/cancel only requests you intend to remove.
+- [ ] Check the $0 minimum for league 41333/2026. It is an owner-confirmed fallback only when MFL omits the rule; explicit MFL data wins. Make a real $0 bid only for a claim you actually want.
+- [ ] Compare the displayed explicit future blind-bid event with MFL. Missing dates are not guessed. First-come adds and unsupported formats/windows use the MFL link.
+- [ ] Compare Activity/recent waiver results with MFL: added/dropped player names, bid amounts and trade direction; no “Player 0” or ID-sized dollar amounts. These are recent processed acquisitions, not the complete unsuccessful-bid report.
+
+### Trades and drafts
+
+- [ ] Create trade is obvious below the selector and stays visible while scrolling. A confirmed empty inbox says No active trades; loading/errors/unresolved actions never falsely look empty. A saved draft changes the action to Resume trade.
+- [ ] Open a blank composer: Cancel is available and Save & close disabled. Whitespace or only changing expiry does not enable it; choosing a partner/assets or entering a message does. Saving an incomplete draft must not send an offer.
+- [ ] Save partner/assets, reopen, change them, then Cancel → Discard changes. Resume must show the original partner and all original assets. Canceling a new counteroffer must not leave an unwanted draft.
+- [ ] Review exact players, picks, FAAB, message and expiry. On the **first** tap of Decline or Withdraw, check the matching review title/button, then Cancel. Accept must only open from Accept; merely opening a review performs no action.
+- [ ] With a consenting owner, send only an intended offer and compare every term on MFL. Verify acceptance, decline and withdrawal separately on appropriate offers/test fixtures. Do not assume acceptance means approval/processing or player movement has finished.
+- [ ] A counteroffer is a separate offer; acknowledge that the original stays open and decline it separately only if intended.
+- [ ] For an actual interrupted action, use Check outcome without resending. Inspect MFL before manually resolving an unconfirmed warning. Never repeat an offer/acceptance merely because a spinner stopped.
+
+### Board
+
+- [ ] Draft a thread/reply, close and reopen the composer; ensure private text survives. Post only an intended message and verify exactly one matching copy on MFL.
+- [ ] If a post is unconfirmed, use Check MFL without sending again. Clear its warning only after inspecting MFL; do not repost an existing message.
 
 ## During games
 
-- Compare scoreboard totals and player-by-player scores with MFL at kickoff, halftime, and after games.
-- Leave Scores open for a few minutes: a single foreground poller refreshes roughly every 90 seconds. Background the app, reopen, and check freshness.
-- Briefly lose connectivity: existing scores must stay visible with an out-of-date warning; drafts must remain intact.
-- Check a locked player and verify MFL rejects any now-invalid lineup. App lock hints do not replace league enforcement.
-- If a waiver save stops, inspect the saved-MFL queue alongside your preserved draft before choosing what to keep. Never assume all rounds failed.
-- If a post is unconfirmed, use **Check MFL without sending again**. Only manually clear the warning after inspecting MFL; do not repost a message that already exists.
+- [ ] Compare team totals and player points/FLEX with MFL at kickoff, halftime and after games. Open every relevant matchup; unclassified/incomplete data must not invent slot assignments.
+- [ ] Leave Scores/detail foregrounded for several minutes: one poller refreshes about every 90 seconds. Background/reopen and check the update state, clocks and standings. No background push is promised.
+- [ ] Briefly lose connectivity: previously loaded scores remain visible with a warning and drafts stay intact. Recover without duplicate submits or an endless reconnect overlay.
+- [ ] Check lock hints against MFL's actual rules. App hints do not replace server enforcement.
+- [ ] If a waiver save stops mid-queue, compare saved rounds with the preserved draft. Some rounds may already have succeeded; do not assume a complete failure or blindly resend.
 
-## After processing / next week
+## After processing and Week 2 rollover
 
-- Compare successful waiver results and updated budget/roster with MFL. The native list shows recent processed acquisitions, not a complete failed-bid audit.
-- Check final totals after MFL marks the week completed, including any scoring corrections.
-- Reopen when MFL moves to Week 2. The default follows its current week; explicitly selected historical weeks stay selected. The lineup screen offers MFL’s lineup week when it differs.
+- [ ] Compare awarded players, roster changes and remaining budget with MFL after waiver processing; no guessed outcome before processing.
+- [ ] Compare official final totals and later scoring corrections after MFL marks Week 1 complete.
+- [ ] Reopen at Week 2: the default follows MFL current week, while explicitly selected historical weeks remain selected. Lineup offers MFL's lineup week when different. Week-specific drafts and tiebreakers stay correctly scoped.
+- [ ] With actual users, check small-screen/iPad layout, light/dark appearance, long names, large text, VoiceOver and non-gesture actions. Automated synthetic personas are not a comprehension/accessibility study.
 
-## Before inviting the league
+## Week 2 release decision — still pending
 
-Week 2 distribution is a separate step: production MFL API-client registration/User-Agent confirmation, Apple/TestFlight setup, privacy/review details, and a successful live Week 1 run. Other league configurations, native FCFS, IR/taxi moves, push notifications, widgets, and Live Activities are not included in this private test milestone.
+Do not invite the league until P0 [release gates](roadmap.md) are complete: live Week 1 evidence, intended-write verification, regression/manual usability checks, production MFL registration/exact User-Agent, Apple signing/TestFlight/privacy/review setup, safe support/security reporting and Josh's go-ahead. Unsupported formats must be clearly excluded from the release scope with a usable MFL fallback.
 
-## Transactions — 0.3.0 (8)
+My Team/player/schedule views, native FCFS/IR/taxi management, notifications, widgets and Live Activities are not in this installed build. They are not prerequisites for the focused owner trial and must not be advertised as available.
 
-- Waivers, Trades, and Activity share one tab. Waiver search sits below the section control and retains its query when switching sections. Loading indicators are centered; waiver refresh is scoped to waivers.
-- Draft a trade, select assets on both sides, close it, and resume. Confirm the exact players, picks, optional FAAB, message, and expiration in Review. Nothing is sent by selecting assets or saving a draft.
-- With a cooperating owner, send only an offer you intend to make. Compare every term on MFL; withdraw it if appropriate. Verify incoming acceptance and decline separately. Acceptance is not a guarantee that MFL has finished approval/processing or moved the players.
-- Counteroffers explicitly leave the original open. The acknowledgment is required; decline the original separately if desired.
-- For an interrupted action, use Check outcome without resending. Clear its warning manually only after inspecting MFL. Never repeat an offer or acceptance because a spinner stopped.
-- Check Activity against MFL's recent transactions. A failed read is not an empty history. Repeated section changes reuse recent results, shared catalog/projection requests are combined, and Retry is disabled during MFL's cooldown.
+## Record findings safely
 
-Native authenticated trade reads returned all 12 teams, 433 tradable assets, and zero pending offers during development. Synthetic tests cover proposals, all three responses, participant roles, changed ownership/terms, expiration, ambiguous timeouts, persistent markers, and separate counteroffers. No real trade was sent or accepted during automated verification; the cooperating-owner checks above remain necessary.
+For each open check, record **build, device/OS, selected week, timestamp/time zone, expected behavior, observed result, pass/fail and follow-up issue**. Compare sensitive receipts inside MFL; do not publish cookies, credentials, private messages, trade terms, bids or authenticated payloads. Sanitized screenshots and synthetic reproductions belong in public issues; sensitive security details require a private channel.
 
-## League-aware FLEX replacements — 0.3.0 (8)
-
-MFL stores starter IDs rather than named FLEX assignments. The app reserves the league's required positional minimums first and labels the additional starters FLEX. League 41333's live rules were rechecked September 6: nine starters, QB 1, RB 2–4, WR 3–5, TE 1–3, giving two RB/WR/TE FLEX spots. FLEX candidates must keep every minimum/maximum satisfied; the starter's own NFL position does not narrow the picker. A league that permits another QB can allow one in FLEX; this league does not.
-
-Test a FLEX RB → WR or TE draft swap, cancel once, then select and review. Verify required QB/RB/WR/TE slots retain their positional requirements, locked/reserve players stay excluded, and the draft survives reopening without submission. Regression tests cover caps, league-specific QB eligibility, stale slot changes, and cross-position draft persistence. The older same-position description below applies only to required positional slots in this version.
-
-## Implementation evidence
-
-### Performance and simulated managers — 0.3.3 (11)
-
-See the [two-week synthetic-manager report](two-week-synthetic-testing.md) for four test profiles, accelerated game-week journeys, request/decoding optimizations, and bug fixes. These scenarios never contact the real league and do not replace the kickoff/processing checks above. Native UI coverage includes the Week 2 bench-tiebreaker requirement: submit remains unavailable until a valid nonstarter is chosen.
-
-### Daily cache and scoring slots — 0.3.2 (10)
-
-- Open the app, allow data to load, close it, and reopen. The public player directory should reuse its original daily download; league membership is still verified. Tests cover disk-store recreation, expiry without extending the fetch date, future dates, wrong seasons, corrupt files, forced refreshes, and private-response isolation.
-- Stable league reads reuse the in-memory export for up to 24 hours. Waiver balances accept at most 60 seconds of age; a submission always fetches fresh rules/balance and checks all existing ownership/queue safeguards. A repository regression exercises every tab and reconnects with only one player download.
-- Open a matchup and scroll to FLEX. Qualifying extra starters should appear there with their actual NFL positions underneath, not be included again in RB/WR/TE groups. Scores and projections are unchanged. The same allocator drives lineup editing, so response ordering cannot choose different FLEX players. Partial scoring lineups retain their reported positions without guessed FLEX labels.
-
-Build 0.3.2 (10) was installed on the connected iPhone. Read-only verification saw one initial player-directory download followed by a disk-cache hit after reopening, all 12 owner names, 446 usable Week 1 projections, and 12 teams/433 tradable assets. Core regression tests passed (56 tests); the app/unit and FLEX UI run passed (77 test functions, 97 parameterized runs), followed by a final focused cache/scoring pass. No live lineup, waiver, or trade action was submitted by automated verification.
-
-### Refinements — 0.3.1 (9)
-
-- Review & submit lineup now opens a native modal with the exact starters, projections, and tiebreaker. Cancel preserves the draft. If the lineup changes behind the review, submitting is blocked until reviewed again.
-- Activity separates teams, player moves, and bid amounts. Verify a $0/no-drop result and a result with a dropped player against MFL; no synthetic “Player 0” or player-ID-sized dollar amounts should appear. Trade rows show both teams and asset direction.
-- Waivers use clearer budget/run/queue wording, one projection note, and no placeholder rostered/trending percentages. Search remains below the section control; cancelled reads don't become false refresh failures.
-- Josh confirmed the league 41333/2026 minimum bid is $0. The app uses that only when MFL omits the rule; explicit MFL data takes precedence. New drafts start at the minimum, and the editor states it. A synthetic server verifies a $0 save and exact readback; no live bid was submitted during development. Test a real $0 bid only when you intend to make that claim.
-- Standings show MFL owner names beneath team names in both Divisions and Overall. Divisions stay as headings, and undisclosed names say “Owner not listed.” Confirm names in the signed-in session; automated fixtures use synthetic owners.
-
-The test suites cover current-week decoding, completed-result reads, authenticated session restoration, team-scoped draft recovery, refresh conflicts, all-bid cancellation, partial round saves, stale-baseline rejection, timeout-after-save reconciliation, restart-safe unconfirmed replies, and rejecting another owner’s matching post. Live scoring timing and actual league processing still require the checks above.
-
-## Same-position replacements — 0.2.3 (5)
-
-Tap a starter's down arrow (or swipe → Replace) to open a native replacement sheet. It lists only eligible bench players at that exact position, sorted by projection with unpublished values last. Locked players and IR players are excluded. Cancel leaves the lineup unchanged; selecting a replacement makes one atomic draft swap and preserves the number of starters and position counts. Nothing is submitted until Review & submit. If the incoming player was the bench tiebreaker, choose a new bench tiebreaker before submitting. Bench up arrows still allow filling an incomplete lineup.
-
-Regression coverage includes QB/RB/WR/TE filtering, canceled/empty selection, lock/IR checks, keeping players with missing projections selectable, stale week/account/refresh/conflict rejection, draft persistence without a server write, and an iPhone UI test that opens, cancels, and completes a QB swap.
+A complete game-week result is not recorded yet. Keep unchecked items unchecked until observed; dates and aggregate automated test counts do not close them.
