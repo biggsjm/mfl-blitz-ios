@@ -155,11 +155,12 @@ final class PlayerToolsUITests: XCTestCase {
             // UIKit menu button. The wrapper itself has no hittable point.
             let nativeButton = container.buttons.firstMatch
             let target = nativeButton.exists ? nativeButton : container
-            // Native tap scrolls a realized UIKit control into view. Testing
-            // wrapper isHittable first incorrectly scrolls past it on iOS 18.
-            if target.exists { return target }
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+            // Existence alone can include an offscreen row at large text.
+            // Use measured visibility, not the wrapper's unreliable hit point.
+            if target.exists && rosterMenuIsVisible(target, in: app) { return target }
+            let aboveContent = target.exists && target.frame.minY < app.navigationBars.firstMatch.frame.maxY
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: aboveContent ? 0.45 : 0.7))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: aboveContent ? 0.7 : 0.45))
             start.press(forDuration: 0.01, thenDragTo: end)
         }
         let nativeButton = container.buttons.firstMatch
@@ -168,8 +169,21 @@ final class PlayerToolsUITests: XCTestCase {
         return target
     }
 
+    @MainActor private func rosterMenuIsVisible(_ menu: XCUIElement, in app: XCUIApplication) -> Bool {
+        let top = app.navigationBars.firstMatch.frame.maxY
+        let bottom = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : app.frame.maxY
+        let frame = menu.frame
+        return frame.width >= 44 && frame.height >= 44 &&
+            frame.minX >= app.frame.minX && frame.maxX <= app.frame.maxX &&
+            frame.minY >= top && frame.maxY <= bottom
+    }
+
     @MainActor private func tapRosterMenu(_ menu: XCUIElement, in app: XCUIApplication, useMeasuredTouch: Bool = false) {
         XCTAssertTrue(menu.exists && menu.isEnabled)
+        guard rosterMenuIsVisible(menu, in: app) else {
+            XCTFail("Roster menu must be fully visible before tapping: \(menu.frame)")
+            return
+        }
         if menu.isHittable && !useMeasuredTouch {
             menu.tap()
             return
@@ -179,15 +193,6 @@ final class PlayerToolsUITests: XCTestCase {
         // Exercise a real touch at its measured center (not an action hook).
         // Require the whole target to be inside unobscured content first;
         // the callers must still verify the menu and its actual actions.
-        let top = app.navigationBars.firstMatch.frame.maxY
-        let bottom = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : app.frame.maxY
-        let frame = menu.frame
-        guard frame.width >= 44, frame.height >= 44,
-              frame.minX >= app.frame.minX, frame.maxX <= app.frame.maxX,
-              frame.minY >= top, frame.maxY <= bottom else {
-            XCTFail("Roster menu must be fully visible before a coordinate tap: \(frame)")
-            return
-        }
         capture(app, "Roster menu — visible target before native touch")
         menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
