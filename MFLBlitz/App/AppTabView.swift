@@ -28,7 +28,7 @@ struct AppTabView: View {
                 .tag(Tab.scores)
 
             NavigationStack { LineupView() }
-                .tabItem { Label("Lineup", systemImage: "person.3.sequence.fill") }
+                .tabItem { Label("Lineup", image: "LineupPlay") }
                 .tag(Tab.lineup)
 
             NavigationStack { TransactionsView().environment(model.transactions) }

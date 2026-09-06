@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 28 28">
+  <g fill="none" stroke="#000000" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="6" cy="22" r="2.5"/>
+    <circle cx="17.5" cy="22" r="2.5"/>
+    <!-- A small break lets the straight route pass beneath the crossing route. -->
+    <path d="M17.5 17.5V14.5M17.5 10.2V3.5M14.5 6.5L17.5 3.5 20.5 6.5"/>
+    <path d="M6 17.5V16L25 10M19.9 8.7L25 10 21.5 14"/>
+  </g>
+</svg>

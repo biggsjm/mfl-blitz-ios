@@ -2,6 +2,28 @@ import XCTest
 
 final class MFLBlitzUITests: XCTestCase {
     @MainActor
+    func testLineupPlayIconKeepsLabelAndSelection() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["Preview Champion Hall"].tap()
+        let lineup = app.tabBars.buttons["Lineup"]
+        XCTAssertTrue(lineup.waitForExistence(timeout: 3))
+        XCTAssertFalse(lineup.isSelected)
+        XCTAssertEqual(lineup.label, "Lineup")
+        let unselected = XCTAttachment(screenshot: app.tabBars.firstMatch.screenshot())
+        unselected.name = "Play diagram — unselected"; unselected.lifetime = .keepAlways; add(unselected)
+        lineup.tap()
+        XCTAssertTrue(lineup.isSelected)
+        XCTAssertTrue(app.navigationBars["Lineup"].waitForExistence(timeout: 3))
+        XCTAssertGreaterThanOrEqual(lineup.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(lineup.frame.height, 44)
+        let selected = XCTAttachment(screenshot: app.tabBars.firstMatch.screenshot())
+        selected.name = "Play diagram — selected"; selected.lifetime = .keepAlways; add(selected)
+        app.tabBars.buttons["Scores"].tap()
+        XCTAssertFalse(lineup.isSelected)
+    }
+
+    @MainActor
     func testTwoWeekManagerJourneyInOfflinePreview() throws {
         let app = XCUIApplication()
         app.launch()
