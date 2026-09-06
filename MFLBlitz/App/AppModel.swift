@@ -96,9 +96,12 @@ final class AppModel {
             selectedWeek = authenticatedWorkspace.week
             isDemo = activeRepository is DemoLeagueRepository
             resetContent(for: selectedWeek)
+            // Authentication is complete. Enter the app now; optional league
+            // sections load independently and may legitimately be unavailable
+            // during the preseason.
+            phase = .signedIn
             await refreshAll(showSpinner: false)
             guard generation == sessionGeneration else { return }
-            phase = .signedIn
         } catch {
             guard generation == sessionGeneration else { return }
             notice = .error(error.localizedDescription)
@@ -198,7 +201,8 @@ final class AppModel {
     }
 
     func toggleStarter(_ playerID: String) {
-        guard let index = lineup.players.firstIndex(where: { $0.id == playerID }),
+        guard canSubmitChanges,
+              let index = lineup.players.firstIndex(where: { $0.id == playerID }),
               !lineup.players[index].isLocked else { return }
         lineup.players[index].isStarter.toggle()
         if lineup.players[index].isStarter {
@@ -207,6 +211,7 @@ final class AppModel {
     }
 
     func setTiebreaker(_ playerID: String) {
+        guard canSubmitChanges else { return }
         lineup.tiebreakerPlayerIDs = playerID.isEmpty ? [] : [playerID]
     }
 

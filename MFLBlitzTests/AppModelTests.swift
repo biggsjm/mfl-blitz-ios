@@ -1,4 +1,5 @@
 import Foundation
+import MFLCore
 import Testing
 @testable import MFLBlitz
 
@@ -60,5 +61,17 @@ struct AppModelTests {
         #expect(firstRound.map(\.priority) == [1, 2])
         #expect(firstRound.first?.player.id == fallback.player.id)
         #expect(model.waivers.claims.last?.round == 2)
+    }
+
+    @Test("Only MFL's narrow preseason API error is tolerated")
+    func preseasonLiveScoringErrorClassification() {
+        let message = "Live scoring is not available until the season starts"
+
+        #expect(LiveMFLRepository.isPreseasonLiveScoringError(MFLCoreError.api(message)))
+        #expect(!LiveMFLRepository.isPreseasonLiveScoringError(MFLCoreError.unauthorized(message)))
+        #expect(!LiveMFLRepository.isPreseasonLiveScoringError(MFLCoreError.transport(message)))
+        #expect(!LiveMFLRepository.isPreseasonLiveScoringError(
+            MFLCoreError.api("Live scoring is not available for this request")
+        ))
     }
 }

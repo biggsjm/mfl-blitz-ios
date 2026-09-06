@@ -19,63 +19,88 @@ struct LineupView: View {
                     .listRowBackground(Color.clear)
             }
 
-            Section {
-                LineupSummaryCard(lineup: model.lineup, isDirty: isDirty)
+            if model.lineup.players.isEmpty {
+                EmptyState(
+                    title: "Lineup unavailable",
+                    message: "MFL didn’t return a roster for Week \(model.lineup.week). Pull to refresh and try again.",
+                    systemImage: "person.3.sequence"
+                )
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                .listRowBackground(Color.clear)
+            } else {
+                Section {
+                    LineupSummaryCard(
+                        lineup: model.lineup,
+                        isDirty: isDirty,
+                        hasValidationIssue: model.lineupValidationMessage != nil
+                    )
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .listRowBackground(Color.clear)
-            }
-
-            if let message = model.lineupValidationMessage {
-                Section {
-                    Label(message, systemImage: "exclamationmark.triangle.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.orange)
-                        .accessibilityLabel("Lineup issue: \(message)")
                 }
-            }
 
-            Section {
-                ForEach(model.lineup.starters) { player in
-                    LineupPlayerRow(player: player, actionTitle: "Bench", actionIcon: "arrow.down.circle") {
-                        withAnimation(.snappy) { model.toggleStarter(player.id) }
+                if let message = displayedValidationMessage {
+                    Section {
+                        Label(message, systemImage: "exclamationmark.triangle.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.orange)
+                            .accessibilityLabel("Lineup issue: \(message)")
                     }
                 }
-            } header: {
-                HStack {
-                    Text("Starting")
-                    Spacer()
-                    Text("\(model.lineup.starters.count) of \(model.lineup.requiredStarterCount)")
-                        .foregroundStyle(model.lineupValidationMessage == nil ? Color.secondary : Color.orange)
-                }
-            }
 
-            Section("Bench") {
-                ForEach(model.lineup.bench) { player in
-                    LineupPlayerRow(player: player, actionTitle: "Start", actionIcon: "arrow.up.circle") {
-                        withAnimation(.snappy) { model.toggleStarter(player.id) }
-                    }
-                }
-            }
-
-            if model.lineup.requiredTiebreakerCount > 0 {
                 Section {
-                    Picker("Bench tiebreaker", selection: tiebreakerBinding) {
-                        Text("Choose a player").tag("")
-                        ForEach(model.lineup.bench.filter { $0.injuryStatus != .injuredReserve }) { player in
-                            Text("\(player.name) · \(player.position)").tag(player.id)
+                    ForEach(model.lineup.starters) { player in
+                        LineupPlayerRow(
+                            player: player,
+                            actionTitle: "Bench",
+                            actionIcon: "arrow.down.circle",
+                            isEditable: model.canSubmitChanges
+                        ) {
+                            withAnimation(.snappy) { model.toggleStarter(player.id) }
                         }
                     }
                 } header: {
-                    Text("Tiebreaker")
-                } footer: {
-                    Text("Your league uses a nonstarter’s score to resolve tied matchups.")
+                    HStack {
+                        Text("Starting")
+                        Spacer()
+                        Text("\(model.lineup.starters.count) of \(model.lineup.requiredStarterCount)")
+                            .foregroundStyle(model.lineupValidationMessage == nil ? Color.secondary : Color.orange)
+                    }
                 }
-            }
 
-            Section {
-                Label("Players lock individually at their NFL kickoff. Locked players stay visible but can’t be moved.", systemImage: "lock.shield")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Section("Bench") {
+                    ForEach(model.lineup.bench) { player in
+                        LineupPlayerRow(
+                            player: player,
+                            actionTitle: "Start",
+                            actionIcon: "arrow.up.circle",
+                            isEditable: model.canSubmitChanges
+                        ) {
+                            withAnimation(.snappy) { model.toggleStarter(player.id) }
+                        }
+                    }
+                }
+
+                if model.lineup.requiredTiebreakerCount > 0 {
+                    Section {
+                        Picker("Bench tiebreaker", selection: tiebreakerBinding) {
+                            Text("Choose a player").tag("")
+                            ForEach(model.lineup.bench.filter { $0.injuryStatus != .injuredReserve }) { player in
+                                Text("\(player.name) · \(player.position)").tag(player.id)
+                            }
+                        }
+                        .disabled(!model.canSubmitChanges)
+                    } header: {
+                        Text("Tiebreaker")
+                    } footer: {
+                        Text("Your league uses a nonstarter’s score to resolve tied matchups.")
+                    }
+                }
+
+                Section {
+                    Label("Players lock individually at their NFL kickoff. Locked players stay visible but can’t be moved.", systemImage: "lock.shield")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .listStyle(.insetGrouped)
@@ -124,6 +149,14 @@ struct LineupView: View {
             )
     }
 
+    private var displayedValidationMessage: String? {
+        guard let validationMessage = model.lineupValidationMessage else { return nil }
+        guard model.canSubmitChanges else {
+            return "MFL reports an incomplete Week \(model.lineup.week) lineup."
+        }
+        return validationMessage
+    }
+
     private var weekBinding: Binding<Int> {
         Binding(
             get: { model.selectedWeek },
@@ -149,7 +182,7 @@ struct LineupView: View {
                 title: "Review & submit lineup",
                 systemImage: "checkmark.circle.fill",
                 isBusy: model.isBusy,
-                isDisabled: model.lineupValidationMessage != nil
+                isDisabled: model.lineupValidationMessage != nil || !model.canSubmitChanges
             ) {
                 showingSubmitConfirmation = true
             }
@@ -170,6 +203,7 @@ struct LineupView: View {
 private struct LineupSummaryCard: View {
     let lineup: LineupSnapshot
     let isDirty: Bool
+    let hasValidationIssue: Bool
 
     var body: some View {
         SurfaceCard {
@@ -185,9 +219,9 @@ private struct LineupSummaryCard: View {
                     }
                     Spacer()
                     StatusPill(
-                        text: isDirty ? "Unsaved changes" : "Submitted",
-                        systemImage: isDirty ? "pencil" : "checkmark",
-                        tone: isDirty ? .warning : .positive
+                        text: status.text,
+                        systemImage: status.systemImage,
+                        tone: status.tone
                     )
                 }
 
@@ -210,12 +244,26 @@ private struct LineupSummaryCard: View {
         }
         .accessibilityElement(children: .combine)
     }
+
+    private var status: (text: String, systemImage: String, tone: StatusPill.Tone) {
+        if isDirty {
+            return ("Unsaved changes", "pencil", .warning)
+        }
+        if hasValidationIssue {
+            return ("Incomplete", "exclamationmark", .warning)
+        }
+        if lineup.lastSubmitted != nil {
+            return ("Submitted", "checkmark", .positive)
+        }
+        return ("Current lineup", "checkmark.circle", .neutral)
+    }
 }
 
 private struct LineupPlayerRow: View {
     let player: LineupPlayer
     let actionTitle: String
     let actionIcon: String
+    let isEditable: Bool
     let action: () -> Void
 
     var body: some View {
@@ -243,7 +291,7 @@ private struct LineupPlayerRow: View {
                             .accessibilityLabel("Locked")
                     }
                 }
-                Text("\(player.nflTeam) · \(player.opponent) · \(player.gameTime.formatted(date: .omitted, time: .shortened))")
+                Text(playerMetadata)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -267,6 +315,7 @@ private struct LineupPlayerRow: View {
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("Actions for \(player.name)")
+            .disabled(!isEditable)
         }
         .contentShape(Rectangle())
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -274,15 +323,28 @@ private struct LineupPlayerRow: View {
                 Label(actionTitle, systemImage: actionIcon)
             }
             .tint(actionTitle == "Start" ? .green : .orange)
-            .disabled(player.isLocked)
+            .disabled(player.isLocked || !isEditable)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityAction(named: actionTitle, action)
+        .accessibilityActions {
+            if isEditable, !player.isLocked {
+                Button(actionTitle, action: action)
+            }
+        }
+    }
+
+    private var playerMetadata: String {
+        guard !player.opponent.isEmpty, player.opponent != "—" else {
+            return player.nflTeam
+        }
+        return "\(player.nflTeam) · \(player.opponent) · \(player.gameTime.formatted(date: .omitted, time: .shortened))"
     }
 
     private var accessibilityLabel: String {
-        var value = "\(player.name), \(player.position), \(player.nflTeam), \(player.opponent), projected \(player.projectedPoints.pointsText) points"
+        var value = "\(player.name), \(player.position), \(player.nflTeam)"
+        if !player.opponent.isEmpty, player.opponent != "—" { value += ", \(player.opponent)" }
+        value += ", projected \(player.projectedPoints.pointsText) points"
         if let injury = player.injuryStatus { value += ", \(injury.label)" }
         if player.isLocked { value += ", locked" }
         return value

@@ -18,22 +18,42 @@ struct ScoresView: View {
                 }
                 .padding(.horizontal, BlitzMetrics.pagePadding)
 
-                if let featured = model.scores.featuredMatchup {
-                    FeaturedMatchupCard(matchup: featured)
-                        .padding(.horizontal, BlitzMetrics.pagePadding)
-                }
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Around the league")
-                        .font(.title3.bold())
-                        .padding(.horizontal, BlitzMetrics.pagePadding)
-
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(model.scores.matchups.filter { !$0.isUserMatchup }) { matchup in
-                            MatchupCard(matchup: matchup)
+                if model.scores.matchups.isEmpty {
+                    if model.scores.lastUpdated == .distantPast {
+                        ContentUnavailableView {
+                            Label("Scores unavailable", systemImage: "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90")
+                        } description: {
+                            Text("MFL scores couldn’t be loaded. Pull to refresh and try again.")
                         }
+                        .padding(.top, 44)
+                        .padding(.horizontal, BlitzMetrics.pagePadding)
+                    } else {
+                        ContentUnavailableView {
+                            Label("Scores start soon", systemImage: "calendar.badge.clock")
+                        } description: {
+                            Text("MFL live scoring isn’t available until the season starts. You can still check your roster, standings, waivers, and league board.")
+                        }
+                        .padding(.top, 44)
+                        .padding(.horizontal, BlitzMetrics.pagePadding)
                     }
-                    .padding(.horizontal, BlitzMetrics.pagePadding)
+                } else {
+                    if let featured = model.scores.featuredMatchup {
+                        FeaturedMatchupCard(matchup: featured)
+                            .padding(.horizontal, BlitzMetrics.pagePadding)
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Around the league")
+                            .font(.title3.bold())
+                            .padding(.horizontal, BlitzMetrics.pagePadding)
+
+                        LazyVGrid(columns: columns, spacing: 12) {
+                            ForEach(model.scores.matchups.filter { !$0.isUserMatchup }) { matchup in
+                                MatchupCard(matchup: matchup)
+                            }
+                        }
+                        .padding(.horizontal, BlitzMetrics.pagePadding)
+                    }
                 }
             }
             .padding(.bottom, 24)
@@ -70,6 +90,10 @@ private struct UpdatedLabel: View {
             if isRefreshing {
                 ProgressView().controlSize(.small)
                 Text("Updating")
+            } else if date == .distantPast {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .foregroundStyle(.orange)
+                Text("Not updated")
             } else {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)

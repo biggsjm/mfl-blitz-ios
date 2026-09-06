@@ -15,7 +15,15 @@ actor LiveMFLRepository: LeagueRepository {
         )
         let newClient = MFLClient(configuration: configuration)
         _ = try await newClient.authenticate(username: credentials.username, password: credentials.password)
-        let memberships = try await newClient.myLeagues(refreshPolicy: .reloadIgnoringCache)
+        let memberships = try await newClient.myLeagues(
+            includeFranchiseNames: false,
+            refreshPolicy: .reloadIgnoringCache
+        )
+        guard !memberships.leagues.isEmpty else {
+            throw RepositoryError.server(
+                "MFL accepted the credentials but returned no leagues for (credentials.season). Check the season or try signing in again."
+            )
+        }
         guard let membership = memberships.leagues.first(where: { $0.leagueID == credentials.leagueID }) else {
             throw RepositoryError.server(
                 "MFL accepted the login, but league \(credentials.leagueID) is not associated with this account for \(credentials.season)."
@@ -37,7 +45,6 @@ actor LiveMFLRepository: LeagueRepository {
             )
         }
 
-        let scoring = try await newClient.liveScoring(refreshPolicy: .reloadIgnoringCache)
         guard let baseURL = URL(string: "https://\(host.name)") else {
             throw RepositoryError.server("MFL returned an invalid league host.")
         }
@@ -49,7 +56,7 @@ actor LiveMFLRepository: LeagueRepository {
             franchiseID: franchise.id,
             franchiseName: cleanText(franchise.name),
             baseURL: baseURL,
-            week: scoring.week ?? loadedLeague.startWeek ?? 1
+            week: loadedLeague.startWeek ?? 1
         )
 
         client = newClient
@@ -64,10 +71,19 @@ actor LiveMFLRepository: LeagueRepository {
 
     func loadScores(week: Int) async throws -> ScoresSnapshot {
         let (client, _, workspace) = try requireSession()
-        async let liveTask = client.liveScoring(week: week, includeBench: true)
+        async let liveTask = liveScoringIfAvailable(from: client, week: week, includeBench: true)
         async let leagueTask = client.league()
         let (live, refreshedLeague) = try await (liveTask, leagueTask)
         self.league = refreshedLeague
+
+        guard let live else {
+            return ScoresSnapshot(
+                week: week,
+                matchups: [],
+                lastUpdated: Date(),
+                isLive: false
+            )
+        }
 
         let franchiseByID = Dictionary(uniqueKeysWithValues: refreshedLeague.franchises.map { ($0.id, $0) })
         let matchups = live.matchups.compactMap { matchup -> Matchup? in
@@ -100,7 +116,7 @@ actor LiveMFLRepository: LeagueRepository {
     func loadLineup(week: Int) async throws -> LineupSnapshot {
         let (client, league, workspace) = try requireSession()
         async let rosterTask = client.rosters(franchiseID: workspace.franchiseID, week: week)
-        async let liveTask = client.liveScoring(week: week, includeBench: true)
+        async let liveTask = liveScoringIfAvailable(from: client, week: week, includeBench: true)
         let (rosterCollection, live) = try await (rosterTask, liveTask)
         guard let roster = rosterCollection.rosters.first(where: { $0.franchiseID == workspace.franchiseID }) else {
             throw RepositoryError.server("MFL returned no roster for \(workspace.franchiseName).")
@@ -108,7 +124,7 @@ actor LiveMFLRepository: LeagueRepository {
 
         let catalog = try await client.players(ids: roster.players.map(\.id))
         let playerByID = Dictionary(uniqueKeysWithValues: catalog.players.map { ($0.id, $0) })
-        let liveFranchise = live.matchups
+        let liveFranchise = live?.matchups
             .flatMap(\.franchises)
             .first(where: { $0.franchiseID == workspace.franchiseID })
         let liveByID = Dictionary(uniqueKeysWithValues: (liveFranchise?.players ?? []).map { ($0.id, $0) })
@@ -140,7 +156,7 @@ actor LiveMFLRepository: LeagueRepository {
         }
 
         return LineupSnapshot(
-            week: live.week ?? week,
+            week: live?.week ?? week,
             players: players,
             requiredStarterCount: league.starterCount ?? players.filter(\.isStarter).count,
             positionRequirements: requirements,
@@ -149,6 +165,35 @@ actor LiveMFLRepository: LeagueRepository {
             deadline: nil,
             lastSubmitted: nil
         )
+    }
+
+    /// Returns `nil` only for MFL's documented preseason live-scoring gap.
+    /// Authentication, transport, and every other API error continue to fail
+    /// closed so a real session problem is never mistaken for an empty week.
+    private func liveScoringIfAvailable(
+        from client: MFLClient,
+        week: Int? = nil,
+        includeBench: Bool = false,
+        refreshPolicy: MFLRefreshPolicy = .useCache
+    ) async throws -> MFLLiveScoring? {
+        do {
+            return try await client.liveScoring(
+                week: week,
+                includeBench: includeBench,
+                refreshPolicy: refreshPolicy
+            )
+        } catch {
+            guard Self.isPreseasonLiveScoringError(error) else { throw error }
+            return nil
+        }
+    }
+
+    static func isPreseasonLiveScoringError(_ error: Error) -> Bool {
+        guard case let MFLCoreError.api(apiMessage) = error else { return false }
+        let normalizedMessage = apiMessage.lowercased()
+        return normalizedMessage.contains("live scoring")
+            && normalizedMessage.contains("not available")
+            && normalizedMessage.contains("season starts")
     }
 
     func submitLineup(_ lineup: LineupSnapshot) async throws {
