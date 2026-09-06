@@ -25,6 +25,12 @@ struct PlayerRoute: Hashable, Sendable {
     var inspectedWeek: Int? = nil
 }
 
+struct TeamToolsRoute: Hashable, Sendable {
+    enum Destination: Hashable, Sendable { case transactions, rosterMoves }
+    let scope: LeagueBrowseScope
+    let destination: Destination
+}
+
 struct ScheduleRoute: Hashable, Sendable {
     let scope: LeagueBrowseScope
 }
@@ -51,6 +57,14 @@ private struct LeagueBrowseDestinations: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .navigationDestination(for: TeamToolsRoute.self) { route in
+                if route.scope == model.browseScope {
+                    switch route.destination {
+                    case .transactions: TransactionsView().environment(model.transactions)
+                    case .rosterMoves: RosterManagementView()
+                    }
+                } else { unavailableSession }
+            }
             .navigationDestination(for: TeamRoute.self) { route in
                 if route.scope == model.browseScope {
                     TeamDetailView(franchiseID: route.franchiseID, initialSection: route.initialSection) { franchiseID in

@@ -1,6 +1,6 @@
 # Week 1 owner test and Week 2 go/no-go
 
-Updated September 6, 2026 for the **0.5.0 (19) candidate**; 0.4.1 (18) remains the recorded installed baseline until delivery is verified. See [current status](current-status.md) for test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
+Updated September 6, 2026 for the **0.5.1 (20) candidate**. Build 19 installed/launched and Josh reported IR eligibility and cooldown issues; build 20 addresses those reports. See [current status](current-status.md) for delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
@@ -96,6 +96,8 @@ Do these only for moves you actually intend. Automated journeys use Preview, not
 - [ ] Star/unstar a player and confirm MFL's watchlist, My Team Watchlist and the waiver filter agree after reload. Preserve unrelated saved players.
 - [ ] In an open first-come window, review an intended add (and necessary drop), cancel once, then submit only the intended move. Verify membership, lineup/waiver draft conflicts, free-agent pool and Activity.
 - [ ] Verify locked/unavailable players and unsupported/closed capabilities cannot be submitted as immediate adds.
+- [ ] Confirm Move to IR is disabled for players without Out/IR, including Questionable, and while the injury report is unavailable. Check both Player Detail and Manage roster. Compare an eligible player's designation to MFL before an intended move.
+- [ ] Compare ordinary browsing and section refresh after the build-20 traffic changes. If MFL returns 429, honor its wait; note the screen/build without repeated retries. No claim of immunity to MFL's variable limits is made.
 - [ ] For an actually eligible Out/IR player, compare capacity, review Move to IR and verify on MFL. Later activate, including an explicit reviewed drop only if needed. No starter or FLEX position should imply eligibility.
 - [ ] For any unconfirmed action, use Check status/MFL rather than retrying the import. Resolve the notice before disconnecting or making another roster-affecting move.
 - [ ] Verify the updated build does not alter existing unsent lineup/waiver/trade drafts simply through research navigation.

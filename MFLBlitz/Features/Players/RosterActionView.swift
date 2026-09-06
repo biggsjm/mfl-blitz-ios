@@ -48,10 +48,10 @@ struct RosterActionSheet: View {
                             Section {
                                 Button(request.kind.title, role: request.kind == .drop ? .destructive : nil) { confirming = true }
                                     .frame(maxWidth: .infinity, minHeight: 44)
-                                    .disabled(submitting || model.isBusy || model.transactions.isBusy || model.pendingRosterChange != nil)
+                                    .disabled(submitting || model.isBusy || model.transactions.isBusy || model.pendingRosterChange != nil || irIneligibilityReason != nil)
                                     .accessibilityIdentifier("confirm-roster-move")
                             } footer: {
-                                Text(request.kind == .reserve ? "MFL checks injury eligibility and league rules." : "This changes your roster immediately.")
+                                Text(irIneligibilityReason ?? (request.kind == .reserve ? "MFL checks injury eligibility and league rules." : "This changes your roster immediately."))
                             }
                         }
                     }
@@ -73,11 +73,17 @@ struct RosterActionSheet: View {
                 Button(request.kind.title, role: request.kind == .drop ? .destructive : nil) { Task { await submit() } }
             } message: { Text(confirmationSummary) }
             .task(id: model.workspace?.storageScope) { await load() }
+            .task(id: model.currentWeek) {
+                if request.kind == .reserve { await model.loadPlayerAvailability(week: model.currentWeek) }
+            }
         }
     }
 
     private var destination: String {
         switch request.kind { case .add, .activate: "Active roster"; case .reserve: "IR"; case .drop: "Free agents" }
+    }
+    private var irIneligibilityReason: String? {
+        request.kind == .reserve ? model.playerTools.irIneligibilityReason(playerID: player.id, week: model.currentWeek) : nil
     }
     private var confirmationSummary: String {
         var text = "\(player.name) → \(destination)."
@@ -170,7 +176,9 @@ struct RosterManagementView: View {
                                     Menu {
                                         Button(status == "ROSTER" ? "Move to IR" : "Activate") {
                                             selected = .init(kind: status == "ROSTER" ? .reserve : .activate, playerID: player.id)
-                                        }.disabled(!context.allowed.contains(status == "ROSTER" ? .reserve : .activate))
+                                        }.disabled(!context.allowed.contains(status == "ROSTER" ? .reserve : .activate)
+                                            || (status == "ROSTER" && model.playerTools.irIneligibilityReason(playerID: player.id, week: model.currentWeek) != nil))
+                                            .accessibilityHint(status == "ROSTER" ? (model.playerTools.irIneligibilityReason(playerID: player.id, week: model.currentWeek) ?? "Review a move to injured reserve") : "Review activation")
                                         Button("Drop player", role: .destructive) { selected = .init(kind: .drop, playerID: player.id) }
                                             .disabled(!context.allowed.contains(.drop))
                                     } label: { Image(systemName: "arrow.up.arrow.down.circle").frame(width: 44, height: 44) }
@@ -191,7 +199,14 @@ struct RosterManagementView: View {
         .task(id: showFreeAgents) {
             if showFreeAgents, model.waivers.candidates.isEmpty { await model.refreshWaivers() }
         }
-        .refreshable { await load(); if showFreeAgents { await model.refreshWaivers() } }
+        .task(id: "availability|\(model.workspace?.storageScope ?? "")|\(model.currentWeek)") {
+            await model.loadPlayerAvailability(week: model.currentWeek)
+        }
+        .refreshable {
+            await load()
+            await model.loadPlayerAvailability(week: model.currentWeek, refresh: true)
+            if showFreeAgents { await model.refreshWaivers() }
+        }
         .sheet(item: $selected) { request in
             RosterActionSheet(player: identity(request.playerID), request: request)
         }
@@ -199,8 +214,11 @@ struct RosterManagementView: View {
     @ViewBuilder private func playerLink(_ player: PlayerIdentity) -> some View {
         if let scope = model.browseScope {
             NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: model.currentWeek)) {
-                PlayerIdentityView(player: player)
-            }.buttonStyle(.plain)
+                VStack(alignment: .leading, spacing: 4) {
+                    PlayerIdentityView(player: player)
+                    PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.nflTeam ?? "", week: model.currentWeek)
+                }
+            }.buttonStyle(.plain).accessibilityIdentifier("roster-move-player-\(player.id)")
         }
     }
     private func identity(_ id: String) -> PlayerIdentity {

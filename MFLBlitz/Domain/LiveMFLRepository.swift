@@ -17,7 +17,7 @@ actor LiveMFLRepository: LeagueRepository {
     private var statusUpdatedAt: Date = .distantPast
 
     init(privateStore: any PrivateStore = KeychainPrivateStore(),
-         transport: any MFLHTTPTransport = MFLURLSessionTransport(), requestInterval: Duration = .seconds(1),
+         transport: any MFLHTTPTransport = MFLURLSessionTransport(), requestInterval: Duration = .milliseconds(1_250),
          restoreTimeout: Duration = .seconds(15), playerCacheDirectory: URL? = nil) {
         self.privateStore = privateStore
         self.transport = transport

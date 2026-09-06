@@ -1,6 +1,6 @@
 # Product brief
 
-Reconciled September 6, 2026 against **0.5.0 (19) candidate**. [Current status](current-status.md) distinguishes implemented behavior from product targets and remaining validation.
+Reconciled September 6, 2026 against **0.5.1 (20) candidate**. [Current status](current-status.md) distinguishes implemented behavior from product targets and remaining validation.
 
 ## Promise
 

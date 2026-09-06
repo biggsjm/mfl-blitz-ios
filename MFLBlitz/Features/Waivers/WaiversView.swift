@@ -22,7 +22,7 @@ struct WaiversView: View {
         let candidates = filteredCandidates
         List {
             Section {
-                NavigationLink { RosterManagementView() } label: {
+                NavigationLink(value: model.browseScope.map { TeamToolsRoute(scope: $0, destination: .rosterMoves) }) {
                     Label("First-come add/drop & IR", systemImage: "person.crop.circle.badge.plus")
                 }
             }

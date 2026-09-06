@@ -104,9 +104,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
     }
 
     private var transactionsLink: some View {
-        NavigationLink {
-            TransactionsView().environment(model.transactions)
-        } label: {
+        NavigationLink(value: model.browseScope.map { TeamToolsRoute(scope: $0, destination: .transactions) }) {
             HStack(spacing: 12) {
                 Image(systemName: "arrow.triangle.swap").font(.title3).foregroundStyle(Color.blitzNavy)
                     .frame(width: 42, height: 42)
@@ -139,7 +137,9 @@ struct TeamDetailView<ScheduleContent: View>: View {
         List {
             if isOwnTeam {
                 PendingRosterChangeSection()
-                Section { NavigationLink("Manage roster", destination: RosterManagementView()) }
+                Section {
+                    NavigationLink("Manage roster", value: model.browseScope.map { TeamToolsRoute(scope: $0, destination: .rosterMoves) })
+                }
             }
             if model.isDemo { DemoBanner().listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
             if let message = detailModel.errorMessage {

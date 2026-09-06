@@ -147,7 +147,7 @@ struct LineupView: View {
                 submitBar
             }
         }
-        .refreshable { await model.refreshAll() }
+        .refreshable { await model.refreshLineup() }
         .sheet(item: $replacementRequest) { request in
             LineupReplacementPicker(request: request)
                 .presentationDetents([.large])

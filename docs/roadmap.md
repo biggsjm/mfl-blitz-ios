@@ -1,6 +1,6 @@
 # Execution plan and remaining work
 
-Updated September 6, 2026 for the **0.5.0 (19) candidate**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 6, 2026 for the **0.5.1 (20) candidate**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 

@@ -1,6 +1,11 @@
 import SwiftUI
 import MFLCore
 
+private enum TradeComposerRoute: Hashable {
+    case assets(teamID: String)
+    case review
+}
+
 /// A fresh presentation identity and immutable rollback snapshot for each edit.
 struct TradeComposerSession: Identifiable {
     let id = UUID()
@@ -71,9 +76,7 @@ struct TradeComposerView: View {
                     }
                 }
                 Section {
-                    NavigationLink {
-                        TradeProposalReviewView(draft: draft) { isClosing = true; dismiss() }
-                    } label: {
+                    NavigationLink(value: TradeComposerRoute.review) {
                         Label("Review offer", systemImage: "list.clipboard").font(.headline).frame(minHeight: 44)
                     }
                     .disabled(!trades.canAct || trades.validationMessage(for: draft) != nil)
@@ -83,6 +86,16 @@ struct TradeComposerView: View {
                 }
             }
             .leagueBrowseDestinations()
+            .navigationDestination(for: TradeComposerRoute.self) { route in
+                switch route {
+                case .assets(let teamID):
+                    if let team = trades.team(teamID) {
+                        TradeAssetPicker(team: team, selected: teamID == trades.ownerID ? $draft.giving : $draft.receiving)
+                    }
+                case .review:
+                    TradeProposalReviewView(draft: draft) { isClosing = true; dismiss() }
+                }
+            }
             .navigationTitle(draft.countering == nil ? "Build a trade" : "Counteroffer")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -124,9 +137,9 @@ struct TradeComposerView: View {
                 }
             }
             if let team = trades.team(teamID) {
-                NavigationLink {
-                    TradeAssetPicker(team: team, selected: selection)
-                } label: { Label("Choose assets", systemImage: "plus.circle").frame(minHeight: 44) }
+                NavigationLink(value: TradeComposerRoute.assets(teamID: team.id)) {
+                    Label("Choose assets", systemImage: "plus.circle").frame(minHeight: 44)
+                }
                     .accessibilityIdentifier(teamID == trades.ownerID ? "trade-choose-send" : "trade-choose-receive")
             } else { Text("Choose a trading partner first.").foregroundStyle(.secondary) }
         } header: { Text(title) }

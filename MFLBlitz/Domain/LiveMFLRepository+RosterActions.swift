@@ -7,12 +7,18 @@ extension LiveMFLRepository {
         return try privateStore.decode(PendingRosterAction.self, key: "roster.pending.\(workspace.storageScope)")
     }
     func loadRosterActionContext() async throws -> RosterActionContext {
+        try await loadRosterActionContext(refresh: false)
+    }
+
+    private func loadRosterActionContext(refresh: Bool) async throws -> RosterActionContext {
         let (client, _, workspace) = try requireSession()
-        // Mutation preflight intentionally refreshes limits and permissions.
-        let league = try await client.league(refreshPolicy: .reloadIgnoringCache)
-        let rosters = try await client.rosters(franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache)
+        // Browsing reuses short-lived roster/permission and stable rules caches.
+        // Confirming a mutation always bypasses them below.
+        let policy: MFLRefreshPolicy = refresh ? .reloadIgnoringCache : .useCache
+        let league = try await client.league(refreshPolicy: policy)
+        let rosters = try await client.rosters(franchiseID: workspace.franchiseID, refreshPolicy: policy)
         let membership = try Self.uniqueMembership(rosters, owner: workspace.franchiseID)
-        let capabilities = try await client.abilities(refreshPolicy: .reloadIgnoringCache)
+        let capabilities = try await client.abilities(refreshPolicy: policy)
         let catalog = try await client.players()
         try validatePlayerToolsSession(client, workspace.storageScope)
         let supported = league.rostersPerPlayer == 1 && league.playerLimitUnit == "LEAGUE"
@@ -56,7 +62,7 @@ extension LiveMFLRepository {
         let (client, _, workspace) = try requireSession()
         guard reviewed.scope == workspace.storageScope, reviewed.ownerID == workspace.franchiseID,
               !request.playerID.isEmpty, request.playerID.allSatisfy(\.isNumber) else { throw CancellationError() }
-        let fresh = try await loadRosterActionContext()
+        let fresh = try await loadRosterActionContext(refresh: true)
         guard fresh.membership == reviewed.membership, fresh.activeLimit == reviewed.activeLimit,
               fresh.irLimit == reviewed.irLimit else {
             throw RepositoryError.server("Your roster or its limits changed. Close and review the move again; nothing was sent.")
@@ -75,7 +81,8 @@ extension LiveMFLRepository {
         if request.kind == .reserve {
             let status = try await playerToolsSeasonStatus(client: client)
             let injuries = try await client.injuries(week: status.currentWeek, refreshPolicy: .reloadIgnoringCache)
-            guard let injury = injuries.byPlayerID[request.playerID], ["IR", "OUT"].contains(injury.status?.uppercased() ?? "") else {
+            guard let injury = injuries.byPlayerID[request.playerID],
+                  PlayerHealth(status: injury.status ?? "").qualifiesForNativeIR else {
                 throw RepositoryError.server("This player is not listed as Out or IR. Check eligibility on MFL.")
             }
         }

@@ -2,7 +2,14 @@
 
 Implemented private-build history through September 6, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
-## 0.5.0 (19) — September 6, 2026 — player tools candidate
+## 0.5.1 (20) — September 6, 2026 — owner-feedback candidate
+
+- Move to IR is disabled in Player Detail, Manage roster and review unless the current scoped injury report lists Out/IR. Loading, failed, stale, other-week and unknown designations cannot enable it. Fresh preflight and MFL's final rules still apply.
+- Visible-section refreshes no longer fan out to every main feed. Ordinary watchlist and roster-review reads reuse caches; actual mutation preflight/readback stays fresh. Scoring history loads only after View scoring history is tapped. Default request spacing increases to 1.25 seconds.
+- Cooldowns are scoped to the rejecting server as MFL documents, so a public availability-feed 429 does not automatically block a different league server. Same-host requests stop until Retry-After expires; no host switching or automatic import retries.
+- Trade composer destinations now share typed navigation so player research returns to the asset picker with selections intact.
+
+## 0.5.0 (19) — September 6, 2026 — player tools
 
 - Shared official injury, opponent/kickoff and bye context in player details, roster, lineup/replacements and available-player rows. Missing reports are not proof of health; acquisition locks remain separate from lineup locks.
 - League-scored player history, season total/average and recent-form chart. Initially reads four completed weeks, with explicit earlier-page loading; missing scores remain distinct from zero. Opponent points allowed are position totals, not invented per-game averages.

@@ -68,7 +68,7 @@ struct StandingsView: View {
                 }
             }
         }
-        .refreshable { await model.refreshAll() }
+        .refreshable { await model.refreshStandings() }
     }
 
     private var standingsOrderInfo: some View {

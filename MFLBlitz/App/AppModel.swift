@@ -294,6 +294,52 @@ final class AppModel {
         }
     }
 
+    /// Pull-to-refresh affects the visible section, not every league feed.
+    func refreshLineup() async {
+        guard !isLoadingLineup, !isBusy else { return }
+        let generation = sessionGeneration, requestedWeek = selectedWeek, revision = weekLoadGeneration
+        isLoadingLineup = true
+        defer { if generation == sessionGeneration, revision == weekLoadGeneration { isLoadingLineup = false } }
+        do {
+            let fresh = try await repository.loadLineup(week: requestedWeek)
+            guard generation == sessionGeneration, revision == weekLoadGeneration, selectedWeek == requestedWeek else { return }
+            mergeLineup(fresh); lineupRevision &+= 1
+        } catch {
+            guard generation == sessionGeneration, revision == weekLoadGeneration else { return }
+            handleSessionError(error)
+            notice = .error(error.localizedDescription)
+        }
+    }
+
+    func refreshBoard() async {
+        guard !isLoadingBoard, !isBusy else { return }
+        let generation = sessionGeneration
+        isLoadingBoard = true
+        defer { if generation == sessionGeneration { isLoadingBoard = false } }
+        do {
+            let fresh = try await repository.loadBoard()
+            guard generation == sessionGeneration else { return }
+            boardThreads = fresh
+        } catch {
+            guard generation == sessionGeneration else { return }
+            handleSessionError(error); notice = .error(error.localizedDescription)
+        }
+    }
+
+    func refreshStandings() async {
+        guard !isRefreshing, !isBusy else { return }
+        let generation = sessionGeneration, refreshID = beginRefreshing()
+        defer { endRefreshing(refreshID) }
+        do {
+            let fresh = try await repository.loadStandings()
+            guard generation == sessionGeneration else { return }
+            standings = fresh
+        } catch {
+            guard generation == sessionGeneration else { return }
+            handleSessionError(error); notice = .error(error.localizedDescription)
+        }
+    }
+
     func refreshWaivers() async {
         guard !isLoadingWaivers, !isBusy else { return }
         if let lastWaiverRefresh, waiverReadError == nil, Date().timeIntervalSince(lastWaiverRefresh) < 15 { return }
@@ -1015,7 +1061,10 @@ final class AppModel {
 
     func loadWatchList(refresh: Bool = false) async {
         await playerTools.loadWatchList(refresh: refresh) {
-            try await self.readForBrowsing { try await $0.reconcileWatchList() }
+            try await self.readForBrowsing { repository in
+                let snapshot = try await repository.loadWatchList(refresh: refresh)
+                return snapshot.pending == nil ? snapshot : try await repository.reconcileWatchList()
+            }
         }
     }
 

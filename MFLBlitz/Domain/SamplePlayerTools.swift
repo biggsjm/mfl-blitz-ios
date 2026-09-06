@@ -41,6 +41,9 @@ extension DemoLeagueRepository {
             value.byeWeeks[player.nflTeam] = 8
         }
         if let player = roster.last { value.injuries[player.id] = PlayerHealth(status: "Questionable", details: "Knee") }
+        // Explicitly synthetic eligibility for the preview IR journey.
+        value.injuries["12620"] = PlayerHealth(status: "Out", details: "Preview injury designation")
+        value.injuries["13319"] = PlayerHealth(status: "Questionable", details: "Preview injury designation")
         value.injuryUpdatedAt = Date().addingTimeInterval(-3_600)
         return value
     }

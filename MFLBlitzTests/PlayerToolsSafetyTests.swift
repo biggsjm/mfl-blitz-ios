@@ -4,6 +4,34 @@ import Testing
 @testable import MFLBlitz
 
 struct PlayerToolsSafetyTests {
+    @Test("IR controls require a current matching injury report and an eligible designation") @MainActor
+    func irControlEligibility() async {
+        let model = PlayerToolsModel(), now = Date()
+        model.reset(scope: "s")
+        #expect(model.irIneligibilityReason(playerID: "201", week: 1) != nil)
+        for designation in ["Out", "IR", "Questionable", "Doubtful", "Suspended", "Unknown", ""] {
+            var snapshot = PlayerAvailabilitySnapshot(scope: "s", week: 1)
+            snapshot.fetchedAt = now
+            snapshot.injuries["201"] = PlayerHealth(status: designation)
+            await model.loadAvailability(week: 1, refresh: true) {
+                #expect(model.irIneligibilityReason(playerID: "201", week: 1) != nil)
+                return snapshot
+            }
+            #expect((model.irIneligibilityReason(playerID: "201", week: 1, now: now) == nil) == ["Out", "IR"].contains(designation))
+            #expect(model.irIneligibilityReason(playerID: "201", week: 2) != nil)
+            #expect(model.irIneligibilityReason(playerID: "202", week: 1) != nil)
+        }
+        var eligible = PlayerAvailabilitySnapshot(scope: "s", week: 1)
+        eligible.injuries["201"] = PlayerHealth(status: "Out")
+        eligible.fetchedAt = now
+        await model.loadAvailability(week: 1, refresh: true) { eligible }
+        #expect(model.irIneligibilityReason(playerID: "201", week: 1, now: now.addingTimeInterval(901)) != nil)
+        await model.loadAvailability(week: 1, refresh: true) { throw RepositoryError.server("unavailable") }
+        #expect(model.irIneligibilityReason(playerID: "201", week: 1) != nil)
+        model.reset(scope: "another")
+        #expect(model.irIneligibilityReason(playerID: "201", week: 1) != nil)
+    }
+
     @Test("Missing roster status is not authoritative enough for write review")
     func missingMembershipStatus() throws {
         let data = Data(#"{"franchise":{"id":"0001","player":{"id":"101"}}}"#.utf8)

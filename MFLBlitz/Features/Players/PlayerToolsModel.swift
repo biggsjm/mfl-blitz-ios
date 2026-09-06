@@ -15,6 +15,19 @@ final class PlayerToolsModel {
     private var lastAttempts: [Int: Date] = [:]
     private var generation = 0
 
+    func irIneligibilityReason(playerID: String, week: Int, now: Date = Date()) -> String? {
+        guard !loadingWeeks.contains(week) else { return "Checking IR eligibility…" }
+        guard availabilityErrors[week] == nil else { return "IR eligibility unavailable" }
+        guard let snapshot = availability[week], snapshot.scope == scope, snapshot.week == week else {
+            return "Checking IR eligibility…"
+        }
+        let age = now.timeIntervalSince(snapshot.fetchedAt)
+        guard age >= 0, age < 900, !snapshot.issues.contains("Injury report unavailable.") else {
+            return "Refresh to check IR eligibility"
+        }
+        return snapshot.injuries[playerID]?.qualifiesForNativeIR == true ? nil : "Requires Out or IR"
+    }
+
     func reset(scope: String?) {
         generation += 1
         self.scope = scope

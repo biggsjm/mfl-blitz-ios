@@ -14,6 +14,11 @@ struct PlayerHealth: Equatable, Sendable {
         }
     }
     var needsAttention: Bool { ["OUT", "INACTIVE", "IR", "RETIRED", "SUSPENDED"].contains(status.uppercased()) }
+    /// Conservative native IR scope, verified for Champion Hall. MFL still
+    /// enforces league rules on submission; other injury tags do not qualify.
+    var qualifiesForNativeIR: Bool {
+        ["OUT", "IR"].contains(status.trimmingCharacters(in: .whitespacesAndNewlines).uppercased())
+    }
 }
 
 struct NFLGameContext: Equatable, Sendable {

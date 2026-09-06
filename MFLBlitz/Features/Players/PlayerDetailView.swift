@@ -5,6 +5,7 @@ struct PlayerDetailView: View {
     @State private var detailModel = PlayerDetailModel()
     @State private var research = PlayerResearchModel()
     @State private var rosterRequest: RosterActionRequest?
+    @State private var showingResearch = false
     let playerID: String
     let inspectedWeek: Int?
 
@@ -37,6 +38,11 @@ struct PlayerDetailView: View {
                                 Button("Activate player") { rosterRequest = .init(kind: .activate, playerID: playerID) }
                             } else if own.status == .rostered || own.status == .starter || own.status == .nonstarter {
                                 Button("Move to IR") { rosterRequest = .init(kind: .reserve, playerID: playerID) }
+                                    .disabled(irIneligibilityReason != nil || model.isBusy)
+                                    .accessibilityHint(irIneligibilityReason ?? "Review a move to injured reserve")
+                                if let reason = irIneligibilityReason {
+                                    Text(reason).font(.caption).foregroundStyle(.secondary)
+                                }
                             }
                             Button("Drop player", role: .destructive) { rosterRequest = .init(kind: .drop, playerID: playerID) }
                         } else if ownership.isFreeAgent == true {
@@ -61,9 +67,16 @@ struct PlayerDetailView: View {
                     }
                     .monospacedDigit()
                 }
-                PlayerResearchSections(research: research,
-                    retry: { Task { await loadResearch() } },
-                    loadMore: { Task { await loadResearch(more: true) } })
+                if showingResearch {
+                    PlayerResearchSections(research: research,
+                        retry: { Task { await loadResearch() } },
+                        loadMore: { Task { await loadResearch(more: true) } })
+                } else {
+                    Section {
+                        Button("View scoring history", systemImage: "chart.bar") { showingResearch = true }
+                            .accessibilityIdentifier("player-load-history")
+                    }
+                }
                 if let bio = detail.bio, !bio.isEmpty {
                     Section("Bio") {
                         if let jersey = bio.jerseyNumber { LabeledContent("Jersey", value: jersey) }
@@ -119,14 +132,28 @@ struct PlayerDetailView: View {
             await model.loadPlayerAvailability(week: contextWeek)
         }
         .task(id: "watchlist|\(model.workspace?.storageScope ?? "none")") { await model.loadWatchList() }
-        .task(id: "research|\(model.workspace?.storageScope ?? "none")|\(playerID)|\(contextWeek)") { await loadResearch() }
-        .refreshable { await load(refresh: true) }
+        .task(id: "ir|\(model.workspace?.storageScope ?? "none")|\(model.currentWeek)|\(isOwnedPlayer)") {
+            if isOwnedPlayer { await model.loadPlayerAvailability(week: model.currentWeek) }
+        }
+        .task(id: "research|\(model.workspace?.storageScope ?? "none")|\(playerID)|\(contextWeek)|\(showingResearch)") {
+            if showingResearch { await loadResearch() }
+        }
+        .refreshable {
+            await load(refresh: true)
+            if isOwnedPlayer { await model.loadPlayerAvailability(week: model.currentWeek, refresh: true) }
+        }
         .sheet(item: $rosterRequest) { request in
             RosterActionSheet(player: detail?.identity ?? PlayerIdentity(id: playerID, name: "Player \(playerID)"), request: request)
         }
     }
 
     private var contextWeek: Int { inspectedWeek ?? model.workspace?.lineupWeek ?? model.currentWeek }
+    private var isOwnedPlayer: Bool {
+        detail?.ownership?.assignments.contains(where: { $0.team.id == model.workspace?.franchiseID }) == true
+    }
+    private var irIneligibilityReason: String? {
+        model.playerTools.irIneligibilityReason(playerID: playerID, week: model.currentWeek)
+    }
     private var isWatched: Bool { model.playerTools.watchList?.playerIDs.contains(playerID) == true }
 
     private func loadResearch(more: Bool = false) async {

@@ -105,7 +105,7 @@ public actor MFLClient {
     private var cookie: MFLAuthenticationCookie?
     private var leagueHost: MFLAPIHost?
     private var nextRequestInstant: ContinuousClock.Instant?
-    private var rateLimitedUntil: Date?
+    private var rateLimitedUntil: [String: Date] = [:]
     private var cache: [CacheKey: CacheEntry] = [:]
     private var sharedReads: [CacheKey: (id: UUID, task: Task<MFLStoredResponse, Error>)] = [:]
     private var readVersions: [CacheKey: UUID] = [:]
@@ -941,11 +941,20 @@ public actor MFLClient {
     }
 
     private func send(_ request: URLRequest) async throws -> MFLHTTPResponse {
-        try checkRateLimit()
+        try checkRateLimit(for: request)
         try await waitForRequestSlot()
-        try checkRateLimit()
+        try checkRateLimit(for: request)
         do {
-            return try await transport.send(request)
+            let response = try await transport.send(request)
+            if response.statusCode == 429 {
+                let deadline = Date().addingTimeInterval(max(1, retryAfter(response) ?? 90))
+                // MFL documents throttling per server. Never redirect a league
+                // request to evade it; pause only the host that rejected it.
+                for host in [request.url?.host, response.url?.host].compactMap({ $0?.lowercased() }) {
+                    rateLimitedUntil[host] = max(rateLimitedUntil[host] ?? .distantPast, deadline)
+                }
+            }
+            return response
         } catch is CancellationError {
             throw CancellationError()
         } catch let error as MFLCoreError {
@@ -955,8 +964,8 @@ public actor MFLClient {
         }
     }
 
-    private func checkRateLimit() throws {
-        if let deadline = rateLimitedUntil, deadline > Date() {
+    private func checkRateLimit(for request: URLRequest) throws {
+        if let host = request.url?.host?.lowercased(), let deadline = rateLimitedUntil[host], deadline > Date() {
             throw MFLCoreError.rateLimited(retryAfter: deadline.timeIntervalSinceNow)
         }
     }
@@ -971,14 +980,14 @@ public actor MFLClient {
         nextRequestInstant = clock.now.advanced(by: configuration.minimumRequestInterval)
     }
 
-    private func validateHTTP(_ response: MFLHTTPResponse) throws {
-        if response.statusCode == 429 {
-            let retryAfter = response.value(forHeader: "Retry-After").flatMap(TimeInterval.init).flatMap {
+    private func retryAfter(_ response: MFLHTTPResponse) -> TimeInterval? {
+        response.value(forHeader: "Retry-After").flatMap(TimeInterval.init).flatMap {
                 $0.isFinite && $0 >= 0 && $0 < Double(Int.max) / 2 ? $0 : nil
-            }
-            rateLimitedUntil = Date().addingTimeInterval(max(1, retryAfter ?? 90))
-            throw MFLCoreError.rateLimited(retryAfter: retryAfter)
         }
+    }
+
+    private func validateHTTP(_ response: MFLHTTPResponse) throws {
+        if response.statusCode == 429 { throw MFLCoreError.rateLimited(retryAfter: retryAfter(response)) }
         guard (200 ... 299).contains(response.statusCode) else {
             let message = MFLAPIErrorEnvelope.message(in: response.data)
             if response.statusCode == 401 || response.statusCode == 403 {

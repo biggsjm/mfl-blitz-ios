@@ -2,6 +2,30 @@ import XCTest
 
 final class PlayerToolsUITests: XCTestCase {
     @MainActor
+    func testIneligibleIRIsDisabledInPlayerAndRosterActions() {
+        let app = preview()
+        app.tabBars.buttons["My Team"].firstMatch.tap()
+        let player = app.buttons["roster-player-13319"]
+        for _ in 0..<6 where !player.isHittable { app.swipeUp() }
+        player.tap()
+        let move = app.buttons["Move to IR"]
+        XCTAssertTrue(move.waitForExistence(timeout: 5))
+        XCTAssertFalse(move.isEnabled)
+        XCTAssertTrue(app.staticTexts["Requires Out or IR"].waitForExistence(timeout: 5))
+        capture(app, "Player Detail — ineligible IR disabled")
+        app.navigationBars["Aaron Jones"].buttons.matching(identifier: "BackButton").firstMatch.tap()
+        let manage = app.buttons["Manage roster"]
+        for _ in 0..<6 where !manage.isHittable { app.swipeDown() }
+        manage.tap()
+        let menu = app.buttons["Manage Aaron Jones"]
+        for _ in 0..<6 where !menu.isHittable { app.swipeUp() }
+        menu.tap()
+        XCTAssertTrue(move.waitForExistence(timeout: 5))
+        XCTAssertFalse(move.isEnabled)
+        capture(app, "Roster menu — Questionable does not permit IR")
+    }
+
+    @MainActor
     func testFreeAgentAddReviewDoesNotChangeRosterOnCancel() {
         let app = preview()
         app.tabBars.buttons["My Team"].firstMatch.tap()
@@ -9,6 +33,11 @@ final class PlayerToolsUITests: XCTestCase {
         app.segmentedControls.buttons["Free agents"].tap()
         let add = app.buttons["Add Isaiah Bond"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
+        app.buttons["roster-move-player-w1"].tap()
+        XCTAssertTrue(app.buttons["player-watch-w1"].waitForExistence(timeout: 5))
+        app.navigationBars["Isaiah Bond"].buttons.matching(identifier: "BackButton").firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Roster moves"].waitForExistence(timeout: 5))
+        XCTAssertTrue(add.exists)
         add.tap()
         let drop = app.buttons["roster-drop-player"]
         XCTAssertTrue(drop.waitForExistence(timeout: 5))
@@ -42,6 +71,10 @@ final class PlayerToolsUITests: XCTestCase {
         XCTAssertTrue(waitUntilEnabled(watch))
         watch.tap()
         XCTAssertEqual(watch.label, "Remove from watchlist")
+        let loadHistory = app.buttons["player-load-history"]
+        for _ in 0..<7 where !loadHistory.isHittable { app.swipeUp() }
+        XCTAssertTrue(loadHistory.waitForExistence(timeout: 5))
+        loadHistory.tap()
         let history = app.descendants(matching: .any)["player-recent-form"].firstMatch
         for _ in 0..<7 where !history.isHittable { app.swipeUp() }
         XCTAssertTrue(history.waitForExistence(timeout: 5))

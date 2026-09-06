@@ -1,6 +1,6 @@
 # Player tools and roster actions
 
-Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in the 0.5.0 (19) candidate. Implementation checks below are separate from final verification, installation and live-owner certification. [Current status](current-status.md) records the installed build; [roadmap](roadmap.md) retains release gates and remaining work.
+Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in 0.5.0 (19), with owner-feedback fixes in the **0.5.1 (20) candidate**. Implementation checks below are separate from final verification, installation and live-owner certification. [Current status](current-status.md) records the installed build; [roadmap](roadmap.md) retains release gates and remaining work.
 
 ## Scope and sequence
 
@@ -27,7 +27,7 @@ Champion Hall's September 6 public configuration reports `BBID_FCFS`, conditiona
 ## 2 — Player research
 
 - [x] Add league-scored fantasy totals/average and completed-week game history, with a simple recent-form view.
-- [x] Load targeted player scores progressively; initially only recent completed weeks, then explicit Load more. Never fan out 18 forced week requests on first open or request future results.
+- [x] Load targeted player scores only after View scoring history, initially four recent completed weeks, then explicit Load earlier weeks. Identity browsing makes no history requests. Never fan out 18 forced week requests or request future results.
 - [x] Distinguish missing data from a real zero, partial history from complete history, and projections from results. Preserve exact season/week/player/league identity.
 - [x] Add opponent fantasy points allowed by position when the feed has verified data (position totals; not per-game averages); avoid suggesting small-sample matchup figures are predictions.
 - [x] Extend identity links into waiver/trade surfaces without stealing add/bid/asset-selection taps or losing search, scroll or drafts.
@@ -52,13 +52,15 @@ Champion Hall's September 6 public configuration reports `BBID_FCFS`, conditiona
 
 - [x] Offer Move to IR / Activate only on the signed-in owner's applicable players, using current roster membership rather than displayed starter slot.
 - [x] Show available IR/active-roster capacity and review the move. Check current capabilities, limits and baseline; MFL enforces league-specific injury eligibility.
+- [x] Disable Move to IR before review unless a current matching injury report lists a qualifying Out/IR designation; loading, missing, stale and failed reports do not qualify.
 - [x] Support explicit activation with a required reviewed drop when necessary; never silently drop a player to make space.
 - [x] Reuse the durable roster-action and verification machinery. Confirm the target player's new roster status and any intended drop before declaring success.
 - [x] Keep taxi, salary and commissioner-on-behalf writes outside this increment.
 
 ## Cache, security and correctness
 
-- Retain the existing once-daily public player catalog and stable league metadata cache, one-second request spacing, shared in-flight reads, cooldowns and foreground-only score polling.
+- Retain the once-daily public player catalog and stable league metadata cache, shared in-flight reads and foreground-only score polling. Default spacing is now 1.25 seconds. Cooldowns apply to the rejecting server; no request changes host to bypass one.
+- Pull-to-refresh targets the visible main section. Roster review/ordinary watchlist reads reuse caches; only confirmed mutation preflight/readback forces fresh data.
 - Cache public availability separately from private league research/watchlists. Targeted history uses bounded memory entries and completed-week-aware freshness; no new private offline response store.
 - Optional data failures must not hide working scores/lineups. Loading and failed reads cannot masquerade as confirmed empty results.
 - Use native accessible controls, concise copy, 44-point minimum targets, Dynamic Type and Light/Dark appearances. Confirmation is a centered modal/alert, not a detached popover.

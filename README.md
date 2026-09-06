@@ -8,13 +8,13 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
-**0.5.0 (19) candidate — player tools, watchlist and roster moves, September 6, 2026.** The previous installed baseline is 0.4.1 (18). This is not a public or TestFlight release. See [current status](docs/current-status.md) for the verified code, test and device baseline.
+**0.5.1 (20) candidate — player tools, watchlist and roster moves, September 6, 2026.** Build 19 installed and launched; build 20 addresses the owner's IR eligibility and rate-limit feedback. This is not a public or TestFlight release. See [current status](docs/current-status.md) for the verified code, test and device baseline.
 
 Connect mode talks directly to MFL and permits user-reviewed lineup, supported conditional blind-bid, trade, and board actions with readback and no automatic write retries. MFL does not expose saved lineup tiebreakers for confirmation; accepted trades may still need league approval/processing. **Preview Champion Hall** uses sample data and sends nothing to MFL, including its fictional trade offers.
 
 Verification includes core fixtures, app-model regressions, native UI journeys and the two-week synthetic model scenarios—not two real game weeks or a human usability study. Exact current counts and device evidence are recorded in the status document. See [current status and known limits](docs/current-status.md), the [historical performance report](docs/two-week-synthetic-testing.md), and the [Week 1 checklist](docs/week-1-testing.md) before inviting the league.
 
-The candidate additionally includes official injury/kickoff/bye context, progressive fantasy scoring history, a synced watchlist, reviewed native FCFS add/drop and IR moves. See the [approved feature plan and later queue](docs/player-tools-plan.md). Roster writes require explicit owner capabilities and a supported format; unknown/closed states use MFL. Star toggles sync immediately and are read back for confirmation.
+The candidate additionally includes official injury/kickoff/bye context, on-demand progressive fantasy scoring history, a synced watchlist, reviewed native FCFS add/drop and IR moves. See the [approved feature plan and later queue](docs/player-tools-plan.md). Roster writes require explicit owner capabilities and a supported format; unknown/closed states use MFL. Move to IR remains disabled without a current Out/IR designation. Star toggles sync immediately and are read back for confirmation. Ordinary browsing reuses caches; pull-to-refresh reloads only the visible main section. MFL cooldowns remain enforced per server without moving requests to another host or retrying failed imports.
 
 The app includes:
 
