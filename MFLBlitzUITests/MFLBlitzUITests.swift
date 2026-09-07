@@ -2,6 +2,59 @@ import XCTest
 
 final class MFLBlitzUITests: XCTestCase {
     @MainActor
+    func testCachedStartupShowsScreensWhileAuthenticationIsDelayed() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--synthetic-cached-startup"]
+        app.launch()
+        XCTAssertTrue(app.navigationBars["Startup preview"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["cached-session-status"].firstMatch.exists)
+        XCTAssertFalse(app.buttons["cancel-reconnect"].exists)
+        XCTAssertFalse(app.staticTexts["LIVE"].exists)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'matchup-'")).firstMatch.exists)
+        let scores = XCTAttachment(screenshot: app.screenshot())
+        scores.name = "Cached startup — scores visible during authentication"; scores.lifetime = .keepAlways; add(scores)
+        app.tabBars.buttons["Lineup"].firstMatch.tap()
+        let starter = app.buttons["lineup-replace-12620"]
+        XCTAssertTrue(starter.waitForExistence(timeout: 3))
+        XCTAssertFalse(starter.isEnabled)
+        XCTAssertFalse(app.buttons["Review & submit lineup"].exists)
+        let lineup = XCTAttachment(screenshot: app.screenshot())
+        lineup.name = "Cached startup — lineup visible but not writable"; lineup.lifetime = .keepAlways; add(lineup)
+        app.tabBars.buttons["My Team"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["roster-player-12620"].waitForExistence(timeout: 3))
+        let roster = XCTAttachment(screenshot: app.screenshot())
+        roster.name = "Cached startup — saved season roster"; roster.lifetime = .keepAlways; add(roster)
+        let player = app.buttons["roster-player-12620"]
+        for _ in 0..<5 where !player.isHittable { app.swipeUp() }
+        XCTAssertTrue(player.isHittable)
+        player.tap()
+        XCTAssertTrue(app.staticTexts["Connect to view player"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["player-watch-12620"].isEnabled)
+        XCTAssertFalse(app.staticTexts["Loading player…"].exists)
+        app.terminate()
+    }
+
+    @MainActor
+    func testOfflineStartupRetainsDataAndOffersReconnectAtLargeText() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--synthetic-cached-startup", "--synthetic-startup-offline",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["Offline · Last update shown"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Retry"].isHittable)
+        XCTAssertTrue(app.buttons["Sign in"].isHittable)
+        XCTAssertFalse(app.alerts.firstMatch.exists)
+        let banner = app.descendants(matching: .any)["cached-session-status"].firstMatch
+        XCTAssertLessThan(banner.frame.height, app.frame.height * 0.4)
+        XCTAssertGreaterThanOrEqual(banner.frame.minY, app.navigationBars.firstMatch.frame.maxY)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Cached startup — offline at largest text"; screenshot.lifetime = .keepAlways; add(screenshot)
+        app.buttons["Sign in"].tap()
+        XCTAssertTrue(app.buttons["Connect MyFantasyLeague"].waitForExistence(timeout: 3))
+        app.terminate()
+    }
+
+    @MainActor
     func testLineupProjectionMarginUpdatesWithDraftAndStatusSitsBelowScore() {
         let app = XCUIApplication()
         app.launchArguments = ["--preview-current-lineup"]

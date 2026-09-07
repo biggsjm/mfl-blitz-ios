@@ -357,6 +357,7 @@ private struct MatchupDetailHeader: View {
         case .pregame: "clock"
         case .live: "dot.radiowaves.left.and.right"
         case .final: "checkmark.circle"
+        case .saved: "clock.arrow.circlepath"
         }
     }
 }

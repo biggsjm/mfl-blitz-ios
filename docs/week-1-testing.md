@@ -1,6 +1,6 @@
 # Week 1 owner test and Week 2 go/no-go
 
-Updated September 6, 2026 for **0.5.3 (26)**. It includes six direct My Team destinations and the shared numeric standings pattern. See [current status](current-status.md) for actual delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use a validated, installed build for owner testing.
+Updated September 7, 2026 for **0.5.3 (28)**. It includes cached startup, the Lineup projection margin, six direct My Team destinations and the shared numeric standings pattern. See [current status](current-status.md) for actual delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use a validated, installed build for owner testing.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
@@ -13,6 +13,7 @@ These checks remain open unless explicitly marked with an observation. They are 
 ## Before kickoff
 
 - [ ] Confirm version/build, league, franchise, season and Week N after sign-in/restore. Reconnect must finish or offer cancellation, not block indefinitely; each section loads independently.
+- [ ] Let build 28 successfully load Scores, Lineup, Standings, Board and My Team once. Close/reopen: saved content should appear while reconnecting, then update. In airplane mode reopen again: keep last-known content, no LIVE claims or editable cached lineup. Restore connectivity and tap Retry; confirm current week and starters with MFL before an intended change. Record phone time-to-content on Wi-Fi/cellular; first-ever loading and cache eviction legitimately need downloads.
 - [ ] Make a lineup edit, switch tabs, refresh, close/reopen and confirm the draft survives without submission. On an intended submission, compare saved starters on MFL. Verify the tiebreaker on MFL separately: the API cannot read its saved state back.
 - [ ] Check a starter's projection beside candidates, including a genuinely missing value. Missing values remain a dash, not zero; projections are pregame, not a live forecast.
 - [ ] Check Week N controls on Scores/Lineup and Settings upper-left on Scores. Avoid changing an active draft's week unintentionally.

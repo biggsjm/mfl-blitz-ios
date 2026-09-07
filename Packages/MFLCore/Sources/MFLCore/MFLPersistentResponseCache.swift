@@ -15,8 +15,8 @@ public struct MFLStoredResponse: Codable, Sendable {
     }
 }
 
-/// Optional, best-effort storage. MFLClient uses this only for the public,
-/// full player directory—not cookies, league responses, or private actions.
+/// Optional, best-effort response storage. Public players and session-scoped
+/// league metadata use separate stores. Cookies and private actions never enter either.
 public protocol MFLPersistentResponseCache: Sendable {
     func read() async -> MFLStoredResponse?
     func write(_ value: MFLStoredResponse) async
@@ -25,9 +25,10 @@ public protocol MFLPersistentResponseCache: Sendable {
 
 public actor MFLDiskResponseCache: MFLPersistentResponseCache {
     private let fileURL: URL
+    private let protected: Bool
     private static let maximumFileSize = 32 * 1_024 * 1_024
 
-    public init(fileURL: URL) { self.fileURL = fileURL }
+    public init(fileURL: URL, protected: Bool = false) { self.fileURL = fileURL; self.protected = protected }
 
     public func read() -> MFLStoredResponse? {
         guard let size = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
@@ -45,7 +46,17 @@ public actor MFLDiskResponseCache: MFLPersistentResponseCache {
         guard let data = try? JSONEncoder().encode(value), data.count <= Self.maximumFileSize else { return }
         do {
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try data.write(to: fileURL, options: .atomic)
+            var options: Data.WritingOptions = .atomic
+            #if os(iOS)
+            if protected { options.insert(.completeFileProtection) }
+            #endif
+            try data.write(to: fileURL, options: options)
+            if protected {
+                var location = fileURL
+                var resources = URLResourceValues()
+                resources.isExcludedFromBackup = true
+                try location.setResourceValues(resources)
+            }
         } catch {
             // Storage is an optimization. A full/unavailable cache must not
             // prevent fresh league data from loading.

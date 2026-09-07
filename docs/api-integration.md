@@ -1,6 +1,6 @@
 # MFL 2026 API integration
 
-Implementation audit: September 6, 2026, **0.5.3 (26)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
+Implementation audit: September 7, 2026, **0.5.3 (28)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
 
 Primary sources: [general API guidance](https://api.myfantasyleague.com/2026/api_info), [request reference](https://api.myfantasyleague.com/2026/api_info?STATE=details), and [sample code](https://api.myfantasyleague.com/2026/api_info?STATE=example).
 
@@ -65,7 +65,7 @@ Version 0.2.2 corrects a live-feed decoding failure verified on the connected iP
 
 The corrected 0.2.2 (4) device build was installed and launched with the existing saved session. Its live read decoded 446 usable Week 1 projections and mapped projections to 17 of the 18 roster players. The remaining player has no value in that response and remains blank. This verification performed reads only; it did not submit a lineup, waiver bid, or board post.
 
-Reconnect has a 15-second account-verification deadline and a cancel-to-sign-in action. Once verified, the blocking overlay ends; each tab publishes its result independently. Slow waivers no longer hide ready scores or lineups, and a loading section cannot submit changes before its server baseline arrives.
+Reconnect has a 15-second account-verification deadline and a cancel-to-sign-in action. Build 28 displays eligible protected screen snapshots before verification, with a compact updating/offline status. Without a cache, the bounded overlay remains. Fresh scores/lineup start before optional initial feeds; each result publishes independently. A cached/loading lineup cannot edit or submit before its fresh server baseline arrives. See [startup contract](performance-startup.md).
 
 Blind-bid writes compare fresh pending requests with the user-reviewed baseline, then verify the entire intermediate queue after each changed round. Empty `PICKS` explicitly clears a round. A failed request stops the sequence and triggers readback, not resubmission. Unknown queue structures fail closed. Calendar dates use explicit future `WAIVER_BBID` events when available; recurrence is not guessed. Recent processed acquisitions use `transactions` filtered to `BBID_WAIVER,WAIVER,FREE_AGENT`; the MFL website remains the full processing report.
 
@@ -120,7 +120,9 @@ These are current defaults, not a cache-everything rule. Private read retention 
 | Data | Retention/freshness | Exceptions |
 | --- | --- | --- |
 | Full public player directory | 24-hour disk entry plus validated decoded memory reuse, scoped by season/version | Original fetch time survives relaunch; invalid/expired data is rejected; no private payloads/headers on disk |
-| Stable league configuration | 24-hour memory cache | Auth restoration verifies freshly; waiver balance display imposes 60-second maximum age; bid preflight bypasses cache |
+| Stable league configuration | 24-hour protected disk entry plus memory cache | Attach only after fresh membership; season/host/league/session/franchise scoped; waiver balance display imposes 60-second maximum age; write preflight bypasses cache |
+| Last loaded screen display | Per-section maximum 7 days; one 4 MiB protected, backup-excluded file | Exact saved session/season/league/franchise; never permission, preflight or readback; no current-clock/LIVE claim; cached lineup noneditable |
+| Season status | Shared 60-second memory read | Foreground week verification forces a fresh read; current/lineup/completed weeks remain distinct |
 | Targeted player biography | Separate 24-hour memory cache, keyed by requested IDs/details | Ownership refresh does not re-download biography or basic catalog |
 | Fantasy season schedule | One shared 15-minute season/league/session snapshot, plus request sharing | Explicit refresh reloads schedule; no per-team or per-week scoring fan-out |
 | Pregame league projections | 15-minute memory cache, league/week scoped | Missing values remain nil; not a live forecast |
@@ -130,11 +132,11 @@ These are current defaults, not a cache-everything rule. Private read retention 
 | Pending trades / assets / transaction activity | Forced client reads; model-level reuse on recent section visits | Fresh trade preflight/readback; no stale or failed read becomes a confirmed-empty state |
 | Franchise artwork | Bounded 15-minute memory thumbnails; 60-second failure cooldown | Isolated cookieless loader; no disk cache |
 
-The full player directory is shared across tabs. Targeted detailed-player and season-schedule caching are implemented in memory; player-scoring history now uses bounded targeted pages and separate memory caching, as detailed below. Roster/player pull-to-refresh refreshes volatile roster/ownership state while reusing day-cached league metadata. An explicit team-metadata refresh can bypass that cache. MFL supports incremental `SINCE`, but the app currently refreshes the full public catalog after its daily expiry.
+The full player directory and one validated ID index are shared across tabs. A disk hit retains its original age without re-encoding/rewriting the file. Targeted detailed-player and season-schedule caching are implemented in memory; player-scoring history uses bounded targeted pages and separate memory caching, as detailed below. Roster/player pull-to-refresh refreshes volatile roster/ownership state while reusing day-cached league metadata. An explicit team-metadata refresh can bypass that cache. MFL supports incremental `SINCE`, but the app currently refreshes the full public catalog after its daily expiry.
 
 Version 0.3.2 persists only the public, full player directory in the app's Caches folder, scoped by season and cache-format version. Entries retain their original fetch time across relaunches; corrupt, wrong-season, future-dated, and expired entries cannot be used. Decoding succeeds before saving, writes are atomic and size-bounded, and disk failures do not block fresh reads. Score and lineup lookups now use the same full catalog as waivers/trades, eliminating separate per-roster subset downloads. Concurrent cacheable reads still share one request.
 
-Stable league reads use a 24-hour **in-memory** cache. The league export also includes changing owner bid balances, so waiver browsing imposes a maximum age of 60 seconds. Bid submission bypasses both age limits and rechecks the fresh rules, balance, pool, roster, and saved queue. Session restoration still verifies membership and private league data freshly. Owner information, private league responses, projections, and live scoring are not put in the public disk cache; projection and scoring freshness policies remain separate. No cache change introduces automatic write retries.
+Build 28 extends stable league reads to a separate protected 24-hour disk cache, attached only after fresh membership verification. The export includes changing owner balances, so waiver browsing still imposes a 60-second maximum age. Bid submission bypasses both limits and rechecks fresh rules, balance, pool, roster and saved queue. Before imports, persisted league data is detached/invalidated/removed, including on ambiguous outcomes. Display snapshots can retain last-loaded points/projections and summaries but never authorize a change. No private payload enters the public player cache; no cache change introduces automatic write retries. The earlier 0.3.2 memory-only private-storage behavior above is historical.
 
 Scoring and lineup editing now share deterministic positional allocation: required minimums are filled first, with qualifying extra starters displayed as FLEX. Assignment is stable across different feed ordering. Player NFL positions and points remain unchanged; incomplete or unsupported scoring lineups do not get guessed FLEX assignments.
 

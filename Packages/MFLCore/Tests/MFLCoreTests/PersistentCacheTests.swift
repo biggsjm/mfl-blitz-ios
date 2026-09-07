@@ -6,6 +6,61 @@ import Testing
 @testable import MFLCore
 
 struct PersistentCacheTests {
+    @Test("Protected league metadata survives client recreation, but fresh balance reads bypass its age")
+    func persistentLeagueMetadata() async throws {
+        let transport = CatalogCacheTransport()
+        let metadata = MemoryResponseCache()
+        let first = try client(transport, cache: MemoryResponseCache())
+        await first.setLeagueCache(metadata)
+        _ = try await first.league()
+        let saved = try #require(await metadata.read())
+        #expect(saved.key == "league-v1:2026:www45.myfantasyleague.com:41333")
+        let next = try client(transport, cache: MemoryResponseCache())
+        await next.setLeagueCache(metadata)
+        _ = try await next.league()
+        #expect(await transport.count("league") == 1)
+        #expect(await metadata.read()?.fetchedAt == saved.fetchedAt)
+        _ = try await next.league(maximumAge: 0)
+        #expect(await transport.count("league") == 2)
+        _ = try await next.league(refreshPolicy: .reloadIgnoringCache)
+        #expect(await transport.count("league") == 3)
+        await next.setLeagueCache(nil)
+        await metadata.remove()
+        _ = try await next.league()
+        #expect(await metadata.read() == nil) // Sign-out detaches future writes too.
+    }
+
+    @Test("Persisted league data respects a shorter caller age, not just its daily metadata TTL")
+    func persistedBalanceAge() async throws {
+        let metadata = MemoryResponseCache(MFLStoredResponse(key: "league-v1:2026:www45.myfantasyleague.com:41333",
+            data: Data(#"{"league":{"id":"41333","name":"Old balance"}}"#.utf8), fetchedAt: Date().addingTimeInterval(-120)))
+        let transport = CatalogCacheTransport()
+        let client = try client(transport, cache: MemoryResponseCache())
+        await client.setLeagueCache(metadata)
+        #expect(try await client.league(maximumAge: 60).name == "Synthetic league")
+        #expect(await transport.count("league") == 1)
+    }
+
+    @Test("An import detaches old persisted league data even when the import fails")
+    func mutationClearsMetadata() async throws {
+        let transport = CatalogCacheTransport()
+        let metadata = MemoryResponseCache()
+        let client = MFLClient(configuration: MFLClientConfiguration(
+            league: try MFLLeagueReference(season: 2026, leagueID: "41333", host: MFLAPIHost("www45.myfantasyleague.com")),
+            userAgent: "Synthetic cache tests", minimumRequestInterval: .zero), transport: transport,
+            authenticationCookie: try MFLAuthenticationCookie(value: "synthetic-cookie"))
+        await client.setLeagueCache(metadata)
+        _ = try await client.league()
+        #expect(await metadata.read() != nil)
+        await #expect(throws: (any Error).self) {
+            try await client.updateWatchList(playerID: "101", isWatched: true)
+        }
+        #expect(await metadata.read() == nil)
+        _ = try await client.league()
+        #expect(await metadata.read() == nil)
+        #expect(await transport.count("league") == 2)
+    }
+
     private func client(_ transport: CatalogCacheTransport, cache: any MFLPersistentResponseCache, season: Int = 2026) throws -> MFLClient {
         MFLClient(configuration: MFLClientConfiguration(
             league: try MFLLeagueReference(season: season, leagueID: "41333", host: MFLAPIHost("www45.myfantasyleague.com")),
@@ -50,6 +105,7 @@ struct PersistentCacheTests {
         _ = try await client(transport, cache: cache).players()
         #expect(await transport.count("players") == 0)
         #expect(await cache.read()?.fetchedAt == date)
+        #expect(await cache.writeCount == 0) // A disk hit is not re-encoded and rewritten.
     }
 
     @Test("A corrupt cache file recovers by downloading and atomically replacing it")

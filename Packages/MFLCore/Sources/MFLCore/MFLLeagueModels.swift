@@ -283,6 +283,8 @@ public struct MFLStarterRequirement: Decodable, Equatable, Sendable, Identifiabl
 public struct MFLPlayerCatalog: Decodable, Equatable, Sendable {
     public let timestamp: Int?
     public let players: [MFLPlayer]
+    /// Built once with the validated daily catalog, shared by every tab.
+    public let playersByID: [String: MFLPlayer]
 
     private enum CodingKeys: String, CodingKey {
         case timestamp
@@ -294,6 +296,7 @@ public struct MFLPlayerCatalog: Decodable, Equatable, Sendable {
         timestamp = try container.mflIntIfPresent(forKey: .timestamp)
         players = try container.mflArray(of: MFLPlayer.self, forKey: .player)
         guard Set(players.map(\.id)).count == players.count else { throw MFLCoreError.invalidResponse }
+        playersByID = Dictionary(uniqueKeysWithValues: players.map { ($0.id, $0) })
     }
 }
 

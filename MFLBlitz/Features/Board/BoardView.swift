@@ -6,6 +6,12 @@ struct BoardView: View {
 
     var body: some View {
         List {
+            if model.connectionMessage != nil {
+                ConnectionStatusBanner().listRowBackground(Color.clear)
+            }
+            if let saved = model.cachedBoardDate {
+                SavedDataLabel(date: saved).listRowBackground(Color.clear)
+            }
             if model.isDemo {
                 DemoBanner()
                     .listRowInsets(EdgeInsets())
@@ -57,6 +63,7 @@ struct BoardView: View {
                         NavigationLink(value: thread.id) {
                             ThreadRow(thread: thread)
                         }
+                        .disabled(model.isUsingCachedSession)
                     }
                 } header: {
                     Text("MFL message board")

@@ -1,6 +1,14 @@
 # Changelog
 
-Implemented private-build history through September 6, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
+Implemented private-build history through September 7, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
+
+## 0.5.3 (28) — September 7, 2026 — cached startup and performance
+
+- Display saved scores, lineup, standings, Board summaries and own-team roster during reconnection; retain them offline with compact status and Retry/Sign in. A first successful load is required to seed the cache.
+- Add protected, backup-excluded, session-bound display and daily league metadata caches. Fresh membership remains mandatory; cached lineups cannot edit/submit, and mutation preflight/readback never uses display data.
+- Prioritize scores/lineup ahead of optional initial feeds; defer foreground trades until My Team is selected and priority reads finish. Share season-status reads while forcing the foreground week check.
+- Reuse one catalog lookup index across repositories and stop re-encoding/rewriting disk cache hits. Preserve original TTLs, stricter balance freshness, per-host cooldowns, single visible poller and no automatic write retries.
+- Add cache isolation, offline/expired-session, refresh-order, mutation-invalidation and native cached-startup regressions. See [review and limitations](docs/performance-startup.md) and [current verification](docs/current-status.md); synthetic timing is not a real-phone performance guarantee.
 
 ## 0.5.3 (27) — September 6, 2026 — lineup projection comparison
 

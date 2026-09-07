@@ -1,6 +1,6 @@
 # Product brief
 
-Reconciled September 6, 2026 against private build **0.5.3 (27)**. [Current status](current-status.md) distinguishes implemented behavior from product targets and remaining validation.
+Reconciled September 7, 2026 against private build **0.5.3 (28)**. [Current status](current-status.md) distinguishes implemented behavior from product targets and remaining validation.
 
 ## Promise
 
@@ -47,7 +47,7 @@ Reuse existing My Team → Adds / Drops available-player search. There is no ext
 - **The league's rules win.** Derive supported behavior from capabilities/configuration and fail safely when unknown. Broader formats, taxi management and commissioner tools remain targets; basic capability-gated add/drop and IR are implemented, not universally supported features today.
 - **No color-only state.** Live, leading, locked, injured, unread, and invalid states always include text or symbols.
 - **Native before novel.** System navigation, lists, sheets, menus, search, controls, typography, materials, haptics, and semantic colors come before custom chrome.
-- **Fast cold open.** Reuse the daily public catalog and end the blocking reconnect once identity is verified; load sections independently. Persistent private snapshots and a full offline cold start still need a reviewed design.
+- **Fast cold open.** Show last-known content while reconnecting when a protected display cache exists; load fresh scores/lineup before optional initial feeds. Keep offline/update status compact and never authorize changes from cached data. A first successful download is still required; full offline browsing is not implemented. See [startup design](performance-startup.md).
 - **Explain the action, not the plumbing.** Short labels and move arrows do the work. Keep local storage/API mechanics out of lineup picker copy; keep exact terms and consequential limitations at final review. Cancel must actually restore prior draft state.
 - **Respect the league.** Use the existing MFL board. Do not harvest leagues, build a shadow social graph, or expose bids in notifications.
 
@@ -75,4 +75,4 @@ These are acceptance criteria, not a completed certification. Selected native te
 
 ## Privacy posture
 
-The app talks directly from the user's device to MFL without an analytics, advertising, credential or proprietary-message backend. The password is used only for HTTPS login and never persisted. Sessions, scoped drafts and unconfirmed-action markers survive relaunch in device-only Keychain storage; identity is freshly verified on restore. Private response caches and artwork are memory-only; the public player directory has a separate daily disk cache. Logs must omit credentials, cookies, private trade terms, bids and message bodies. See [privacy](../PRIVACY.md) for retention/deletion and external artwork requests.
+The app talks directly from the user's device to MFL without an analytics, advertising, credential or proprietary-message backend. The password is used only for HTTPS login and never persisted. Sessions, scoped drafts and unconfirmed-action markers survive relaunch in device-only Keychain storage; identity is freshly verified on restore. Protected, backup-excluded display/league metadata caches are separate from the daily public catalog. Other private responses and artwork are memory-only. Logs must omit credentials, cookies, private trade terms, bids and message bodies. See [privacy](../PRIVACY.md) for retention/deletion and external artwork requests.

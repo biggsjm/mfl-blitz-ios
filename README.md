@@ -8,7 +8,7 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
-**0.5.3 (27) — installed private build, September 6, 2026.** The designer-reviewed [Lineup card](docs/lineup-projections.md) shows a signed projected margin against that week's opponent, with lineup status beside kickoff locks. Schedule-first shortcuts replace overlapping Transactions and Manage roster pages. The shared [standings pattern](docs/standings-pattern.md) uses numeric places such as “6–2 · 1st in Warner,” with correctly scoped ranks and no fabricated preseason first place. Season points and compact contextual actions remain. This is not a public or TestFlight release. See [current status](docs/current-status.md) for exact verification, pending work and device evidence.
+**0.5.3 (28) — cached-startup increment, September 7, 2026.** Returning users can see saved scores, lineup, standings, Board summaries and their roster while reconnecting. Startup prioritizes scores/lineup, persists protected daily league metadata and reuses a single player lookup index. The first successful download still seeds the cache; cached content cannot authorize changes. See the [performance review](docs/performance-startup.md) and [current status](docs/current-status.md) for precise test, installation and remaining-work evidence. The designer-reviewed [Lineup card](docs/lineup-projections.md), Schedule-first shortcuts and shared [standings pattern](docs/standings-pattern.md) remain. This is not a public or TestFlight release.
 
 Connect mode talks directly to MFL and permits user-reviewed lineup, supported conditional blind-bid, trade, and board actions with readback and no automatic write retries. MFL does not expose saved lineup tiebreakers for confirmation; accepted trades may still need league approval/processing. **Preview Champion Hall** uses sample data and sends nothing to MFL, including its fictional trade offers.
 
@@ -35,7 +35,7 @@ The app includes:
 - MFL/Fantasy Sharks league-scored weekly projections, with missing values shown explicitly;
 - MFL current/lineup-week guidance, Keychain session restoration, and team-scoped lineup, waiver-queue, and board drafts;
 - explicit partial-round waiver recovery, cancellation of all saved bids, and persistent duplicate-post protection;
-- independent tab loading after account verification, plus bounded/cancellable session reconnection;
+- saved-screen presentation during reconnection and offline recovery, plus scores/lineup-first fresh loading after account verification;
 - one shared, persistent 24-hour public player directory, with separate freshness limits for stable league settings, displayed balances, and submission checks;
 - adaptive iPhone/iPad layouts, light/dark appearance, Dynamic Type, VoiceOver summaries, non-gesture actions, and Reduce Motion; the full manual accessibility/device audit remains a release gate;
 - no ads, analytics SDK, cross-app tracking, or proprietary chat network.
@@ -74,8 +74,9 @@ MFLCore (local Swift package)
 
 App-owned storage
     ├── device-only Keychain: session, scoped drafts, unconfirmed-action markers
-    ├── daily public player disk cache + decoded memory reuse
-    └── private response caches and isolated artwork thumbnails: memory only
+    ├── daily public player disk cache + shared decoded lookup index
+    ├── protected, non-backed-up league metadata and display snapshot caches
+    └── other private response caches and isolated artwork thumbnails: memory only
 ```
 
 The local package isolates MFL's legacy wire format from the UI. IDs remain strings, API errors are detected even inside HTTP 200 responses, league hosts are resolved per session, and writes are never blindly retried. Sessions restore from the device-only Keychain after fresh membership verification. Lineup, waiver, board, and trade drafts survive a restart and are isolated by season, league, and franchise. Refreshes preserve drafts and surface conflicts rather than silently overwriting them. The app owns reviewed mutation workflows, secure storage, and readback; there is no MFL Blitz backend.
@@ -115,6 +116,7 @@ Do not run overlapping jobs on one simulator. See [contributing](CONTRIBUTING.md
 | Document | Purpose |
 | --- | --- |
 | [Current status](docs/current-status.md) | Shipped build, evidence, known limits and release gates |
+| [Startup performance](docs/performance-startup.md) | Cached launch, request ordering, storage boundaries, measurements and follow-ups |
 | [Player tools 1–5](docs/player-tools-plan.md) | Approved availability, research, watchlist, add/drop and IR plan; later features |
 | [Roadmap](docs/roadmap.md) / [Changelog](CHANGELOG.md) | Remaining execution plan / implemented release history |
 | [Product brief](docs/product-brief.md) | Priorities, current navigation and design principles |

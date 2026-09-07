@@ -8,7 +8,7 @@ extension LiveMFLRepository {
         async let assetsTask = client.tradeAssets()
         async let catalogTask = client.players()
         let (pending, assets, catalog) = try await (pendingTask, assetsTask, catalogTask)
-        let players = Dictionary(grouping: catalog.players, by: \.id).compactMapValues { $0.count == 1 ? $0[0] : nil }
+        let players = catalog.playersByID
         let teams = assets.franchises.compactMap { owned -> TradeTeam? in
             guard let franchise = league.franchises.first(where: { $0.id == owned.id }) else { return nil }
             return TradeTeam(id: owned.id, name: cleanText(franchise.name), abbreviation: franchise.abbreviation ?? owned.id,
@@ -189,7 +189,7 @@ extension LiveMFLRepository {
         let (client, league, workspace) = try requireSession()
         let value = try await client.transactionActivity()
         let catalog = try await client.players()
-        let players = Dictionary(grouping: catalog.players, by: \.id).compactMapValues { $0.count == 1 ? $0[0] : nil }
+        let players = catalog.playersByID
         guard let container = value.objectValue?["transactions"] else { throw MFLCoreError.invalidResponse }
         if container.stringValue == "", container.objectValue == nil { return [] }
         guard let object = container.objectValue else { throw MFLCoreError.invalidResponse }

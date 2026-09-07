@@ -13,17 +13,20 @@ actor LiveMFLRepository: LeagueRepository {
     private let requestInterval: Duration
     private let restoreTimeout: Duration
     private let playerCacheDirectory: URL?
+    private let metadataCacheDirectory: URL?
+    private var metadataCache: MFLDiskResponseCache?
     private var seasonStatus: MFLSeasonStatus?
     private var statusUpdatedAt: Date = .distantPast
 
     init(privateStore: any PrivateStore = KeychainPrivateStore(),
          transport: any MFLHTTPTransport = MFLURLSessionTransport(), requestInterval: Duration = .milliseconds(1_250),
-         restoreTimeout: Duration = .seconds(15), playerCacheDirectory: URL? = nil) {
+         restoreTimeout: Duration = .seconds(15), playerCacheDirectory: URL? = nil, metadataCacheDirectory: URL? = nil) {
         self.privateStore = privateStore
         self.transport = transport
         self.requestInterval = requestInterval
         self.restoreTimeout = restoreTimeout
         self.playerCacheDirectory = playerCacheDirectory
+        self.metadataCacheDirectory = metadataCacheDirectory
     }
 
     private func playerCache(season: Int) -> MFLDiskResponseCache? {
@@ -66,6 +69,9 @@ actor LiveMFLRepository: LeagueRepository {
         } catch let error as MFLCoreError {
             if case .unauthorized = error { try privateStore.remove("session") }
             throw error
+        } catch RepositoryError.missingSession {
+            try privateStore.remove("session")
+            throw RepositoryError.missingSession
         }
     }
 
@@ -76,28 +82,38 @@ actor LiveMFLRepository: LeagueRepository {
             refreshPolicy: .reloadIgnoringCache
         )
         guard !memberships.leagues.isEmpty else {
+            if expectedFranchise != nil { throw RepositoryError.missingSession }
             throw RepositoryError.server(
                 "MFL returned no leagues for \(credentials.season). Check the season or sign in again."
             )
         }
         guard let membership = memberships.leagues.first(where: { $0.leagueID == credentials.leagueID }) else {
+            if expectedFranchise != nil { throw RepositoryError.missingSession }
             throw RepositoryError.server(
                 "MFL accepted the login, but league \(credentials.leagueID) is not associated with this account for \(credentials.season)."
             )
         }
         guard membership.franchiseID != "0000" else {
+            if expectedFranchise != nil { throw RepositoryError.missingSession }
             throw RepositoryError.server(
                 "This MFL account is the commissioner but is not assigned to a franchise in league \(credentials.leagueID)."
             )
         }
         if let expectedFranchise, expectedFranchise != membership.franchiseID {
-            throw RepositoryError.server("Your franchise assignment changed. Sign in again to confirm your team; saved drafts have not been applied.")
+            throw RepositoryError.missingSession
         }
         guard let host = membership.serverHost else {
             throw RepositoryError.server("MFL returned an invalid host for league \(credentials.leagueID).")
         }
         await newClient.setLeagueHost(host)
-        let loadedLeague = try await newClient.league(refreshPolicy: .reloadIgnoringCache)
+        if let metadataCacheDirectory, let cookie = await newClient.authenticationCookie() {
+            let identity = LeagueDisplayCache.identity(for: SavedSession(cookie: cookie.value,
+                season: credentials.season, leagueID: credentials.leagueID, franchiseID: membership.franchiseID))
+            let cache = MFLDiskResponseCache(fileURL: metadataCacheDirectory.appending(path: "league-v1.json"), protected: true)
+            metadataCache = cache
+            await newClient.setLeagueCache(cache, scope: identity)
+        }
+        let loadedLeague = try await newClient.league()
         guard let franchise = loadedLeague.franchises.first(where: { $0.id == membership.franchiseID }) else {
             throw RepositoryError.server(
                 "MFL mapped this account to franchise \(membership.franchiseID), but that franchise was not present in league \(credentials.leagueID)."
@@ -141,7 +157,7 @@ actor LiveMFLRepository: LeagueRepository {
         guard let workspace, memberships.leagues.contains(where: {
             $0.leagueID == workspace.leagueID && $0.franchiseID == workspace.franchiseID
         }) else { throw RepositoryError.missingSession }
-        let status = try await client.seasonStatus()
+        let status = try await client.seasonStatus(refreshPolicy: .reloadIgnoringCache)
         seasonStatus = status
         statusUpdatedAt = Date()
         self.workspace = LeagueWorkspace(leagueID: workspace.leagueID, season: workspace.season,
@@ -219,8 +235,7 @@ actor LiveMFLRepository: LeagueRepository {
         } else {
             try? await client.players()
         }
-        let catalogByID = Dictionary(grouping: catalog?.players ?? [], by: \.id)
-            .compactMapValues { $0.count == 1 ? $0[0] : nil }
+        let catalogByID = catalog?.playersByID ?? [:]
         let franchiseByID = Dictionary(uniqueKeysWithValues: refreshedLeague.franchises.map { ($0.id, $0) })
         let matchups = live.matchups.compactMap { matchup -> Matchup? in
             guard matchup.franchises.count >= 2 else { return nil }
@@ -325,9 +340,8 @@ actor LiveMFLRepository: LeagueRepository {
         let (catalog, rosterStatuses, live) = try await (catalogTask, statusTask, liveTask)
         let projectionResult = await projectionTask
         let projections = projectionResult.scores
-        let catalogByID = Dictionary(grouping: catalog.players, by: \.id)
         let statusCollectionsByID = Dictionary(grouping: rosterStatuses.statuses, by: \.id)
-        let playerByID = catalogByID.compactMapValues { $0.count == 1 ? $0[0] : nil }
+        let playerByID = catalog.playersByID
         let statusByID = statusCollectionsByID.compactMapValues { $0.count == 1 ? $0[0] : nil }
         let liveFranchise = live?.matchups
             .flatMap(\.franchises)
@@ -632,10 +646,12 @@ actor LiveMFLRepository: LeagueRepository {
         // queue that a replacement could erase.
         _ = try waiverVerificationClaims(from: pending, franchiseID: workspace.franchiseID)
         let catalog = try await client.players()
-        let playerByID = Dictionary(uniqueKeysWithValues: catalog.players.map { ($0.id, $0) })
+        let playerByID = catalog.playersByID
         let ownedRoster = try await client.rosters(franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache)
         let ownedIDs = Set(ownedRoster.rosters.first?.players.map(\.id) ?? [])
-        let ownedNames = Dictionary(uniqueKeysWithValues: catalog.players.filter { ownedIDs.contains($0.id) }.map { ($0.id, $0.displayName) })
+        let ownedNames = Dictionary(uniqueKeysWithValues: ownedIDs.compactMap { id in
+            playerByID[id].map { (id, $0.displayName) }
+        })
         let projectionResult = await projectionTask
         let projections = projectionResult.scores
 
@@ -991,8 +1007,11 @@ actor LiveMFLRepository: LeagueRepository {
     }
 
     func signOut() async {
-        try? privateStore.remove("session")
+        await client?.setLeagueCache(nil)
         await client?.setAuthenticationCookie(nil)
+        await metadataCache?.remove()
+        metadataCache = nil
+        try? privateStore.remove("session")
         client = nil
         league = nil
         workspace = nil

@@ -4,6 +4,25 @@ import Testing
 @testable import MFLBlitz
 
 struct ScoringAndCacheTests {
+    @Test("Relaunch verifies membership but reuses protected daily league metadata")
+    func metadataRelaunchBudget() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "mfl-metadata-tests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = MemoryPrivateStore()
+        try store.encode(SavedSession(cookie: "synthetic-metadata-cookie", season: 2026, leagueID: "41333", franchiseID: "0001"), key: "session")
+        let transport = MutationFixtureTransport()
+        let first = LiveMFLRepository(privateStore: store, transport: transport, requestInterval: .zero,
+            metadataCacheDirectory: directory)
+        _ = try await first.restoreSession()
+        let second = LiveMFLRepository(privateStore: store, transport: transport, requestInterval: .zero,
+            metadataCacheDirectory: directory)
+        _ = try await second.restoreSession()
+        #expect(await transport.requestCounts["myleagues"] == 2)
+        #expect(await transport.requestCounts["league"] == 1)
+        await second.signOut()
+        #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
+    }
+
     @Test("Player clocks distinguish live, pregame, final and unknown when team-level live counts are absent", arguments: [1_800, 3_600, 0, -1])
     func playerClockFallback(seconds: Int) throws {
         let clock = seconds < 0 ? "" : ",\"gameSecondsRemaining\":\"\(seconds)\""

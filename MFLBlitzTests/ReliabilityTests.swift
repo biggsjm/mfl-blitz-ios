@@ -15,6 +15,8 @@ actor ReliabilityRepository: LeagueRepository {
     var waiverGate: TestGate?
     var transactionGate: TestGate?
     var restoreGate: TestGate?
+    var lineupGate: TestGate?
+    var restoreFailure: MFLCoreError?
     var testLineup = SampleData.lineup
     var testWaivers = SampleData.waivers
     var week = 1
@@ -35,6 +37,7 @@ actor ReliabilityRepository: LeagueRepository {
     func signIn(with credentials: LoginCredentials) async throws -> LeagueWorkspace { testWorkspace }
     func restoreSession() async throws -> LeagueWorkspace? {
         if let restoreGate { await restoreGate.wait() }
+        if let restoreFailure { throw restoreFailure }
         return testWorkspace
     }
     func loadWorkspace() async throws -> LeagueWorkspace { testWorkspace }
@@ -48,6 +51,7 @@ actor ReliabilityRepository: LeagueRepository {
     }
     func loadLineup(week: Int) async throws -> LineupSnapshot {
         lineupLoads += 1
+        if let lineupGate { await lineupGate.wait() }
         var result = testLineup; result.week = week; return result
     }
     func submitLineup(_ lineup: LineupSnapshot) async throws {
@@ -63,6 +67,8 @@ actor ReliabilityRepository: LeagueRepository {
     }
     func pauseWaivers(_ gate: TestGate) { waiverGate = gate }
     func pauseRestore(_ gate: TestGate) { restoreGate = gate }
+    func pauseLineup(_ gate: TestGate) { lineupGate = gate }
+    func failRestore(_ error: MFLCoreError?) { restoreFailure = error }
     func submitWaivers(_ claims: [WaiverClaim], replacing baseline: [WaiverClaim]) async throws {
         submittedClaims = claims; testWaivers.claims = claims
     }

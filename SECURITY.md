@@ -1,10 +1,10 @@
 # Security policy
 
-Reviewed September 6, 2026 against **0.5.1 (20)**. Contact the repository owner through an established private channel rather than posting a vulnerability publicly. GitHub private vulnerability reporting is currently disabled; establishing an available reporting route is a [distribution gate](docs/roadmap.md). Do not assume a **Report a vulnerability** button is available. If no private contact is available, request a private reporting route without disclosing exploit details or sensitive data.
+Reviewed September 7, 2026 against **0.5.3 (28)**. Contact the repository owner through an established private channel rather than posting a vulnerability publicly. GitHub private vulnerability reporting was disabled at the September 6 check; establishing an available reporting route is a [distribution gate](docs/roadmap.md). Do not assume a **Report a vulnerability** button is available. If no private contact is available, request a private reporting route without disclosing exploit details or sensitive data.
 
 Never include MyFantasyLeague usernames, passwords, `MFL_USER_ID` values, API keys, private message content, trade terms, blind bids or unredacted authenticated payloads in an issue or routine diagnostic report. Use synthetic reproduction data; report build, affected workflow and expected/observed behavior.
 
-Build **0.5.3 (26)** leaves these authentication, storage and mutation controls unchanged. Its temporary read-only standings diagnostic was removed before the final build; private API payloads are not committed. GitHub private vulnerability reporting was rechecked as disabled on September 6; enabling it remains an owner/distribution action, not part of this UI increment.
+Build **0.5.3 (28)** adds protected display and league metadata caches. A matching saved session permits last-known display during reconnection, not authenticated actions. Fresh membership is required before attaching daily league metadata; a fresh lineup is required before editing. Exact cookie/season/league/franchise binding, per-section age limits, complete file protection, backup exclusion and bounded files are specified in the [performance contract](docs/performance-startup.md). This is a deliberate private-storage change, not a new authentication shortcut.
 
 MFL Blitz is designed to:
 
@@ -15,7 +15,8 @@ MFL Blitz is designed to:
 - reject insecure API endpoints and cross-host mutation redirects;
 - perform no analytics, ad tracking, or credential proxying;
 - isolate franchise images in an ephemeral cookieless session with HTTPS validation, no redirects and bounded static thumbnails;
-- persist only the public player directory as a response cache; keep private API response caches in memory;
+- isolate the daily public player disk cache from protected private display/league metadata; keep other private response caches in memory;
+- detach/invalidate league disk caching before imports and on disconnect; reject late or differently scoped display-cache writes; never serialize raw cookies, passwords or response headers into cache files;
 - review intended lineup, waiver, trade, board and roster actions, use fresh preflight/readback, and never blindly retry imports;
 - retain durable markers for ambiguous board/trade/watchlist/roster writes across relaunch, without assuming disappearance alone proves a timed-out trade acceptance.
 

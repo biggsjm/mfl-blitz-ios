@@ -12,6 +12,9 @@ struct LineupView: View {
 
     var body: some View {
         List {
+            if model.connectionMessage != nil {
+                ConnectionStatusBanner().listRowBackground(Color.clear)
+            }
             if !model.isDemo, let upcoming = model.workspace?.lineupWeek, upcoming != model.selectedWeek {
                 Section {
                     Button("Open MFL’s lineup week · \(upcoming)") {
@@ -22,6 +25,9 @@ struct LineupView: View {
             if model.isDemo {
                 DemoBanner()
                     .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            } else if let saved = model.cachedLineupDate {
+                SavedDataLabel(date: saved, detail: model.isLoadingLineup || model.isRestoringSession ? "Updating lineup" : "Refresh to edit")
                     .listRowBackground(Color.clear)
             } else if !model.canEditLineup {
                 LiveWriteSafetyBanner(
@@ -137,12 +143,13 @@ struct LineupView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Lineup")
-        .task(id: "\(model.workspace?.storageScope ?? "none")|\(model.selectedWeek)") {
+        .task(id: "\(model.workspace?.storageScope ?? "none")|\(model.selectedWeek)|\(model.isUsingCachedSession)") {
             await model.loadPlayerAvailability(week: model.selectedWeek)
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 WeekPicker(selection: weekBinding, range: 1...18)
+                    .disabled(model.isUsingCachedSession)
             }
         }
         .safeAreaInset(edge: .bottom) {

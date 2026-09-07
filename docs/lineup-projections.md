@@ -1,5 +1,7 @@
 # Lineup projection card
 
+Build 28 cache follow-up: a cached lineup or opponent scoreboard never supplies a current projected advantage. The comparison resumes only after both same-week snapshots refresh successfully. Last-known lineup content stays noneditable until its fresh baseline arrives; see [startup contract](performance-startup.md).
+
 Implemented in private build **0.5.3 (27)**. [Current status](current-status.md) records verification and delivery; [roadmap](roadmap.md) retains live-week and distribution gates.
 
 - Align the card with the roster cards. Keep the edited lineup's weekly projection prominent on the left; on the right, show the smaller signed margin with `pts` and the opponent's full name beneath it.

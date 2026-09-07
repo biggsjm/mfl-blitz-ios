@@ -78,6 +78,16 @@ final class AppModel {
     var isLoadingLineup = false
     var isLoadingWaivers = false
     var isLoadingBoard = false
+    var isUsingCachedSession = false
+    var connectionMessage: String?
+    var cachedLineupDate: Date?
+    var cachedScoresDate: Date?
+    var cachedRosterDate: Date?
+    var cachedStandingsDate: Date?
+    var cachedBoardDate: Date?
+    var cachedOwnerRoster: TeamRosterSnapshot?
+    private let displayCache: LeagueDisplayCache?
+    private var displayCacheIdentity: String?
     private var restoreRequest: Task<LeagueWorkspace?, any Error>?
     private var didAttemptRestore = false
     private var followsCurrentWeek = true
@@ -93,14 +103,14 @@ final class AppModel {
     private var lastWaiverRefresh: Date?
 
     var canEditLineup: Bool {
-        isDemo || (LiveWritePolicy.lineupsEnabled && lineup.editState.allowsEditing)
+        !isUsingCachedSession && cachedLineupDate == nil && (isDemo || (LiveWritePolicy.lineupsEnabled && lineup.editState.allowsEditing))
     }
     var canChangeLineupDraft: Bool {
         canEditLineup && !isBusy && !isLoadingLineup && lineupConflict == nil && lineup.week == selectedWeek
     }
     var canSubmitLineup: Bool { !isBusy && !isLoadingLineup && canEditLineup && lineup.editState.allowsEditing && lineupConflict == nil && lineup.week == selectedWeek }
-    var canSubmitWaivers: Bool { !isBusy && !isLoadingWaivers && waiverConflict == nil && (isDemo || (LiveWritePolicy.waiversEnabled && waivers.unavailableReason == nil)) }
-    var canPostToBoard: Bool { isDemo || LiveWritePolicy.boardEnabled }
+    var canSubmitWaivers: Bool { !isUsingCachedSession && !isBusy && !isLoadingWaivers && waiverConflict == nil && (isDemo || (LiveWritePolicy.waiversEnabled && waivers.unavailableReason == nil)) }
+    var canPostToBoard: Bool { !isUsingCachedSession && (isDemo || LiveWritePolicy.boardEnabled) }
     var hasRestrictedLiveActions: Bool {
         !canEditLineup || !canSubmitWaivers || !canPostToBoard
     }
@@ -112,17 +122,20 @@ final class AppModel {
     private var activeRefreshIDs: Set<Int> = []
     private var nextDemoMessageID = 0
 
-    init(repository: any LeagueRepository = LiveMFLRepository(playerCacheDirectory: AppCacheLocations.players), privateStore: any PrivateStore = KeychainPrivateStore(), foregroundRefreshInterval: TimeInterval = 60) {
+    init(repository: any LeagueRepository = LiveMFLRepository(playerCacheDirectory: AppCacheLocations.players, metadataCacheDirectory: AppCacheLocations.leagueMetadata), privateStore: any PrivateStore = KeychainPrivateStore(), foregroundRefreshInterval: TimeInterval = 60, displayCache: LeagueDisplayCache? = nil) {
         self.repository = repository
         self.privateStore = privateStore
         self.foregroundRefreshInterval = foregroundRefreshInterval
+        self.displayCache = displayCache ?? (repository is LiveMFLRepository ? AppCacheLocations.leagueDisplay.map {
+            LeagueDisplayCache(fileURL: $0, privateStore: privateStore)
+        } : nil)
         if repository is DemoLeagueRepository {
             installDemoContent()
         }
     }
 
     func restoreSession() async {
-        guard !didAttemptRestore, phase == .onboarding, !isDemo else { return }
+        guard !didAttemptRestore, phase == .onboarding || isUsingCachedSession, !isDemo else { return }
         didAttemptRestore = true
         isRestoringSession = true
         isBusy = true
@@ -134,17 +147,36 @@ final class AppModel {
             }
         }
         let activeRepository = repository
+        #if DEBUG
+        if let preview = activeRepository as? CachedStartupPreviewRepository, let displayCache {
+            await preview.seed(displayCache)
+        }
+        #endif
+        if let cached = await displayCache?.load(), generation == sessionGeneration {
+            installCachedDisplay(cached)
+        }
+        guard generation == sessionGeneration else { return }
         let request = Task { try await activeRepository.restoreSession() }
         restoreRequest = request
         do {
-            guard let restored = try await request.value, generation == sessionGeneration else { return }
+            guard let restored = try await request.value, generation == sessionGeneration else {
+                if generation == sessionGeneration, isUsingCachedSession { discardCachedSession() }
+                return
+            }
+            if workspace?.storageScope != restored.storageScope { resetContent(for: restored.week) }
             workspace = restored
+            displayCacheIdentity = await displayCache?.identity(for: restored)
+            guard generation == sessionGeneration else { return }
             configureTransactions()
             selectedWeek = restored.week
             currentWeek = restored.week
+            if scores.week != selectedWeek { scores = emptyScores(for: selectedWeek); cachedScoresDate = nil }
+            if lineup.week != selectedWeek { lineup = emptyLineup(for: selectedWeek); cachedLineupDate = nil }
             try restoreDrafts()
             unconfirmedBoardPost = try await repository.pendingBoardPost()
             guard generation == sessionGeneration else { return }
+            isUsingCachedSession = false
+            connectionMessage = nil
             // Reconnecting means verifying the account, not downloading every
             // optional tab. Show the app immediately once that check succeeds.
             isRestoringSession = false
@@ -153,8 +185,77 @@ final class AppModel {
             await refreshAll()
         } catch {
             guard generation == sessionGeneration else { return }
-            notice = .error("Couldn’t restore your MFL session. Sign in to reconnect. Your saved drafts are kept for the same team. \(error.localizedDescription)")
+            if isUsingCachedSession {
+                if Self.isSessionError(error) {
+                    discardCachedSession()
+                    try? privateStore.remove("session")
+                    await displayCache?.clear()
+                    notice = .error("Sign in again to reconnect. Your drafts are kept for this team.")
+                } else {
+                    connectionMessage = "Offline · Last update shown"
+                }
+            } else {
+                notice = .error("Couldn’t restore your MFL session. Sign in to reconnect. Your saved drafts are kept for the same team. \(error.localizedDescription)")
+            }
         }
+    }
+
+    func retryConnection() async {
+        guard isUsingCachedSession, !isRestoringSession else { return }
+        didAttemptRestore = false
+        await restoreSession()
+    }
+
+    func reconnectWithSignIn() {
+        guard isUsingCachedSession, !isBusy else { return }
+        sessionGeneration &+= 1
+        discardCachedSession()
+    }
+
+    private func installCachedDisplay(_ snapshot: LeagueDisplaySnapshot) {
+        workspace = snapshot.workspace
+        selectedWeek = snapshot.workspace.week
+        currentWeek = snapshot.workspace.week
+        displayCacheIdentity = snapshot.identity
+        isUsingCachedSession = true
+        connectionMessage = "Updating league…"
+        if let cached = snapshot.scores, cached.value.week == selectedWeek {
+            scores = cached.value
+            scores.isLive = false
+            for index in scores.matchups.indices {
+                scores.matchups[index].status = .saved
+                // Old player clocks are not a live feed on an offline launch.
+                scores.matchups[index].away.clearDisplayClocks()
+                scores.matchups[index].home.clearDisplayClocks()
+            }
+            cachedScoresDate = cached.savedAt
+        }
+        if let cached = snapshot.lineup, cached.value.week == selectedWeek {
+            lineup = cached.value
+            lineup.editState = .unavailable("Updating your lineup…")
+            cachedLineupDate = cached.savedAt
+        }
+        standings = snapshot.standings?.value ?? []
+        cachedStandingsDate = snapshot.standings?.savedAt
+        teams = snapshot.teams?.value ?? []
+        boardThreads = snapshot.board?.value ?? []
+        cachedBoardDate = snapshot.board?.savedAt
+        cachedOwnerRoster = snapshot.roster?.value
+        cachedRosterDate = snapshot.roster?.savedAt
+        phase = .signedIn
+    }
+
+    private func discardCachedSession() {
+        isUsingCachedSession = false
+        connectionMessage = nil
+        workspace = nil
+        resetContent(for: 1)
+        phase = .onboarding
+    }
+
+    private func saveDisplay(_ update: LeagueDisplayUpdate) async {
+        guard !isDemo, !isUsingCachedSession, let workspace, let displayCacheIdentity else { return }
+        await displayCache?.save(workspace: workspace, identity: displayCacheIdentity, update: update)
     }
 
     func cancelReconnect() {
@@ -165,6 +266,7 @@ final class AppModel {
         isRestoringSession = false
         isBusy = false
         notice = nil
+        if isUsingCachedSession { discardCachedSession() }
         // Keep the saved cookie/drafts; this only dismisses the current attempt.
     }
 
@@ -172,6 +274,7 @@ final class AppModel {
         sessionGeneration &+= 1
         weekLoadGeneration &+= 1
         repository = DemoLeagueRepository()
+        resetContent(for: 1)
         isDemo = true
         isBusy = true
         defer { isBusy = false }
@@ -201,6 +304,8 @@ final class AppModel {
             guard generation == sessionGeneration else { return }
 
             workspace = authenticatedWorkspace
+            displayCacheIdentity = await displayCache?.identity(for: authenticatedWorkspace)
+            guard generation == sessionGeneration else { return }
             selectedWeek = authenticatedWorkspace.week
             currentWeek = authenticatedWorkspace.week
             followsCurrentWeek = true
@@ -224,6 +329,7 @@ final class AppModel {
     }
 
     func refreshAll(showSpinner: Bool = true) async {
+        guard !isUsingCachedSession else { return }
         let generation = sessionGeneration
         guard !fullRefreshInFlight || fullRefreshSession != generation,
               !isBusy || lineup.players.isEmpty || isRestoringSession else { return }
@@ -252,38 +358,50 @@ final class AppModel {
             }
         }
         var failures: [String] = []
+        var prioritySectionsRemaining = 2
         await withTaskGroup(of: RefreshedSection.self) { group in
             group.addTask { .scores(await Self.capture { try await activeRepository.refreshScores(week: requestedWeek) }) }
             group.addTask { .lineup(await Self.capture { try await activeRepository.loadLineup(week: requestedWeek) }) }
-            group.addTask { .waivers(await Self.capture { try await activeRepository.loadWaivers() }) }
-            group.addTask { .standings(await Self.capture { try await activeRepository.loadStandings() }) }
-            group.addTask { .board(await Self.capture { try await activeRepository.loadBoard() }) }
 
             for await section in group {
                 guard generation == sessionGeneration, !Task.isCancelled else { group.cancelAll(); continue }
                 if let error = section.error { handleSessionError(error) }
                 guard generation == sessionGeneration else { group.cancelAll(); continue }
                 switch section {
+                case .scores, .lineup: prioritySectionsRemaining -= 1
+                default: break
+                }
+                if prioritySectionsRemaining == 0 {
+                    // Respect MFL's request spacing without letting optional feeds
+                    // queue ahead of the initial scores and lineup.
+                    prioritySectionsRemaining = -1
+                    group.addTask { .waivers(await Self.capture { try await activeRepository.loadWaivers() }) }
+                    group.addTask { .standings(await Self.capture { try await activeRepository.loadStandings() }) }
+                    group.addTask { .board(await Self.capture { try await activeRepository.loadBoard() }) }
+                }
+                switch section {
                 case .scores(let result):
                     guard selectedWeek == requestedWeek, weekLoadGeneration == requestedWeekGeneration else { continue }
                     isLoadingScores = false
-                    if let value = result.value { scores = value; scoreRefreshError = nil }
+                    if let value = result.value { scores = value; cachedScoresDate = nil; scoreRefreshError = nil; await saveDisplay(.scores(value)) }
                     else { scoreRefreshError = "Scores may be out of date. Pull to retry."; failures.append("scores") }
                 case .lineup(let result):
                     guard selectedWeek == requestedWeek, weekLoadGeneration == requestedWeekGeneration else { continue }
-                    if let value = result.value { mergeLineup(value); lineupRevision &+= 1 }
+                    if let value = result.value { cachedLineupDate = nil; mergeLineup(value); lineupRevision &+= 1; await saveDisplay(.lineup(value)) }
                     else { failures.append("lineup") }
+                    guard generation == sessionGeneration, weekLoadGeneration == requestedWeekGeneration else { continue }
                     isLoadingLineup = false
                 case .waivers(let result):
                     if let value = result.value { mergeWaivers(value); waiverReadError = nil; lastWaiverRefresh = Date() }
                     else { failures.append("waivers"); waiverReadError = result.error?.localizedDescription }
                     isLoadingWaivers = false
                 case .standings(let result):
-                    if let value = result.value { standings = value }
+                    if let value = result.value { standings = value; cachedStandingsDate = nil; await saveDisplay(.standings(value)) }
                     else { failures.append("standings") }
                 case .board(let result):
-                    if let value = result.value { boardThreads = value }
+                    if let value = result.value { boardThreads = value; cachedBoardDate = nil; await saveDisplay(.board(value)) }
                     else { failures.append("the message board") }
+                    guard generation == sessionGeneration else { continue }
                     isLoadingBoard = false
                 }
             }
@@ -296,14 +414,16 @@ final class AppModel {
 
     /// Pull-to-refresh affects the visible section, not every league feed.
     func refreshLineup() async {
-        guard !isLoadingLineup, !isBusy else { return }
+        guard !isUsingCachedSession, !isLoadingLineup, !isBusy else { return }
         let generation = sessionGeneration, requestedWeek = selectedWeek, revision = weekLoadGeneration
         isLoadingLineup = true
         defer { if generation == sessionGeneration, revision == weekLoadGeneration { isLoadingLineup = false } }
         do {
             let fresh = try await repository.loadLineup(week: requestedWeek)
             guard generation == sessionGeneration, revision == weekLoadGeneration, selectedWeek == requestedWeek else { return }
+            cachedLineupDate = nil
             mergeLineup(fresh); lineupRevision &+= 1
+            await saveDisplay(.lineup(fresh))
         } catch {
             guard generation == sessionGeneration, revision == weekLoadGeneration else { return }
             handleSessionError(error)
@@ -312,7 +432,7 @@ final class AppModel {
     }
 
     func refreshBoard() async {
-        guard !isLoadingBoard, !isBusy else { return }
+        guard !isUsingCachedSession, !isLoadingBoard, !isBusy else { return }
         let generation = sessionGeneration
         isLoadingBoard = true
         defer { if generation == sessionGeneration { isLoadingBoard = false } }
@@ -320,6 +440,8 @@ final class AppModel {
             let fresh = try await repository.loadBoard()
             guard generation == sessionGeneration else { return }
             boardThreads = fresh
+            cachedBoardDate = nil
+            await saveDisplay(.board(fresh))
         } catch {
             guard generation == sessionGeneration else { return }
             handleSessionError(error); notice = .error(error.localizedDescription)
@@ -327,13 +449,15 @@ final class AppModel {
     }
 
     func refreshStandings() async {
-        guard !isRefreshing, !isBusy else { return }
+        guard !isUsingCachedSession, !isRefreshing, !isBusy else { return }
         let generation = sessionGeneration, refreshID = beginRefreshing()
         defer { endRefreshing(refreshID) }
         do {
             let fresh = try await repository.loadStandings()
             guard generation == sessionGeneration else { return }
             standings = fresh
+            cachedStandingsDate = nil
+            await saveDisplay(.standings(fresh))
         } catch {
             guard generation == sessionGeneration else { return }
             handleSessionError(error); notice = .error(error.localizedDescription)
@@ -341,7 +465,7 @@ final class AppModel {
     }
 
     func refreshWaivers() async {
-        guard !isLoadingWaivers, !isBusy else { return }
+        guard !isUsingCachedSession, !isLoadingWaivers, !isBusy else { return }
         if let lastWaiverRefresh, waiverReadError == nil, Date().timeIntervalSince(lastWaiverRefresh) < 15 { return }
         let generation = sessionGeneration
         isLoadingWaivers = true
@@ -358,7 +482,7 @@ final class AppModel {
     }
 
     func refreshScores(silent: Bool = false) async {
-        guard !scoreRequestInFlight, !isLoadingScores, !isBusy else { return }
+        guard !isUsingCachedSession, !scoreRequestInFlight, !isLoadingScores, !isBusy else { return }
         scoreRequestInFlight = true
         defer { scoreRequestInFlight = false }
         let refreshID = beginRefreshing()
@@ -377,7 +501,9 @@ final class AppModel {
             let refreshedScores = try await activeRepository.refreshScores(week: requestedWeek)
             guard generation == sessionGeneration, selectedWeek == requestedWeek, requestedWeekGeneration == weekLoadGeneration else { return }
             scores = refreshedScores
+            cachedScoresDate = nil
             scoreRefreshError = nil
+            await saveDisplay(.scores(refreshedScores))
         } catch {
             guard generation == sessionGeneration, selectedWeek == requestedWeek, requestedWeekGeneration == weekLoadGeneration else { return }
             handleSessionError(error)
@@ -387,11 +513,12 @@ final class AppModel {
     }
 
     func changeWeek(to week: Int, followingCurrent: Bool = false) async {
-        guard !isBusy, (1...21).contains(week), week != selectedWeek else { return }
+        guard !isUsingCachedSession, !isBusy, (1...21).contains(week), week != selectedWeek else { return }
         followsCurrentWeek = followingCurrent
         selectedWeek = week
         lineup = emptyLineup(for: week)
         scores = emptyScores(for: week)
+        cachedScoresDate = nil
         lineupConflict = nil
         weekLoadGeneration &+= 1
         let requestGeneration = weekLoadGeneration
@@ -423,12 +550,15 @@ final class AppModel {
             failures.append("scores")
         }
         if let lineup = values.1 {
+            cachedLineupDate = nil
             mergeLineup(lineup)
         } else {
             self.lineup = emptyLineup(for: week)
             failures.append("lineup")
         }
         lineupRevision &+= 1
+        if let scores = values.0 { await saveDisplay(.scores(scores)) }
+        if generation == sessionGeneration, let lineup = values.1 { await saveDisplay(.lineup(lineup)) }
 
         if !failures.isEmpty {
             notice = .error("Couldn’t load Week \(week) \(failures.joined(separator: " and ")).")
@@ -594,7 +724,8 @@ final class AppModel {
     }
 
     var lineupProjectionComparison: LineupProjectionComparison? {
-        guard let workspace, workspace.weekIsConfirmed,
+        guard !isUsingCachedSession, cachedLineupDate == nil, cachedScoresDate == nil,
+              let workspace, workspace.weekIsConfirmed,
               lineup.week == selectedWeek, scoreRefreshError == nil,
               scores.lastUpdated != .distantPast, starterValidationMessage == nil else { return nil }
         return LineupProjectionComparison(lineup: lineup, scores: scores, franchiseID: workspace.franchiseID)
@@ -668,6 +799,8 @@ final class AppModel {
                     submittedTiebreakers: submittedLineup.tiebreakerPlayerIDs,
                     startingAssignments: lineup.preferredStartingAssignments)
                 persistDrafts()
+                await saveDisplay(.lineup(lineup))
+                guard generation == sessionGeneration else { return nil }
             }
             if isDemo {
                 notice = .success("Demo lineup saved on this device.")
@@ -875,6 +1008,7 @@ final class AppModel {
     }
 
     func loadThread(id: String) async {
+        guard !isUsingCachedSession else { return }
         if isDemo, id.hasPrefix("demo-local-thread-") { return }
 
         let generation = sessionGeneration
@@ -915,9 +1049,10 @@ final class AppModel {
         drafts = LeagueDrafts()
         unconfirmedBoardPost = nil
         resetContent(for: selectedWeek)
-        repository = LiveMFLRepository(playerCacheDirectory: AppCacheLocations.players)
+        repository = LiveMFLRepository(playerCacheDirectory: AppCacheLocations.players, metadataCacheDirectory: AppCacheLocations.leagueMetadata)
         phase = .onboarding
         await signedInRepository.signOut()
+        await displayCache?.clear()
     }
 
     private func normalizeClaimPriorities() {
@@ -950,6 +1085,11 @@ final class AppModel {
     }
 
     private func resetContent(for week: Int) {
+        isUsingCachedSession = false
+        connectionMessage = nil
+        cachedLineupDate = nil; cachedStandingsDate = nil; cachedBoardDate = nil
+        cachedScoresDate = nil; cachedRosterDate = nil
+        cachedOwnerRoster = nil
         pendingRosterChange = nil; rosterChangeError = nil; rosterRevision += 1
         playerTools.reset(scope: workspace?.storageScope)
         transactions = TransactionsModel()
@@ -1026,6 +1166,7 @@ final class AppModel {
         _ operation: @Sendable (any LeagueRepository) async throws -> Value
     ) async throws -> Value {
         try Task.checkCancellation()
+        guard !isUsingCachedSession else { throw CancellationError() }
         guard let scope = browseScope else { throw RepositoryError.missingSession }
         let generation = sessionGeneration
         let activeRepository = repository
@@ -1043,17 +1184,27 @@ final class AppModel {
     }
 
     func loadTeams(refresh: Bool = false) async throws -> [TeamSummary] {
+        if isUsingCachedSession, !teams.isEmpty, !refresh { return teams }
         let generation = sessionGeneration
         let result = try await readForBrowsing { try await $0.loadTeams(refresh: refresh) }
         guard generation == sessionGeneration, !Task.isCancelled else { throw CancellationError() }
         teams = result
+        await saveDisplay(.teams(result))
         return result
     }
 
     func loadTeamRoster(franchiseID: String, lineupWeek: Int? = nil, refresh: Bool = false) async throws -> TeamRosterSnapshot {
-        try await readForBrowsing {
+        if isUsingCachedSession, !refresh, let cachedOwnerRoster,
+           cachedOwnerRoster.team.id == franchiseID, lineupWeek == nil { return cachedOwnerRoster }
+        let result = try await readForBrowsing {
             try await $0.loadTeamRoster(franchiseID: franchiseID, lineupWeek: lineupWeek, refresh: refresh)
         }
+        if franchiseID == workspace?.franchiseID, lineupWeek == nil {
+            cachedOwnerRoster = result
+            cachedRosterDate = nil
+            await saveDisplay(.roster(result))
+        }
+        return result
     }
 
     func loadPlayerDetail(playerID: String, refresh: Bool = false) async throws -> PlayerDetailSnapshot {
@@ -1447,6 +1598,7 @@ extension AppModel {
     }
 
     func refreshForForeground() async {
+        if isUsingCachedSession { await retryConnection(); return }
         guard phase == .signedIn, !isDemo, !isBusy else { return }
         if let lastFullRefresh, Date().timeIntervalSince(lastFullRefresh) < foregroundRefreshInterval { return }
         guard !fullRefreshInFlight || fullRefreshSession != sessionGeneration else { return }
@@ -1471,14 +1623,17 @@ extension AppModel {
     }
 
     private func handleSessionError(_ error: any Error) {
-        let expired: Bool
-        if case MFLCoreError.unauthorized = error { expired = true }
-        else if case RepositoryError.missingSession = error { expired = true }
-        else { expired = false }
-        guard expired else { return }
+        guard Self.isSessionError(error) else { return }
         persistDrafts()
+        try? privateStore.remove("session")
         sessionGeneration &+= 1
         phase = .onboarding
         notice = .error("Your MFL session expired. Sign in again; your drafts are kept for this team.")
+    }
+
+    private static func isSessionError(_ error: any Error) -> Bool {
+        if case MFLCoreError.unauthorized = error { return true }
+        if case RepositoryError.missingSession = error { return true }
+        return false
     }
 }

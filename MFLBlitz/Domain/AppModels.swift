@@ -8,7 +8,7 @@ struct LoginCredentials: Sendable {
     var season = 2026
 }
 
-struct LeagueWorkspace: Equatable, Sendable {
+struct LeagueWorkspace: Codable, Equatable, Sendable {
     let leagueID: String
     let season: Int
     let leagueName: String
@@ -20,7 +20,7 @@ struct LeagueWorkspace: Equatable, Sendable {
     var weekIsConfirmed: Bool = true
 }
 
-struct ScoresSnapshot: Equatable, Sendable {
+struct ScoresSnapshot: Codable, Equatable, Sendable {
     var week: Int
     var matchups: [Matchup]
     var lastUpdated: Date
@@ -32,7 +32,7 @@ struct ScoresSnapshot: Equatable, Sendable {
     }
 }
 
-struct Matchup: Identifiable, Equatable, Sendable {
+struct Matchup: Codable, Identifiable, Equatable, Sendable {
     let id: String
     var away: MatchupTeam
     var home: MatchupTeam
@@ -45,7 +45,7 @@ struct Matchup: Identifiable, Equatable, Sendable {
     }
 }
 
-struct MatchupTeam: Identifiable, Equatable, Sendable {
+struct MatchupTeam: Codable, Identifiable, Equatable, Sendable {
     let id: String
     var name: String
     var abbreviation: String
@@ -59,9 +59,15 @@ struct MatchupTeam: Identifiable, Equatable, Sendable {
     var artworkURLs: [URL] = []
 
     var players: [MatchupPlayer] { starters + bench + unclassifiedPlayers }
+
+    mutating func clearDisplayClocks() {
+        for index in starters.indices { starters[index].gameSecondsRemaining = nil }
+        for index in bench.indices { bench[index].gameSecondsRemaining = nil }
+        for index in unclassifiedPlayers.indices { unclassifiedPlayers[index].gameSecondsRemaining = nil }
+    }
 }
 
-struct MatchupPlayer: Identifiable, Equatable, Sendable {
+struct MatchupPlayer: Codable, Identifiable, Equatable, Sendable {
     let id: String
     var name: String
     var position: String
@@ -93,7 +99,7 @@ struct MatchupPlayer: Identifiable, Equatable, Sendable {
     }
 }
 
-enum MatchupLineupStatus: Equatable, Sendable {
+enum MatchupLineupStatus: Codable, Equatable, Sendable {
     case starter
     case bench
     case unknown
@@ -106,10 +112,11 @@ enum MatchupPlayerGameState: Equatable, Sendable {
     case unknown
 }
 
-enum GameStatus: Equatable, Sendable {
+enum GameStatus: Codable, Equatable, Sendable {
     case pregame(Date?)
     case live(String)
     case final
+    case saved
 
     var label: String {
         switch self {
@@ -119,6 +126,8 @@ enum GameStatus: Equatable, Sendable {
             detail
         case .final:
             "Final"
+        case .saved:
+            "Saved score"
         }
     }
 
@@ -167,7 +176,7 @@ struct LineupProjectionComparison: Equatable, Sendable {
     }
 }
 
-struct LineupSnapshot: Equatable, Sendable {
+struct LineupSnapshot: Codable, Equatable, Sendable {
     var week: Int
     var players: [LineupPlayer]
     var requiredStarterCount: Int
@@ -289,7 +298,7 @@ struct LineupStartingSlot: Identifiable, Equatable, Sendable {
     var label: String { isFlex ? "FLEX" : player.position }
 }
 
-enum LineupEditState: Equatable, Sendable {
+enum LineupEditState: Codable, Equatable, Sendable {
     case editable
     case unavailable(String)
 
@@ -304,14 +313,14 @@ enum LineupEditState: Equatable, Sendable {
     }
 }
 
-struct LineupPositionRequirement: Identifiable, Equatable, Sendable {
+struct LineupPositionRequirement: Codable, Identifiable, Equatable, Sendable {
     var id: String { position }
     var position: String
     var minimum: Int
     var maximum: Int
 }
 
-struct LineupPlayer: Identifiable, Equatable, Sendable {
+struct LineupPlayer: Codable, Identifiable, Equatable, Sendable {
     let id: String
     var name: String
     var position: String
@@ -403,7 +412,7 @@ struct WaiverClaim: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
-struct StandingRow: Identifiable, Equatable, Sendable {
+struct StandingRow: Codable, Identifiable, Equatable, Sendable {
     let id: String
     var name: String
     var abbreviation: String
@@ -467,7 +476,7 @@ struct StandingRow: Identifiable, Equatable, Sendable {
     }
 }
 
-struct BoardThread: Identifiable, Equatable, Sendable {
+struct BoardThread: Codable, Identifiable, Equatable, Sendable {
     let id: String
     var subject: String
     var author: String
@@ -478,7 +487,7 @@ struct BoardThread: Identifiable, Equatable, Sendable {
     var posts: [BoardPost]
 }
 
-struct BoardPost: Identifiable, Equatable, Sendable {
+struct BoardPost: Codable, Identifiable, Equatable, Sendable {
     let id: String
     var author: String
     var body: String
