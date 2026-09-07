@@ -1,6 +1,6 @@
 # Player and team detail
 
-Status: **Player-card and matchup refinement — installed private build 0.5.4 (31)**, September 7, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work. The owner confirmed corrected matchup Back navigation on build 29 and the spinner fix on build 30. Remaining primary-card latency is addressed in build 31; completed-week scoring still needs owner validation.
+Status: **Player-card and matchup refinement — included in installed private build 0.5.4 (32)**, September 7, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work. The owner confirmed corrected matchup Back navigation on build 29 and the spinner fix on build 30. Remaining primary-card latency is addressed in build 31; completed-week scoring still needs owner validation. Build 32 adds cancellation/error handling without changing this layout.
 
 ## Navigation and action boundaries
 

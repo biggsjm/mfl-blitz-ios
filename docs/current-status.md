@@ -2,13 +2,21 @@
 
 Audited September 7, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Candidate in verification — 0.5.4 (32), cancelled Scores requests
+## Current installed private build — 0.5.4 (32), cancelled Scores requests
 
 Josh's September 7 screenshot shows URLSession `NSURLErrorCancelled` (`-999`) from live scoring displayed as a raw error dump. The transport preserved Swift `CancellationError` but wrapped URLSession cancellation as `MFLCoreError.transport`; Scores then presented it as a failed refresh. Build 32 normalizes both typed forms, quietly retains existing Scores data/warnings on cancelled manual/polling/full reads, releases loading gates, and does not delay foreground recovery after an interrupted full refresh. Real transport failures use concise copy without raw URL/UserInfo; internal wrapping keeps only a numeric code. There is no blanket suppression of mutation errors or replay of cancelled writes.
 
-The new core tests reproduced the wrapping/diagnostic leak; the new app tests reproduced false alerts/stale warnings. One initial function-name-filtered app invocation selected zero tests and is not verification; the full Reliability suite then reproduced all four regression functions before the fix. Final build-32 local/native checks, phone delivery and GitHub verification are in progress. Build 31 remains the installed baseline until an explicit installation receipt is recorded here. No live league writes are used for QA.
+The new core tests reproduced the wrapping/diagnostic leak; the new app tests reproduced false alerts/stale warnings. One initial function-name-filtered app invocation selected zero tests and is not verification; the full Reliability suite then reproduced all four regression functions before the fix.
 
-## Current installed private build — 0.5.4 (31), immediate player identity
+- **Exact source:** `14cc99b148af24b7508bb2a2ce2b42189054f3ae`.
+- **Local checks:** all 97 core tests / 12 suites pass (`mfl-build32-core-final.log`); all 193 app unit functions plus four native Scores/player/cached-startup journeys pass on iOS 27: 197 functions / 249 executions, zero failures/skips/runtime warnings (`mfl-build32-verified.xcresult`). Safety coverage includes uncertain-write/readback behavior and the offline two-week model simulation.
+- **Phone:** signed 0.5.4 (32) installed September 7. CoreDevice confirms the version/build (`mfl-build32-installed.json`). Automatic launch was denied by the phone lock (`mfl-build32-launch.json`); open the installed app after unlocking. Installation is not owner acceptance or a real-network performance measurement.
+- **Full older-iOS regression:** all 193 app unit functions and all 40 native journeys pass on iOS 18.4: 233 functions / 285 executions, zero failures/skips/runtime warnings (`mfl-build32-ios18.xcresult`). Native execution took 946 seconds, including the complete offline two-week manager journey.
+- **GitHub:** exact-head [run 34145452711](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/34145452711) passed the full core and iOS jobs: 97 core tests, 193 app unit functions and 40 native journeys. The Xcode 16.4 iOS job completed in 28 minutes 10 seconds; its native tests took 1,371 seconds, zero failures.
+- **Merge:** [PR #9](https://github.com/biggsjm/mfl-blitz-ios/pull/9) squash-merged as [630b6ba](https://github.com/biggsjm/mfl-blitz-ios/commit/630b6baf82907030b42c49f3807eda426a5155cb) September 7 at 12:25 PM Central. The final completion record changes documentation only; app/test source remains the exact tested and installed `14cc99b`. No live league writes were used for QA.
+- **Owner/release checks:** cancellation recovery, player opening speed, physical profiling, real Week 1 scoring/writes, manual accessibility/device checks and Week 2 distribution gates remain open. Features 6–9 remain queued.
+
+## Previous installed private build — 0.5.4 (31), immediate player identity
 
 Josh confirmed build 30 removes the lingering game-log/game-info spinner but reported remaining card latency. The primary view still waited for ownership before rendering its known identity. Build 31 carries display-only identity from each canonical player route, rejects player/scope mismatches, and renders it before ownership completes. Week metrics and research no longer depend on that response. No ownership claim or roster action is authorized by the preview; full-detail errors retain readable identity. No new API request, persistence, permission or provider is added.
 
