@@ -452,7 +452,8 @@ private struct WaiverCandidateRow: View {
     @ViewBuilder private func identityLink<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         if let scope = model.browseScope {
             NavigationLink(value: PlayerRoute(scope: scope, playerID: candidate.id,
-                inspectedWeek: model.waivers.projectionWeek ?? model.currentWeek)) { content() }
+                inspectedWeek: model.waivers.projectionWeek ?? model.currentWeek,
+                previewIdentity: PlayerIdentity(id: candidate.id, name: candidate.name, position: candidate.position, nflTeam: candidate.nflTeam))) { content() }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("waiver-player-\(candidate.id)")
                 .accessibilityHint("Opens player details without changing your waiver requests")

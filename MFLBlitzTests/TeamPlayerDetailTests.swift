@@ -4,6 +4,39 @@ import Testing
 @testable import MFLBlitz
 
 struct TeamPlayerDetailTests {
+    @Test("Week cards reuse only unambiguous exact-week history in the same player/account scope")
+    func historicalWeekMetrics() {
+        let scope = "synthetic-history"
+        var page = PlayerResearchPage(scope: scope, playerID: "history-player", completedWeek: 8,
+            weeks: [.init(week: 6, points: 0)])
+        func metrics(_ history: PlayerResearchPage, scope requestedScope: String = "synthetic-history", week: Int = 6) -> PlayerWeekMetrics? {
+            .matching(playerID: "history-player", week: week, scores: SampleData.scores,
+                      lineup: SampleData.lineup, waivers: SampleData.waivers, history: history, scope: requestedScope)
+        }
+        #expect(metrics(page)?.points == 0)
+        #expect(metrics(page, scope: "another-owner") == nil)
+        #expect(metrics(page, week: 7) == nil)
+        page.weeks[0].unavailable = true
+        #expect(metrics(page) == nil)
+        page.weeks[0].unavailable = false
+        page.weeks[0].points = .infinity
+        #expect(metrics(page) == nil)
+        page.weeks = [.init(week: 6, points: 0), .init(week: 6, points: 12)]
+        #expect(metrics(page) == nil)
+        var scores = SampleData.scores
+        var one = scores.matchups[0].away.starters[0]
+        one.livePoints = 8
+        var two = one
+        two.livePoints = 12
+        scores.matchups[0].away.starters = [one]
+        scores.matchups[0].home.starters = [two]
+        let conflictingHistory = PlayerResearchPage(scope: scope, playerID: one.id, completedWeek: scores.week,
+            weeks: [.init(week: scores.week, points: 10)])
+        #expect(PlayerWeekMetrics.matching(playerID: one.id, week: scores.week, scores: scores,
+            lineup: SampleData.lineup, waivers: SampleData.waivers,
+            history: conflictingHistory, scope: scope)?.points == nil)
+    }
+
     @Test("My Team groups positions and sorts actual season points, with missing scores last")
     func positionPointOrdering() {
         func player(_ id: String, _ position: String?, _ score: Double?, _ name: String = "Player") -> RosterPlayerSummary {
@@ -187,10 +220,16 @@ struct TeamPlayerDetailTests {
         let requests = await transport.requests
         #expect(requests.filter { $0["TYPE"] == "league" }.count == 1)
         #expect(requests.filter { $0["TYPE"] == "players" && $0["DETAILS"] != "1" }.count == 1)
-        #expect(requests.filter { $0["TYPE"] == "players" && $0["DETAILS"] == "1" }.count == 1)
+        #expect(requests.filter { $0["TYPE"] == "players" && $0["DETAILS"] == "1" }.isEmpty)
         #expect(requests.filter { $0["TYPE"] == "playerRosterStatus" }.count == 2)
         #expect(first.ownershipVerifiedAt == nil)
         #expect(refreshed.ownershipVerifiedAt != nil)
+        #expect(first.bio == nil && refreshed.bio == nil)
+        let biography = try await repository.loadPlayerBiography(playerID: "101")
+        #expect(biography?.birthDate != nil)
+        #expect(try await repository.loadPlayerBiography(playerID: "101") == biography)
+        #expect(await transport.requests.filter { $0["TYPE"] == "players" && $0["DETAILS"] == "1" }.count == 1)
+        #expect(await transport.requests.filter { $0["TYPE"] == "playerRosterStatus" }.count == 2)
 
         _ = try await repository.loadTeams(refresh: false)
         #expect(await transport.requests.filter { $0["TYPE"] == "league" }.count == 1)
@@ -231,21 +270,24 @@ struct TeamPlayerDetailTests {
         #expect(roster.issues.contains(.playerNames) && roster.issues.contains(.lineupAssignments))
     }
 
-    @Test("Player detail adds targeted bio while ownership stays in the current signed-in franchise context")
+    @Test("Primary player detail excludes biography while ownership stays in the signed-in franchise context")
     func detailRead() async throws {
         let transport = TeamPlayerFixtureTransport()
         let repository = try await connected(transport)
         let detail = try await repository.loadPlayerDetail(playerID: "101", refresh: true)
         #expect(detail.identity.name == "Riley Receiver")
-        #expect(detail.bio?.birthDate != nil && detail.bio?.draftRound == 2)
+        #expect(detail.bio == nil && !detail.issues.contains(.biography))
         #expect(detail.ownership?.assignments.map(\.team.id) == ["0001", "0002"])
         #expect(detail.ownershipVerifiedAt != nil)
         let requests = await transport.requests
-        #expect(requests.contains { $0["TYPE"] == "players" && $0["DETAILS"] == "1" && $0["PLAYERS"] == "101" })
+        #expect(!requests.contains { $0["TYPE"] == "players" && $0["DETAILS"] == "1" })
         let status = try #require(requests.first { $0["TYPE"] == "playerRosterStatus" })
         #expect(status["W"] == nil && status["F"] == "0001")
         #expect(!requests.contains { ["liveScoring", "weeklyResults", "projectedScores"].contains($0["TYPE"] ?? "") })
         #expect(await transport.postCount == 0)
+        let bio = try await repository.loadPlayerBiography(playerID: "101")
+        #expect(bio?.birthDate != nil && bio?.draftRound == 2)
+        #expect(await transport.requests.contains { $0["TYPE"] == "players" && $0["DETAILS"] == "1" && $0["PLAYERS"] == "101" })
     }
 
     @Test("Unavailable biography does not hide readable ownership")
@@ -255,8 +297,21 @@ struct TeamPlayerDetailTests {
         let repository = try await connected(transport)
         let detail = try await repository.loadPlayerDetail(playerID: "101", refresh: false)
         #expect(detail.identity.name == "Riley Receiver")
-        #expect(detail.bio == nil && detail.issues.contains(.biography))
+        #expect(detail.bio == nil && !detail.issues.contains(.biography))
         #expect(detail.ownership != nil)
+        #expect(await !transport.requests.contains { $0["DETAILS"] == "1" })
+        await #expect(throws: (any Error).self) { try await repository.loadPlayerBiography(playerID: "101") }
+    }
+
+    @Test("Targeted detailed identity is only a fallback when the basic directory cannot name the player")
+    func detailIdentityFallback() async throws {
+        let transport = TeamPlayerFixtureTransport()
+        await transport.configure(failCatalog: true)
+        let repository = try await connected(transport)
+        let detail = try await repository.loadPlayerDetail(playerID: "101", refresh: false)
+        #expect(detail.identity.name == "Riley Receiver" && detail.ownership != nil)
+        #expect(detail.bio?.birthDate != nil && !detail.issues.contains(.playerNames))
+        #expect(await transport.requests.filter { $0["DETAILS"] == "1" }.count == 1)
     }
 
     @Test("Authentication and cancellation propagate through optional enrichment")
@@ -344,6 +399,60 @@ struct TeamPlayerDetailTests {
         await secondGate.open()
         await second.value
         #expect(model.detail == nil && !model.isLoading)
+    }
+
+    @MainActor @Test("Ordinary player reappearance reuses its loaded snapshot while explicit refresh reloads")
+    func detailModelAppearanceCache() async {
+        let model = PlayerDetailModel()
+        let snapshot = PlayerDetailSnapshot(scope: "scope", identity: .init(id: "101", name: "Player"))
+        var calls = 0
+        await model.load(scope: "scope", playerID: "101") { calls += 1; return snapshot }
+        await model.load(scope: "scope", playerID: "101") { calls += 1; return snapshot }
+        #expect(calls == 1)
+        await model.load(scope: "scope", playerID: "101", force: true) { calls += 1; return snapshot }
+        #expect(calls == 2 && model.detail == snapshot)
+    }
+
+    @MainActor @Test("Lazy biography caches success and empty results without changing ownership or primary errors")
+    func biographyModelState() async {
+        let model = PlayerDetailModel()
+        let snapshot = PlayerDetailSnapshot(scope: "scope", identity: .init(id: "101", name: "Player"))
+        var calls = 0
+        await model.loadBiography(scope: "scope", playerID: "101") { calls += 1; return PlayerBio() }
+        #expect(calls == 0 && model.detail == nil)
+        await model.load(scope: "scope", playerID: "101") { snapshot }
+        await model.loadBiography(scope: "scope", playerID: "101") { calls += 1; return nil }
+        await model.loadBiography(scope: "scope", playerID: "101") { calls += 1; return nil }
+        #expect(calls == 1 && model.hasLoadedBiography && model.biography == nil)
+        await model.loadBiography(scope: "scope", playerID: "101", force: true) {
+            throw RepositoryError.server("Bio unavailable")
+        }
+        #expect(model.biographyErrorMessage == "Bio unavailable")
+        #expect(model.detail == snapshot && model.errorMessage == nil && !model.isLoadingBiography)
+        let biography = PlayerBio(jerseyNumber: "4")
+        await model.loadBiography(scope: "scope", playerID: "101", force: true) { biography }
+        #expect(model.biography == biography && model.biographyErrorMessage == nil)
+        #expect(model.detail?.ownership == nil)
+    }
+
+    @MainActor @Test("Cancelled and late biography reads cannot replace another player or account")
+    func biographyModelIsolation() async {
+        let model = PlayerDetailModel()
+        let original = PlayerDetailSnapshot(scope: "scope", identity: .init(id: "101", name: "Old"))
+        let replacement = PlayerDetailSnapshot(scope: "new", identity: .init(id: "102", name: "New"))
+        await model.load(scope: "scope", playerID: "101") { original }
+        await model.loadBiography(scope: "scope", playerID: "101") {
+            await model.load(scope: "new", playerID: "102") { replacement }
+            return PlayerBio(jerseyNumber: "4")
+        }
+        #expect(model.detail == replacement && model.biography == nil && !model.isLoadingBiography)
+        await model.loadBiography(scope: "new", playerID: "102") { throw CancellationError() }
+        #expect(!model.hasLoadedBiography && model.biographyErrorMessage == nil && !model.isLoadingBiography)
+        await model.loadBiography(scope: "new", playerID: "102") {
+            model.invalidate()
+            return PlayerBio(jerseyNumber: "4")
+        }
+        #expect(model.detail == nil && model.biography == nil && !model.isLoadingBiography)
     }
 
     @MainActor

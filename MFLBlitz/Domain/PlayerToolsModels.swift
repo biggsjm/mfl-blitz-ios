@@ -43,7 +43,18 @@ struct PlayerHistoryWeek: Identifiable, Equatable, Sendable {
     let week: Int
     var points: Double?
     var unavailable = false
+    var opponentLabel: String?
     var id: Int { week }
+}
+
+/// Independent of paged game history so the primary player card never waits
+/// for older weeks. Values use this league's scoring; nil is not a zero.
+struct PlayerSeasonSummary: Equatable, Sendable {
+    let scope: String
+    let playerID: String
+    var total: Double?
+    var average: Double?
+    var issues: [String] = []
 }
 
 struct PlayerResearchPage: Equatable, Sendable {
@@ -56,6 +67,9 @@ struct PlayerResearchPage: Equatable, Sendable {
     var nextBeforeWeek: Int?
     var opponentPointsAllowed: Double?
     var opponentName: String?
+    /// Opponents intentionally follow the current NFL team's schedule, not a
+    /// historical player-team assignment. Surface that limitation in the UI.
+    var scheduleTeam: String?
     var issues: [String] = []
 }
 

@@ -251,7 +251,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
     private func rosterRow(_ player: RosterPlayerSummary) -> some View {
         if let workspace = model.workspace {
             NavigationLink(value: PlayerRoute(scope: LeagueBrowseScope(workspace: workspace),
-                playerID: player.id, inspectedWeek: assignmentWeek)) {
+                playerID: player.id, inspectedWeek: assignmentWeek, previewIdentity: player.identity)) {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
                         PlayerIdentityView(player: player.identity, subtitle: contractSummary(player))

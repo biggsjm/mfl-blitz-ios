@@ -2,6 +2,28 @@
 
 Implemented private-build history through September 7, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.5.4 (31) — September 7, 2026 — immediate player identity
+
+- Show the tapped player's known name, position and NFL team before ownership finishes; season/game-log reads and matching-week metrics no longer wait for that response.
+- Carry only display identity in scoped canonical routes; no ownership, eligibility or mutation authority is inferred. Keep actionable errors and existing reconnect boundaries.
+- Add player/scope mismatch coverage and a delayed-ownership native Preview journey. Josh confirmed build 30 fixed the spinner; build 31 addresses his remaining card-latency report. Delivery evidence is recorded in [current status](docs/current-status.md).
+
+## 0.5.4 (30) — September 7, 2026 — player loading follow-up
+
+- Stop optional biography from blocking the primary player card; fetch it on disclosure using its existing cache.
+- Reuse loaded player detail on ordinary reappearance; explicit refresh and roster changes still refresh ownership.
+- Share game-info requests across screens, cancel on league reset, and allow immediate retry after interruption. Show a spinner only for an actual running request, with a compact inline presentation.
+- Add cancellation, shared-read, cache, lazy-biography and scope-isolation regressions; retain mutation gates and rate-limit enforcement. Build 29's navigation fix was confirmed on Josh's phone; build 30's exact delivery/recheck evidence is in [current status](docs/current-status.md).
+
+## 0.5.4 (29) — September 7, 2026 — player cards and matchup navigation
+
+- Add owner names below matchup team names and remove repetitive acronyms/positional subtotals.
+- Fix duplicate matchup navigation when opening a player; retain one-step Back and working team shortcuts from pushed team pages.
+- Combine player identity, current status/ownership and independently loaded season points/weekly average. Own-team status no longer links to a redundant My Team page.
+- Merge weekly availability and scoring; show a paged Week / Points / NFL opponent log, with the owner-approved current-team schedule caveat behind an information button. Biography becomes a secondary disclosure.
+- Move Drop into a labeled secondary action menu; explicitly distinguish releasing a player from benching them. Retain eligible-only IR, free-agent Add gates, review/preflight/readback and no automatic write retries.
+- Reuse cached scoring and a shared whole-season NFL schedule; no raw NFL stats provider, new storage or permissions. Actual test/installation/merge evidence is in [current status](docs/current-status.md).
+
 ## 0.5.3 (28) — September 7, 2026 — cached startup and performance
 
 - Display saved scores, lineup, standings, Board summaries and own-team roster during reconnection; retain them offline with compact status and Retry/Sign in. A first successful load is required to seed the cache.

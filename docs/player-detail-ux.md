@@ -1,6 +1,6 @@
 # Player and team detail
 
-Status: **Extended player tools and My Team refinement — private build 0.5.3 (26)**, September 6, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work.
+Status: **Player-card and matchup refinement — candidate 0.5.4 (31), installed baseline 30**, September 7, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work. The owner confirmed corrected matchup Back navigation on build 29 and the spinner fix on build 30. Remaining primary-card latency is addressed in build 31; completed-week scoring still needs owner validation.
 
 ## Navigation and action boundaries
 
@@ -34,25 +34,48 @@ Other-team rosters retain their existing assignment-based view: a separate batch
 - An empty successful roster differs from an unavailable/failed response.
 - Refresh failure retains prior content with an error; another account/team's data cannot replace it.
 
-## Initial Player Detail
+## Player Detail — 0.5.4 (29–30)
 
-The page includes canonical identity, current league ownership/status, exact-matching-week available projection/points/stat line, and supplied biography. It also includes official availability, progressive history and a watch star. Applicable owner/free-agent actions open a separate roster review; they never submit from an identity tap.
+Two independent AI design-review perspectives (native iOS/indie design and product/messaging/safety, not a human study) reviewed the code and actual native screenshots. The owner requested a calmer hierarchy and explicit separation of Drop from Bench. Apple's [button hierarchy](https://developer.apple.com/design/human-interface-guidelines/buttons), [menus](https://developer.apple.com/design/human-interface-guidelines/menus), and [disclosure controls](https://developer.apple.com/design/human-interface-guidelines/disclosure-controls) informed the review.
 
-Ownership can contain multiple franchise assignments and acquisition availability for the signed-in franchise simultaneously. Acquisition locks are not lineup locks. Missing ownership is not a free agent. Team names link back to the shared team destination.
+1. **Primary card:** name, position/NFL team, supplied current injury designation, season points and weekly average, then franchise logo/name plus Starting/Bench/IR status. Own-team status is noninteractive; other teams can still open their roster. Missing status/ownership is not inferred to mean Healthy or Free agent.
+2. **Week N:** one card combines fantasy points, projection, NFL opponent/kickoff and relevant injury detail. Existing snapshots and an exact matching history row supply scores; different-player/account/week data cannot fill it. Historical ownership is not claimed.
+3. **Game log:** visible without another discovery tap, newest completed weeks first, with Week / Points / NFL opp columns. Initially four targeted scoring reads; Earlier weeks loads another bounded page. A real zero remains zero; absent scores show a dash and failed reads say Unavailable.
+4. **Secondary information:** biography is a collapsed Player bio disclosure and is requested only when expanded; it cannot hold the primary card behind an optional feed. Watch remains a direct toolbar star.
 
-### Compact roster actions — 0.5.2 (21) follow-up
+### Historical opponents and data limits
 
-Player Detail places compact native bordered controls **inside the ownership card**, separate from its team navigation link. The owner's final symbol choices are **person.badge.plus** for Add, **person.badge.minus in red** for Drop, and a **neutral cross.case (medical bag)** for Move to IR. All three are symbol-only controls with at least 44-point touch targets and spoken action/player labels. Move to IR appears only for the signed-in owner's active-roster player with a current qualifying designation; ineligible/loading/unknown states omit the button and explanation. Existing IR players retain labeled **Activate**, which can stack at large text sizes. There is no extra full-width action card or hidden overflow menu. Existing review, Cancel/Close and final confirmation remain mandatory; a detail button never submits a roster change. Build 22 replaces Manage roster with direct Adds / Drops and Injured Reserve destinations; only qualifying active-roster players appear in the eligible IR list.
+At Josh's explicit request, NFL opponents use the player's **current NFL team's** season schedule, including past weeks. A small anchored information button explains that NFL trades can make historical opponents differ. This is an acknowledged approximation, not verified historical affiliation. Bye appears only when explicitly provided by the bye table without a conflicting game. Unknown/ambiguous schedule data remains blank.
 
-Two independent AI design reviews (native iOS layout and accessibility/usability, not a human study) favored visible compact controls over hiding just two actions in a menu. Apple's [short-menu guidance](https://developer.apple.com/design/human-interface-guidelines/pull-down-buttons) and [button hierarchy and touch targets](https://developer.apple.com/design/human-interface-guidelines/buttons) informed this layout. NN/g's [icon-label research](https://www.nngroup.com/articles/icon-usability/) informed the initial labeled proposal; the owner's explicit preference superseded it with the Add/Drop/IR symbols above. Accessible action names remain.
+The official [MFL API guidance](https://api.myfantasyleague.com/2026/api_info) states raw NFL statistics and third-party content are unavailable because of licensing. The log therefore contains fantasy points and NFL schedule context, with no empty raw-stat columns, scraped box scores or new external provider. It is not play-by-play. Current-week supplied scoring text can still appear when available.
 
-**Add player** uses the same strict decoded acquisition decision as submission preflight, scoped to the signed-in franchise. Explicitly unlocked free agents remain actionable, including supported FCFS periods in mixed BBID/FCFS leagues. Known locks/denials and malformed, contradictory or unconfirmed acquisition data cannot open immediate-add review. Generic flags receive **Locked for adds**, **Adding unavailable**, or **Add availability unconfirmed**, not a guessed waiver reason or unlock date. A player may be a free agent but individually locked after a drop. Review still freshly checks owner abilities, league format, roster capacity and player availability; browse data is not permission to submit.
+### Roster action hierarchy
 
-The action controls add no network requests or new caches. A deterministic locked preview free agent exercises the disabled state. See [current status](current-status.md) for verification and installation status.
+This supersedes the build-21 always-visible symbol-only Drop placement. A neutral toolbar **Player actions** menu contains labeled **Move to IR** or **Activate player** when eligible and **Drop player…** with destructive styling. Drop is no longer adjacent to Starting/Bench. The review and final confirmation explain removal from the roster, not a move to the bench. No identity/status/menu-opening tap submits anything; fresh preflight, durable pending markers, explicit confirmation and exact readback remain mandatory.
 
-Projection/points reuse existing snapshots only when their week matches the entry context. Missing, conflicting or nonfinite values stay absent. No hardcoded zero, guessed opponent/kickoff, placeholder season total or historical ownership is shown as fact. A player reached from another week's schedule may have no metrics until a suitable source is available.
+The direct symbol-only **person.badge.plus** Add control remains for free agents. Its enabled state uses the same strict owner-scoped decoded acquisition decision as preflight. Known locks/denials and malformed, contradictory or unconfirmed data cannot open immediate-add review. Generic flags say Locked for adds, Adding unavailable, or Add availability unconfirmed, not a guessed waiver/kickoff reason. IR remains eligible-only using a current Out/IR report; Questionable/unknown/stale/failed data cannot enable it.
 
-Targeted `players(PLAYERS,DETAILS=1)` enriches basic identity with optional jersey, valid birth date, height/weight and draft year/round. No external headshot/news/raw-stat provider is integrated. Empty biography is omitted; source failures are disclosed.
+### Navigation repair
+
+Scores now uses a typed LiveMatchupRoute in the same path as PlayerRoute/TeamRoute. Mixing a destination-view matchup link with the bound typed path reproduced the reported duplicate-matchup/Back-to-player bug on iOS 27 and iOS 18.4. Regression coverage requires one tap to Player Detail and one Back to the original matchup.
+
+The team-tool router is scoped to the NavigationStack rather than only its root view, so pushed own-team pages receive working shortcuts. The shortcut grid retains explicit buttons appending typed routes; embedding several NavigationLinks inside the same List row caused incorrect routing in development and was reverted. Sheet-owned browse stacks remain independent.
+
+## Matchup detail
+
+Owner names appear directly below team names in smaller, secondary text, reusing league metadata with no new request. Position headers retain the slot/FLEX badge but omit acronyms and positional subtotals: overall team totals and individual player points are the useful comparisons. Bench remains collapsed and does not affect team totals; VoiceOver player labels retain team context.
+
+## Loading follow-up — build 30
+
+Josh confirmed matchup → player → Back on build 29, then reported slow player cards and a lingering Updating game info spinner. The primary read waited for an optional biography; returning to the card also forced ownership refreshes. Biography now loads independently on disclosure, ordinary appearance reuses the detail cache, and explicit refresh/roster changes still check ownership.
+
+Availability previously belonged to the first screen's cancellable task. Another screen could skip the in-flight read, then the original cancellation left no result while the 60-second attempt guard suppressed replacement. The league model now owns and shares that read, cancels it on scope reset, clears interrupted attempts, and exposes actual loading state. Idle/failure has a retry state, not a perpetual spinner. Existing source caches, rate-limit handling and fresh mutation preflight are preserved.
+
+## First-frame identity — build 31
+
+A player route carries only the identity already visible in its source row: canonical ID, name and supplied position/NFL team. Matching player and active league/owner scope are required. Scores, Lineup, team rosters, available players, watchlist, roster tools and player-only trade research supply it; no position/team is guessed from trade prose.
+
+Player Detail renders that identity and any already-known matching-week metrics without waiting for ownership. Season scoring and game-log reads start independently. The primary card says Checking league status until that read completes; no Starting/Bench/Free agent claim or roster action comes from the identity preview. Watch remains disabled until detail is loaded. Failed reads retain the identity with actionable error state; the existing reconnect-only boundary is unchanged. This adds no API request, response store, permission or background task. A DEBUG-only offline Preview test deliberately delays ownership for 20 seconds and requires identity/Week content before completion, with actions unavailable.
 
 ## Caching, privacy and state
 

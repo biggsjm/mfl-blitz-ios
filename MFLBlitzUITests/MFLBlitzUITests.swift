@@ -228,7 +228,7 @@ final class MFLBlitzUITests: XCTestCase {
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Schedule matchup — independent Week 1 scoring"; screenshot.lifetime = .keepAlways; add(screenshot)
         player.tap()
-        XCTAssertTrue(app.buttons["player-owner-0001"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["player-owner-0001"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["That preview player is unavailable."].exists)
         app.tabBars.buttons["Scores"].firstMatch.tap()
         XCTAssertEqual(app.buttons["week-picker"].label, "Week 2")
@@ -278,7 +278,7 @@ final class MFLBlitzUITests: XCTestCase {
         hub.name = "My Team — position roster below shortcuts"; hub.lifetime = .keepAlways; add(hub)
         rosterPlayer.tap()
         XCTAssertTrue(app.navigationBars["Dak Prescott"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["player-owner-0001"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["player-owner-0001"].firstMatch.waitForExistence(timeout: 5))
         let player = XCTAttachment(screenshot: app.screenshot())
         player.name = "Player detail — league ownership and matching-week projection"; player.lifetime = .keepAlways; add(player)
         app.navigationBars.buttons.element(boundBy: 0).tap()
@@ -1019,6 +1019,7 @@ final class MFLBlitzUITests: XCTestCase {
 
         XCTAssertTrue(app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Starting lineups"].exists)
+        XCTAssertTrue(app.buttons["matchup-team-0001"].label.contains("Demo Owner"))
         let quarterbackComparison = app.staticTexts["position-QB"]
         XCTAssertTrue(quarterbackComparison.exists)
         for _ in 0 ..< 4 where !quarterbackComparison.isHittable {
@@ -1030,6 +1031,26 @@ final class MFLBlitzUITests: XCTestCase {
         screenshot.name = "Position-by-position matchup"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+        let player = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "matchup-player-")).firstMatch
+        XCTAssertTrue(player.isHittable)
+        player.tap()
+        let playerHeader = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "player-detail-")).firstMatch
+        XCTAssertTrue(playerHeader.waitForExistence(timeout: 8), "One tap must show Player Detail, not another matchup")
+        XCTAssertFalse(app.navigationBars["Week 1 Matchup"].exists)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 3), "One Back must return to the original matchup")
+        let ownTeam = app.buttons["matchup-team-0001"]
+        for _ in 0..<5 where !ownTeam.isHittable { app.swipeDown() }
+        ownTeam.tap()
+        XCTAssertTrue(app.navigationBars["My Team"].waitForExistence(timeout: 3))
+        let schedule = app.buttons["my-team-schedule"]
+        XCTAssertTrue(schedule.isHittable && schedule.isEnabled, "Pushed own-team tools must receive the stack router")
+        schedule.tap()
+        XCTAssertTrue(app.navigationBars["Schedule"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["schedule-week-1"].firstMatch.waitForExistence(timeout: 5))
+        app.navigationBars["Schedule"].buttons.element(boundBy: 0).tap()
+        app.navigationBars["My Team"].buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 3))
         let flex = app.staticTexts["position-FLEX"]
         for _ in 0..<12 where !flex.isHittable { app.swipeUp() }
         XCTAssertTrue(flex.isHittable)

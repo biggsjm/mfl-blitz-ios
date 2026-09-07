@@ -4,6 +4,61 @@ import Testing
 @testable import MFLBlitz
 
 struct PlayerToolsSafetyTests {
+    @Test("Navigating away does not cancel the shared game-info read or strand another screen") @MainActor
+    func sharedAvailabilitySurvivesNavigation() async throws {
+        let model = PlayerToolsModel()
+        model.reset(scope: "s")
+        var release: CheckedContinuation<Void, Never>?
+        var reads = 0
+        let first = Task {
+            await model.loadAvailability(week: 1, refresh: false) {
+                reads += 1
+                await withCheckedContinuation { release = $0 }
+                try Task.checkCancellation()
+                return PlayerAvailabilitySnapshot(scope: "s", week: 1)
+            }
+        }
+        for _ in 0..<1_000 where release == nil { await Task.yield() }
+        let continuation = try #require(release)
+        #expect(model.isLoadingAvailability(week: 1))
+        first.cancel()
+        let second = Task {
+            await model.loadAvailability(week: 1, refresh: false) {
+                reads += 1
+                return PlayerAvailabilitySnapshot(scope: "s", week: 1)
+            }
+        }
+        await Task.yield()
+        continuation.resume()
+        await first.value
+        await second.value
+        #expect(reads == 1)
+        #expect(model.availability[1]?.scope == "s")
+        #expect(model.availabilityErrors[1] == nil)
+        #expect(!model.isLoadingAvailability(week: 1))
+    }
+
+    @Test("Interrupted game-info reads stop loading and allow an immediate normal retry") @MainActor
+    func interruptedAvailabilityCanRetry() async {
+        let model = PlayerToolsModel()
+        model.reset(scope: "s")
+        await model.loadAvailability(week: 1, refresh: false) { throw CancellationError() }
+        #expect(!model.isLoadingAvailability(week: 1))
+        #expect(model.availabilityErrors[1] != nil)
+        await model.loadAvailability(week: 1, refresh: false) { PlayerAvailabilitySnapshot(scope: "s", week: 1) }
+        #expect(model.availability[1] != nil && model.availabilityErrors[1] == nil)
+        #expect(!model.isLoadingAvailability(week: 1))
+    }
+
+    @Test("Mismatched game-info responses are explicit failures, not endless loading") @MainActor
+    func mismatchedAvailabilityEndsLoading() async {
+        let model = PlayerToolsModel()
+        model.reset(scope: "s")
+        await model.loadAvailability(week: 1, refresh: false) { PlayerAvailabilitySnapshot(scope: "other", week: 2) }
+        #expect(model.availability.isEmpty && model.availabilityErrors[1] != nil)
+        #expect(!model.isLoadingAvailability(week: 1))
+    }
+
     @Test("IR controls require a current matching injury report and an eligible designation") @MainActor
     func irControlEligibility() async {
         let model = PlayerToolsModel(), now = Date()
@@ -191,11 +246,154 @@ struct PlayerToolsSafetyTests {
         #expect(initial.weeks.map(\.week) == [6, 5, 4, 3])
         #expect(initial.weeks.first?.points == 0 && initial.weeks[1].points == nil)
         #expect(initial.nextBeforeWeek == 3)
+        #expect(initial.total == nil && initial.average == nil && initial.opponentPointsAllowed == nil)
+        let firstQueries = await server.reads.filter { $0["TYPE"] == "playerScores" }
+        #expect(firstQueries.count == 4)
+        _ = try await repository.loadPlayerResearch(playerID: "201", beforeWeek: nil, contextWeek: 7)
+        #expect(await server.reads.filter { $0["TYPE"] == "playerScores" }.count == 4)
         let next = try await repository.loadPlayerResearch(playerID: "201", beforeWeek: initial.nextBeforeWeek, contextWeek: 7)
         #expect(next.weeks.map(\.week) == [2, 1] && next.nextBeforeWeek == nil)
         let queries = await server.reads.filter { $0["TYPE"] == "playerScores" }
-        #expect(queries.count == 8 && queries.allSatisfy { $0["PLAYERS"] == "201" })
+        #expect(queries.count == 6 && queries.allSatisfy { $0["PLAYERS"] == "201" })
         #expect(!queries.contains { $0["W"] == "7" })
+        #expect(!queries.contains { ["YTD", "AVG"].contains($0["W"] ?? "") })
+        #expect(await !server.reads.contains { ["pointsAllowed", "injuries"].contains($0["TYPE"] ?? "") })
+        let schedules = await server.reads.filter { $0["TYPE"] == "nflSchedule" }
+        #expect(schedules.count == 1 && schedules.first?["W"] == "ALL")
+        #expect(await server.reads.filter { $0["TYPE"] == "nflByeWeeks" }.count == 1)
+        #expect(initial.scheduleTeam == "CHI")
+        #expect(initial.weeks.map(\.opponentLabel) == ["vs DET", "@ DET", "vs DET", "@ DET"])
+        #expect(next.weeks.map(\.opponentLabel) == ["Bye", "@ DET"])
+        _ = try await repository.loadPlayerResearch(playerID: "202", beforeWeek: nil, contextWeek: 7)
+        #expect(await server.reads.filter { $0["TYPE"] == "nflSchedule" }.count == 1)
+        #expect(await server.reads.filter { $0["TYPE"] == "nflByeWeeks" }.count == 1)
+    }
+
+    @Test("Season summary needs only two targeted cached reads, independently of game history")
+    func seasonSummaryBudget() async throws {
+        let server = PlayerToolsFixtureServer()
+        let repository = try await connected(server)
+        let baseline = await server.reads.count
+        let summary = try await repository.loadPlayerSeasonSummary(playerID: "201")
+        #expect(summary.total == 0 && summary.average == 0 && summary.issues.isEmpty)
+        #expect(summary.playerID == "201")
+        let queries = await Array(server.reads.dropFirst(baseline))
+        #expect(queries.count == 2)
+        #expect(queries.allSatisfy { $0["TYPE"] == "playerScores" && $0["PLAYERS"] == "201" })
+        #expect(Set(queries.compactMap { $0["W"] }) == ["YTD", "AVG"])
+        #expect(try await repository.loadPlayerSeasonSummary(playerID: "201") == summary)
+        #expect(await server.reads.count == baseline + 2)
+        _ = try await repository.loadPlayerResearch(playerID: "201", beforeWeek: nil, contextWeek: 7)
+        #expect(await server.reads.filter { $0["TYPE"] == "playerScores" }.count == 6)
+    }
+
+    @Test("Missing and failed season values stay distinct from actual zero, including preseason",
+          arguments: ["summaryMissing", "summaryUnavailable", "preseason"])
+    func seasonSummaryMissingValues(mode: String) async throws {
+        let server = PlayerToolsFixtureServer()
+        await server.configure(mode)
+        let repository = try await connected(server)
+        let summary = try await repository.loadPlayerSeasonSummary(playerID: "201")
+        if mode == "summaryUnavailable" {
+            #expect(summary.total == 0 && summary.average == nil)
+            #expect(summary.issues == ["Weekly average could not be refreshed."])
+        } else {
+            #expect(summary.total == nil && summary.average == nil)
+            #expect(summary.issues.isEmpty)
+        }
+        #expect(await server.reads.filter { $0["TYPE"] == "playerScores" }.count == 2)
+    }
+
+    @Test("Game log distinguishes a failed week from a missing score and never fetches future weeks")
+    func gameLogFailureAndPreseason() async throws {
+        let server = PlayerToolsFixtureServer()
+        await server.configure("historyUnavailable")
+        let repository = try await connected(server)
+        let page = try await repository.loadPlayerResearch(playerID: "201", beforeWeek: nil, contextWeek: 7)
+        #expect(page.weeks.map(\.week) == [6, 5, 4, 3])
+        #expect(page.weeks[0].points == 0 && !page.weeks[0].unavailable)
+        #expect(page.weeks[1].points == nil && !page.weeks[1].unavailable)
+        #expect(page.weeks[2].points == nil && page.weeks[2].unavailable)
+        #expect(await server.reads.filter { $0["TYPE"] == "playerScores" }.count == 4)
+
+        let preseasonServer = PlayerToolsFixtureServer()
+        await preseasonServer.configure("preseason")
+        let preseasonRepository = try await connected(preseasonServer)
+        let empty = try await preseasonRepository.loadPlayerResearch(playerID: "201", beforeWeek: nil, contextWeek: 1)
+        #expect(empty.completedWeek == 0 && empty.weeks.isEmpty && empty.nextBeforeWeek == nil)
+        #expect(await !preseasonServer.reads.contains { $0["TYPE"] == "playerScores" })
+    }
+
+    @Test("Missing or malformed shared NFL schedule leaves game-log scores intact",
+          arguments: ["scheduleUnavailable", "scheduleDuplicate", "scheduleMissingWeek"])
+    func gameLogScheduleFallback(mode: String) async throws {
+        let server = PlayerToolsFixtureServer()
+        await server.configure(mode)
+        let repository = try await connected(server)
+        let page = try await repository.loadPlayerResearch(playerID: "201", beforeWeek: nil, contextWeek: 7)
+        #expect(page.weeks.count == 4 && page.weeks.first?.points == 0)
+        #expect(page.weeks.allSatisfy { $0.opponentLabel == nil })
+        #expect(page.issues.contains("Opponent schedule unavailable."))
+        #expect(await server.reads.filter { $0["TYPE"] == "nflSchedule" }.count == 1)
+        #expect(await server.reads.filter { $0["TYPE"] == "playerScores" }.count == 4)
+    }
+
+    @Test("History opponents distinguish home, away, confirmed bye and ambiguous or absent games")
+    func gameLogOpponentLabels() throws {
+        let json = #"{"fullNflSchedule":{"nflSchedule":[{"week":"1","matchup":{"team":[{"id":"CHI","isHome":"1"},{"id":"DET","isHome":"0"}]}},{"week":"2","matchup":[]},{"week":"3","matchup":{"team":[{"id":"CHI","isHome":"0"},{"id":"DET","isHome":"1"}]}},{"week":"4","matchup":{"team":[{"id":"CHI"},{"id":"DET"}]}},{"week":"5","matchup":[{"team":[{"id":"CHI"},{"id":"DET"}]},{"team":[{"id":"CHI"},{"id":"MIN"}]}]},{"week":"6","matchup":{"team":[{"id":"CHI","isHome":"1"},{"id":"DET","isHome":"1"}]}},{"week":"7","matchup":{"team":[{"id":"CHI"},{"id":"CHI"}]}},{"week":"8","matchup":{"team":{"id":"CHI"}}},{"week":"9","matchup":{"team":[{"id":"DAL"},{"id":"DET"}]}}]}}"#
+        let schedule = try JSONDecoder().decode(MFLNFLSeasonScheduleResponse.self, from: Data(json.utf8)).fullNflSchedule
+        let byes = try JSONDecoder().decode(MFLByeWeeksResponse.self,
+            from: Data(#"{"nflByeWeeks":{"team":{"id":"CHI","bye_week":"2"}}}"#.utf8)).nflByeWeeks
+        func label(_ week: Int) -> String? {
+            LiveMFLRepository.historyOpponentLabel(teamID: "CHI", week: week, schedule: schedule, byes: byes)
+        }
+        #expect(label(1) == "vs DET" && label(2) == "Bye" && label(3) == "@ DET" && label(4) == "DET")
+        for week in 5...10 { #expect(label(week) == nil) }
+        #expect(LiveMFLRepository.historyOpponentLabel(teamID: "CHI", week: 2, schedule: schedule, byes: nil) == nil)
+        #expect(LiveMFLRepository.historyOpponentLabel(teamID: "CHI", week: 2, schedule: nil, byes: byes) == nil)
+        let conflict = try JSONDecoder().decode(MFLByeWeeksResponse.self,
+            from: Data(#"{"nflByeWeeks":{"team":{"id":"CHI","bye_week":"1"}}}"#.utf8)).nflByeWeeks
+        #expect(LiveMFLRepository.historyOpponentLabel(teamID: "CHI", week: 1, schedule: schedule, byes: conflict) == nil)
+    }
+
+    @Test("Season summary model caches success, retains same-player data on failure, and rejects wrong identities") @MainActor
+    func seasonSummaryState() async {
+        let model = PlayerSeasonSummaryModel()
+        let summary = PlayerSeasonSummary(scope: "s", playerID: "201", total: 0, average: 0)
+        var calls = 0
+        await model.load(scope: "s", playerID: "201") { calls += 1; return summary }
+        await model.load(scope: "s", playerID: "201") { calls += 1; return summary }
+        #expect(calls == 1 && model.summary == summary && !model.isLoading)
+        await model.load(scope: "s", playerID: "201", force: true) { throw RepositoryError.server("offline") }
+        #expect(model.summary == summary && model.errorMessage == "offline" && !model.isLoading)
+        await model.load(scope: "other", playerID: "202") { summary }
+        #expect(model.summary == nil && model.errorMessage != nil && !model.isLoading)
+        await model.load(scope: "s", playerID: "202") { summary }
+        #expect(model.summary == nil && model.errorMessage != nil && !model.isLoading)
+    }
+
+    @Test("Cancelled or superseded season reads cannot repopulate a new player or account") @MainActor
+    func seasonSummaryScopeIsolation() async {
+        let model = PlayerSeasonSummaryModel()
+        let old = PlayerSeasonSummary(scope: "old", playerID: "201", total: 12, average: 6)
+        let current = PlayerSeasonSummary(scope: "new", playerID: "202", total: 9, average: 3)
+        await model.load(scope: "old", playerID: "201") {
+            await model.load(scope: "new", playerID: "202") { current }
+            return old
+        }
+        #expect(model.summary == current && model.errorMessage == nil && !model.isLoading)
+        await model.load(scope: "old", playerID: "201") {
+            await model.load(scope: "new", playerID: "202") { current }
+            throw RepositoryError.server("Late failure")
+        }
+        #expect(model.summary == current && model.errorMessage == nil && !model.isLoading)
+        await model.load(scope: "old", playerID: "201") {
+            model.invalidate()
+            return old
+        }
+        #expect(model.summary == nil && model.errorMessage == nil && !model.isLoading)
+        await model.load(scope: "old", playerID: "201") { throw CancellationError() }
+        #expect(model.summary == nil && model.errorMessage == nil && !model.isLoading)
     }
 
     @Test("Cancelled old-session secondary reads cannot repopulate current state") @MainActor
@@ -262,7 +460,8 @@ private actor PlayerToolsFixtureServer: MFLHTTPTransport {
         }
         reads.append(query)
         if request.url!.path.contains("mfl_status") {
-            return try response(["mfl_status": ["year": "2026", "weeks": ["CurrentWeek": 7, "LineupWeek": 7, "CompletedWeek": 6, "LiveScoringWeek": 7]]])
+            let current = mode == "preseason" ? 1 : 7
+            return try response(["mfl_status": ["year": "2026", "weeks": ["CurrentWeek": current, "LineupWeek": current, "CompletedWeek": mode == "preseason" ? 0 : 6, "LiveScoringWeek": current]]])
         }
         switch query["TYPE"] {
         case "league":
@@ -288,8 +487,29 @@ private actor PlayerToolsFixtureServer: MFLHTTPTransport {
             return try response(["playerRosterStatuses": ["playerStatus": status]])
         case "injuries": return try response(["injuries": ["week": query["W"] ?? "7", "injury": ["id": "201", "status": mode == "questionable" ? "Questionable" : "Out"]]])
         case "nflByeWeeks": return try response(["nflByeWeeks": ["year": "2026", "team": ["id": "CHI", "bye_week": "2"]]])
-        case "nflSchedule": return try response(["nflSchedule": ["week": query["W"] ?? "1", "matchup": ["kickoff": "1788999600", "team": [["id": "CHI", "isHome": "1"], ["id": "DET", "isHome": "0"]]]]])
-        case "playerScores": return try response(["playerScores": ["week": query["W"] ?? "1", "playerScore": ["id": "201", "score": query["W"] == "5" ? "" : "0"]]])
+        case "nflSchedule":
+            if query["W"] == "ALL" {
+                if mode == "scheduleUnavailable" { throw URLError(.notConnectedToInternet) }
+                if mode == "scheduleDuplicate" {
+                    return try response(["fullNflSchedule": ["nflSchedule": [["week": "1"], ["week": "1"]]]])
+                }
+                if mode == "scheduleMissingWeek" {
+                    return try response(["fullNflSchedule": ["nflSchedule": [["matchup": []]]]])
+                }
+                let weeks: [[String: Any]] = (1...7).map { week in
+                    let games: [[String: Any]] = week == 2 ? [] : [["team": [
+                        ["id": "CHI", "isHome": week.isMultiple(of: 2) ? "1" : "0"],
+                        ["id": "DET", "isHome": week.isMultiple(of: 2) ? "0" : "1"]]]]
+                    return ["week": String(week), "matchup": games]
+                }
+                return try response(["fullNflSchedule": ["nflSchedule": weeks]])
+            }
+            return try response(["nflSchedule": ["week": query["W"] ?? "1", "matchup": ["kickoff": "1788999600", "team": [["id": "CHI", "isHome": "1"], ["id": "DET", "isHome": "0"]]]]])
+        case "playerScores":
+            if (mode == "summaryUnavailable" && query["W"] == "AVG") ||
+                (mode == "historyUnavailable" && query["W"] == "4") { throw URLError(.notConnectedToInternet) }
+            let missing = ["summaryMissing", "preseason"].contains(mode) || query["W"] == "5"
+            return try response(["playerScores": ["week": query["W"] ?? "1", "playerScore": ["id": "201", "score": missing ? "" : "0"]]])
         case "pointsAllowed": return try response(["pointsAllowed": [:]])
         case "myWatchList": return try response(["myWatchList": ["player": watched.sorted().map { ["id": $0] }]])
         default: return try await fallback.send(request)

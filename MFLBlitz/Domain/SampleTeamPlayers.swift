@@ -25,6 +25,13 @@ extension DemoLeagueRepository {
 
     func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot {
         try Task.checkCancellation()
+        #if DEBUG
+        // Offline-only native regression: prove the tapped row's identity is
+        // visible while ownership is still pending, with no enabled actions.
+        if ProcessInfo.processInfo.arguments.contains("--synthetic-slow-player") {
+            try await Task.sleep(for: .seconds(20))
+        }
+        #endif
         let rosters = SampleTeamPlayers.teams.map { team in
             (team, previewRoster(franchiseID: team.id, week: SampleData.workspace.week))
         }
@@ -70,6 +77,11 @@ extension DemoLeagueRepository {
                 isFreeAgent: assignments.isEmpty, cannotAdd: nil, acquisitionLocked: locked,
                 canAddImmediately: assignments.isEmpty && !locked),
             ownershipVerifiedAt: refresh ? Date() : nil)
+    }
+
+    func loadPlayerBiography(playerID: String) async throws -> PlayerBio? {
+        _ = try await loadPlayerDetail(playerID: playerID, refresh: false)
+        return playerID == "12620" ? PlayerBio(jerseyNumber: "4", height: "6′ 2″", weight: "238 lb") : nil
     }
 }
 

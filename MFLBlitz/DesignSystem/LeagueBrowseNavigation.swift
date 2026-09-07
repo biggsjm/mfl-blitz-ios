@@ -11,8 +11,8 @@ extension EnvironmentValues {
     }
 }
 
-/// Button-based shortcut grids append to the same typed path as player and
-/// matchup links. Each tab or modal owns its path; browsing never changes a
+/// Shortcut grids, player links and matchups share value-based navigation.
+/// Each tab or modal owns its path; browsing never changes a
 /// different stack behind a sheet.
 struct LeagueBrowseStack<Content: View>: View {
     @State private var path = NavigationPath()
@@ -21,8 +21,10 @@ struct LeagueBrowseStack<Content: View>: View {
     var body: some View {
         NavigationStack(path: $path) {
             content().leagueBrowseDestinations()
-                .environment(\.openTeamTool, { path.append($0) })
         }
+        // Scope this to the stack, not just its root content. Pushed team
+        // destinations and sheet-owned browse stacks need the same router.
+        .environment(\.openTeamTool, { path.append($0) })
     }
 }
 
@@ -49,6 +51,13 @@ struct PlayerRoute: Hashable, Sendable {
     let scope: LeagueBrowseScope
     let playerID: String
     var inspectedWeek: Int? = nil
+    /// Display-only identity from the tapped row, never ownership or permission.
+    var previewIdentity: PlayerIdentity? = nil
+
+    func identityPreview(in activeScope: LeagueBrowseScope?) -> PlayerIdentity? {
+        guard scope == activeScope, previewIdentity?.id == playerID else { return nil }
+        return previewIdentity
+    }
 }
 
 struct TeamToolsRoute: Hashable, Identifiable, Sendable {
@@ -130,6 +139,15 @@ struct MatchupRoute: Hashable, Sendable {
     let matchupID: String
 }
 
+/// Live scoreboard IDs are not season-schedule IDs. Keep this route typed too:
+/// mixing destination-view links with a bound NavigationPath can reinsert the
+/// matchup above the player destination when SwiftUI reconciles the stack.
+struct LiveMatchupRoute: Hashable, Sendable {
+    let scope: LeagueBrowseScope
+    let week: Int
+    let matchupID: String
+}
+
 private struct BrowsedScoringWeekKey: EnvironmentKey {
     static let defaultValue: Int? = nil
 }
@@ -146,6 +164,15 @@ private struct LeagueBrowseDestinations: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .navigationDestination(for: LiveMatchupRoute.self) { route in
+                if route.scope != model.browseScope { unavailableSession }
+                else if route.week == model.scores.week {
+                    MatchupDetailView(matchupID: route.matchupID).id(route)
+                } else {
+                    ContentUnavailableView("Scoring week changed", systemImage: "calendar",
+                        description: Text("Go back to open a matchup for the selected week."))
+                }
+            }
             .navigationDestination(for: StandingsRoute.self) { route in
                 if route.scope == model.browseScope {
                     StandingsView(initialScope: route.divisionID == nil ? .overall : .division,
@@ -165,7 +192,8 @@ private struct LeagueBrowseDestinations: ViewModifier {
             }
             .navigationDestination(for: PlayerRoute.self) { route in
                 if route.scope == model.browseScope {
-                    PlayerDetailView(playerID: route.playerID, inspectedWeek: route.inspectedWeek)
+                    PlayerDetailView(playerID: route.playerID, inspectedWeek: route.inspectedWeek,
+                        previewIdentity: route.identityPreview(in: model.browseScope))
                         .id(route)
                 } else { unavailableSession }
             }

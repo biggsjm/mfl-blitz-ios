@@ -103,21 +103,27 @@ extension LiveMFLRepository {
         // Ownership refreshes reuse league identity; loadTeams(refresh:) can explicitly refresh it.
         async let leagueRead = client.league(refreshPolicy: .useCache)
         async let catalogRead = TeamPlayerMapper.optionalRead { try await client.players() }
-        // DETAILS has its own cache key. Refreshing ownership need not redownload
-        // this slowly changing biography or the shared public directory.
-        async let bioRead = TeamPlayerMapper.optionalRead { try await client.players(ids: [playerID], details: true) }
         async let ownershipRead = TeamPlayerMapper.optionalRead {
             try await client.playerRosterStatus(playerIDs: [playerID], franchiseID: workspace.franchiseID,
                 refreshPolicy: policy)
         }
-        let (league, catalog, details, statuses) = try await (leagueRead, catalogRead, bioRead, ownershipRead)
+        let (league, catalog, statuses) = try await (leagueRead, catalogRead, ownershipRead)
         try validateTeamPlayerSession(client: client, scope: workspace.storageScope)
         let teams = try TeamPlayerMapper.teams(in: league)
         let basic = catalog?.playersByID[playerID]
-        let detailed = details?.playersByID[playerID]
+        // Biography is secondary and loads only when disclosed. A targeted
+        // detailed read is needed here only if the directory cannot name this
+        // player; ordinary identity/ownership must never wait for optional bio.
+        var detailed: MFLPlayer?
+        if TeamPlayerMapper.text(basic?.name) == nil {
+            let fallback = try await TeamPlayerMapper.optionalRead {
+                try await client.players(ids: [playerID], details: true)
+            }
+            try validateTeamPlayerSession(client: client, scope: workspace.storageScope)
+            detailed = fallback?.playersByID[playerID]
+        }
         var issues: [DetailReadIssue] = []
         if basic == nil && detailed == nil { issues.append(.playerNames) }
-        if detailed == nil { issues.append(.biography) }
         let ownership = statuses.flatMap {
             TeamPlayerMapper.ownership($0, playerID: playerID, teams: teams,
                 availabilityFranchiseID: workspace.franchiseID)
@@ -136,6 +142,15 @@ extension LiveMFLRepository {
         return PlayerDetailSnapshot(scope: workspace.storageScope, identity: identity,
             bio: detailed.map(TeamPlayerMapper.biography), ownership: ownership, issues: issues,
             ownershipVerifiedAt: refresh && ownership != nil ? Date() : nil)
+    }
+
+    func loadPlayerBiography(playerID: String) async throws -> PlayerBio? {
+        let (client, _, workspace) = try requireSession()
+        // Separate targeted daily cache. Failures stay local to the disclosure
+        // and cannot hide or authorize current ownership/action controls.
+        let details = try await client.players(ids: [playerID], details: true)
+        try validateTeamPlayerSession(client: client, scope: workspace.storageScope)
+        return details.playersByID[playerID].map(TeamPlayerMapper.biography)
     }
 
     private func validateTeamPlayerSession(client: MFLClient, scope: String) throws {

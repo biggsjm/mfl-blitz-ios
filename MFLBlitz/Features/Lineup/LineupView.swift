@@ -655,7 +655,8 @@ private struct LineupPlayerRow: View {
     @ViewBuilder
     private func identityLink<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         if let scope = model.browseScope {
-            NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: model.lineup.week)) {
+            NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: model.lineup.week,
+                previewIdentity: PlayerIdentity(id: player.id, name: player.name, position: player.position, nflTeam: player.nflTeam))) {
                 content()
             }
             .buttonStyle(.plain)

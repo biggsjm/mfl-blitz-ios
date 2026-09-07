@@ -37,8 +37,10 @@ protocol LeagueRepository: Sendable {
     func loadTeams(refresh: Bool) async throws -> [TeamSummary]
     func loadTeamRoster(franchiseID: String, lineupWeek: Int?, refresh: Bool) async throws -> TeamRosterSnapshot
     func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot
+    func loadPlayerBiography(playerID: String) async throws -> PlayerBio?
     func loadSeasonSchedule() async throws -> SeasonScheduleSnapshot
     func loadPlayerAvailability(week: Int, refresh: Bool) async throws -> PlayerAvailabilitySnapshot
+    func loadPlayerSeasonSummary(playerID: String) async throws -> PlayerSeasonSummary
     func loadPlayerResearch(playerID: String, beforeWeek: Int?, contextWeek: Int) async throws -> PlayerResearchPage
     func loadWatchList(refresh: Bool) async throws -> WatchListSnapshot
     func setWatched(playerID: String, isWatched: Bool) async throws -> WatchListSnapshot
@@ -61,6 +63,9 @@ extension LeagueRepository {
     func loadPlayerAvailability(week: Int, refresh: Bool) async throws -> PlayerAvailabilitySnapshot {
         throw RepositoryError.server("Player availability is unavailable.")
     }
+    func loadPlayerSeasonSummary(playerID: String) async throws -> PlayerSeasonSummary {
+        throw RepositoryError.server("Season scoring is unavailable.")
+    }
     func loadPlayerResearch(playerID: String, beforeWeek: Int?, contextWeek: Int) async throws -> PlayerResearchPage {
         throw RepositoryError.server("Player research is unavailable.")
     }
@@ -76,6 +81,9 @@ extension LeagueRepository {
     }
     func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot {
         throw RepositoryError.server("Player details are unavailable in this session.")
+    }
+    func loadPlayerBiography(playerID: String) async throws -> PlayerBio? {
+        throw RepositoryError.server("Player biography is unavailable in this session.")
     }
     func loadSeasonSchedule() async throws -> SeasonScheduleSnapshot {
         throw RepositoryError.server("The season schedule is unavailable in this session.")

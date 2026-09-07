@@ -54,16 +54,22 @@ extension DemoLeagueRepository {
         return value
     }
 
+    func loadPlayerSeasonSummary(playerID: String) async throws -> PlayerSeasonSummary {
+        PlayerSeasonSummary(scope: SampleData.workspace.storageScope, playerID: playerID,
+            total: 42, average: 10.5)
+    }
+
     func loadPlayerResearch(playerID: String, beforeWeek: Int?, contextWeek: Int) async throws -> PlayerResearchPage {
         // Synthetic history is explicitly inside Preview, not mixed into live reads.
         let completed = 4
         let last = min(completed, (beforeWeek ?? 5) - 1)
         let weeks = last > 0 ? stride(from: last, through: max(1, last - 3), by: -1).map {
-            PlayerHistoryWeek(week: $0, points: [0.0, 14.2, 8.7, 19.1][$0 - 1])
+            PlayerHistoryWeek(week: $0, points: [0.0, 14.2, 8.7, 19.1][$0 - 1],
+                opponentLabel: ["Bye", "@ DET", "vs GB", "@ MIN"][$0 - 1])
         } : []
         return PlayerResearchPage(scope: SampleData.workspace.storageScope, playerID: playerID,
-            completedWeek: completed, total: 42, average: 10.5, weeks: weeks,
-            opponentPointsAllowed: 16.4, opponentName: "CHI")
+            completedWeek: completed, weeks: weeks,
+            scheduleTeam: SampleData.lineup.players.first(where: { $0.id == playerID })?.nflTeam)
     }
 
     func loadWatchList(refresh: Bool) async throws -> WatchListSnapshot {

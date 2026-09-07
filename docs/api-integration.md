@@ -169,9 +169,13 @@ MFL expressly forbids browser JavaScript from outside its domains and does not p
 The API does not include raw NFL player statistics or third-party news because of licensing. It also has no documented webhook and no reliable third-party APNs contract. Rich news/play-by-play requires a separate licensed source; push scoring likely requires written MFL coordination plus a minimal backend.
 
 
+Build 30 makes `DETAILS=1` biography a disclosure-triggered read rather than a dependency of primary identity/ownership (except targeted identity fallback when the catalog cannot name a player). Ordinary card reappearance reuses the detail cache; explicit refresh and roster changes still refresh ownership. Availability reads are shared by the league model across screens, cancelled on scope reset, and interrupted attempts can be retried. UI spinners reflect actual in-flight state; cached/read-only data never grants mutation authority.
+
+Build 31 carries display-only canonical player identity in scoped navigation routes, reusing the source row without another request. Ownership no longer holds first-frame identity or matching-week metrics/research. Pending/failed ownership cannot create Free agent/Starting/Bench claims or enable roster actions; mutation preflight/readback and reconnect boundaries are unchanged. This is not a new private response cache.
+
 ## Player tools and roster actions — 0.5.0 / 0.5.1
 
-Owner-feedback follow-up: history reads start only after View scoring history. Main-section pull-to-refresh no longer invokes refreshAll; ordinary watchlist/roster review loads use caches, while mutation preflight and readback remain forced. Requests remain globally spaced, now at least 1.25 seconds in the live repository. HTTP 429 records Retry-After by request/response host, matching MFL's documented per-server limits; another host's cached/allowed data can still load. Requests never switch host to evade a cooldown and failed imports never retry. A public-feed cooldown does not automatically block a different league server.
+Build 29 supersedes the earlier View scoring history gate: the primary summary independently loads two targeted cached YTD/AVG reads, while the visible game log loads at most four completed-week score reads per page. One shared public nflSchedule(W=ALL) response and the daily current catalog/bye table supply NFL opponents, explicitly disclosed as the current team's schedule, not historical player-team affiliation. Earlier pages are explicit; no raw NFL statistics or opponent-points-allowed read is needed for the default card. Main-section pull-to-refresh no longer invokes refreshAll; ordinary watchlist/roster review loads use caches, while mutation preflight and readback remain forced. Requests remain globally spaced, now at least 1.25 seconds in the live repository. HTTP 429 records Retry-After by request/response host, matching MFL's documented per-server limits; another host's cached/allowed data can still load. Requests never switch host to evade a cooldown and failed imports never retry. A public-feed cooldown does not automatically block a different league server.
 
 IR controls use the current action week's matching injury snapshot, not the browsed historical week. Out/IR qualify for the conservative native scope verified for Champion Hall; Questionable, Doubtful, unknown/missing, loading, failed and stale data keep Move to IR unavailable. Player Detail hides it and the direct Injured Reserve list includes only qualifying players; review retains its disabled gates, followed by a fresh injury read before import. Broader league-specific IR formats still require certification; this is not a claim that the league export provides all IR eligibility rules.
 
@@ -182,7 +186,8 @@ IR controls use the current action week's matching injury snapshot, not the brow
 | Bye table | export `nflByeWeeks` | 24-hour memory, season checked; public/cookieless |
 | Player history | export `playerScores&PLAYERS&W` | 1-hour memory; targeted IDs, initially four completed weeks; earlier pages explicit |
 | Season fantasy metrics | `playerScores&W=YTD` / `AVG` | Independent optional reads; missing is not zero |
-| Opponent context | export `pointsAllowed` | 6-hour memory; verified `team.position.points` totals, not averages |
+| Game-log NFL opponents | export `nflSchedule&W=ALL` plus current catalog and bye table | Shared 6-hour public/cookieless schedule; current-team approximation disclosed in info popover. Missing/ambiguous data stays blank. |
+| Optional position context (not on default card) | export `pointsAllowed` | Decoder/client retained; default Player Detail no longer fetches this feed |
 | Watchlist | export/import `myWatchList` | 60-second memory; incremental ADD/REMOVE, forced readback |
 | Owner permissions | `abilities&DETAILS=1` | 30-second client cache reused for browsing/review, bypassed for mutation preflight |
 | Immediate add/drop | import `fcfsWaiver` | One ADD and optional DROP, or deliberate drop-only |
@@ -198,4 +203,4 @@ Roster reviews load roster, limits and abilities through their normal caches; su
 
 Watchlist markers contain only player ID, desired state and time. Roster markers contain the requested move, scope and expected membership. Both survive relaunch; neither is stored in the public player cache. Explicit disconnect removes them. No private history/watchlist response disk cache was added.
 
-Wire evidence and remaining owner verification: [player-tools plan](player-tools-plan.md). Current 2026 completed-game history/points-allowed coverage still needs actual Week 1 observation; fixtures do not close that gate.
+Wire evidence and remaining owner verification: [player-tools plan](player-tools-plan.md). Current 2026 completed-game history and season-summary coverage still need actual Week 1 observation; fixtures do not close that gate.

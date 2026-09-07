@@ -1,70 +1,100 @@
 import SwiftUI
-import Charts
 
+/// Completed-week fantasy points plus the explicitly disclosed current-team
+/// NFL schedule approximation. No historical affiliation or raw stats implied.
 struct PlayerResearchSections: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var showingInfo = false
     let research: PlayerResearchModel
+    let scorePrecision: Int
     let retry: () -> Void
     let loadMore: () -> Void
+
     var body: some View {
-        if let page = research.page {
-            Section("Season · Your league’s scoring") {
-                HStack {
-                    metric("Total points", page.total)
-                    Spacer()
-                    metric("Weekly average", page.average)
+        Section {
+            if let page = research.page {
+                if !page.weeks.isEmpty && !dynamicTypeSize.isAccessibilitySize {
+                    HStack(spacing: 12) {
+                        Text("Week").frame(maxWidth: .infinity, alignment: .leading)
+                        Text("Points").frame(maxWidth: .infinity, alignment: .trailing)
+                        Text("NFL opp").frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
                 }
-                if page.completedWeek == 0 {
-                    Text("Game history appears after the first week is completed.").font(.subheadline).foregroundStyle(.secondary)
+                if page.weeks.isEmpty {
+                    Text("Games appear after the first completed week.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                ForEach(page.weeks.sorted { $0.week > $1.week }) { item in
+                    let layout = dynamicTypeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                        : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 12))
+                    layout {
+                        Text("Week \(item.week)").font(.subheadline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Text(dynamicTypeSize.isAccessibilitySize ? "\(pointsText(item)) pts" : pointsText(item))
+                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                            .frame(maxWidth: .infinity, alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
+                        Text(item.opponentLabel ?? "—")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
+                    }
+                    .padding(.vertical, 4)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Week \(item.week), \(spokenPoints(item)), NFL opponent: \(item.opponentLabel ?? "unavailable")")
+                    .accessibilityIdentifier("player-game-week-\(item.week)")
+                }
+                if page.nextBeforeWeek != nil {
+                    Button("Earlier weeks", action: loadMore)
+                        .disabled(research.isLoading)
+                        .accessibilityIdentifier("player-earlier-weeks")
                 }
                 ForEach(page.issues, id: \.self) { Text($0).font(.caption).foregroundStyle(.secondary) }
             }
-            if !page.weeks.isEmpty {
-                Section {
-                    if page.weeks.contains(where: { $0.points != nil }) {
-                        Chart(page.weeks.sorted { $0.week < $1.week }) { item in
-                            if let points = item.points {
-                                BarMark(x: .value("Week", String(item.week)), y: .value("Fantasy points", points))
-                                    .foregroundStyle(Color.blitzGreen)
-                                    .accessibilityLabel("Week \(item.week)")
-                                    .accessibilityValue("\(points.pointsText) fantasy points")
-                            }
-                        }
-                        .frame(height: 130)
-                        .accessibilityIdentifier("player-recent-form")
-                    }
-                    ForEach(page.weeks) { item in
-                        LabeledContent("Week \(item.week)", value: item.unavailable ? "Unavailable" : item.points.pointsText)
-                    }
-                    if page.nextBeforeWeek != nil {
-                        Button("Load earlier weeks", action: loadMore).disabled(research.isLoading)
-                    }
-                } header: { Text("Recent form") } footer: {
-                    Text("Fantasy points, not raw NFL statistics. A dash means MFL supplied no score.")
-                }
+            if research.isLoading {
+                ProgressView("Updating game log…").frame(maxWidth: .infinity)
             }
-            if let points = page.opponentPointsAllowed, let opponent = page.opponentName {
-                Section("Matchup · \(opponent)") {
-                    LabeledContent("Fantasy points allowed", value: points.pointsText)
-                    Text("Season total at this position, using your league’s scoring. Teams may have played different numbers of games.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
-        }
-        if research.isLoading {
-            Section { ProgressView("Loading player history…").frame(maxWidth: .infinity) }
-        }
-        if let error = research.errorMessage {
-            Section {
+            if let error = research.errorMessage {
                 Text(error).font(.subheadline).foregroundStyle(.secondary)
-                Button("Retry research", action: retry).disabled(research.isLoading)
+                Button("Retry game log", action: retry).disabled(research.isLoading)
             }
+        } header: {
+            HStack {
+                Text("Game log").accessibilityIdentifier("player-game-log-heading")
+                Spacer()
+                Button("About game log", systemImage: "info.circle") { showingInfo = true }
+                    .labelStyle(.iconOnly)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityIdentifier("player-game-log-info")
+                    .popover(isPresented: $showingInfo) {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("About this log").font(.headline)
+                                Text("Points use your league’s scoring. NFL opponents follow \(research.page?.scheduleTeam.map { "\($0)’s" } ?? "the player’s current team’s") schedule; earlier teams may differ after a trade. MFL does not provide raw NFL statistics.")
+                                    .font(.subheadline).foregroundStyle(Color.secondary)
+                            }
+                            .padding()
+                        }
+                        .foregroundStyle(Color.primary)
+                        .scrollBounceBehavior(.basedOnSize)
+                        .frame(width: 300, height: dynamicTypeSize.isAccessibilitySize ? 350 : 190)
+                        .presentationCompactAdaptation(.popover)
+                    }
+            }
+            .textCase(nil)
+        } footer: {
+            Text("Completed weeks · — means not reported.")
         }
     }
 
-    private func metric(_ title: String, _ value: Double?) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(value.pointsText).font(.title2.bold().monospacedDigit())
-            Text(title).font(.caption).foregroundStyle(.secondary)
-        }.accessibilityElement(children: .combine)
+    private func pointsText(_ item: PlayerHistoryWeek) -> String {
+        if item.unavailable { return "Unavailable" }
+        return item.points.map { $0.pointsText(precision: scorePrecision) } ?? "—"
+    }
+
+    private func spokenPoints(_ item: PlayerHistoryWeek) -> String {
+        guard !item.unavailable, item.points != nil else { return "fantasy points unavailable" }
+        return "\(pointsText(item)) fantasy points"
     }
 }

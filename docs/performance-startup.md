@@ -2,6 +2,14 @@
 
 September 7, 2026 · **0.5.3 (28)**. This is an engineering review and synthetic verification, not a device-wide Instruments trace or live game-week certification. Exact test, CI and phone delivery evidence lives in [current status](current-status.md).
 
+## Player-card loading follow-up — build 30
+
+The owner reported slow player loading and a lingering game-info spinner on build 29. The optional biography previously held the whole primary read; it now loads on disclosure, from its existing daily memory cache. Ordinary card reappearance no longer forces an ownership request, while explicit refresh and roster changes still do. The league model owns shared availability tasks across screen navigation; scope reset cancels them, interrupted attempts clear their suppression, and UI loading reflects the actual task state. Tests reproduce navigation cancellation and enforce cache/request budgets; phone timing remains an owner check, not an inferred benchmark.
+
+## First-frame player identity — build 31
+
+Josh confirmed the build-30 spinner fix but still observed slow card opening. The UI only rendered its primary card after the joined identity/league/ownership read. Navigation now hands off the public identity already visible in the tapped row, so that content and existing Week metrics can render before ownership. Season/history requests are independent; actions remain gated on completed detail. Scope/ID mismatch rejection and an offline held-ownership native test cover the display-only boundary. No extra API call or storage is introduced, and this does not claim measured real-network latency.
+
 ## Outcome
 
 A returning manager sees the last successfully loaded scores, lineup, standings, Board summaries and own-team season roster while the app reconnects. A small “Updating league…” status replaces the blocking reconnect overlay when an eligible cache exists. Offline, content remains with “Offline · Last update shown,” Retry and Sign in. Section timestamps use coarse relative wording, not a running seconds counter.
@@ -19,7 +27,7 @@ The first-ever sign-in still needs a successful download: there is nothing truth
 | Disk I/O | Cache hits previously re-encoded and rewrote the response. A valid disk hit now publishes to memory without rewriting; original expiration remains unchanged. Encoding and file I/O run on cache actors, outside the main actor. |
 | Season status | Concurrent consumers could duplicate status reads. Share a 60-second in-memory read; an explicit foreground week check bypasses it so rollover is never hidden by that TTL. |
 | Scores/detail | Preserve the single visible foreground poller, jitter and completed-results reads. Saved scorecards have no LIVE claim or current player clocks; cached opponent projections cannot create a fresh lineup advantage. |
-| My Team/player research | Preserve batched roster/YTD reads, on-demand history pages, scoped routes and no per-player-week fan-out. Hydrate the owner's roster for display, but force a normal authenticated reload before considering it recently verified. |
+| My Team/player research | Preserve batched roster/YTD reads and scoped routes. Build 29 loads two independent targeted YTD/AVG reads for the primary player card and four completed-week scoring reads for its visible log; earlier pages remain explicit. NFL opponent context reuses one shared whole-season schedule, not a per-player/week schedule fan-out. Hydrate the owner's roster for display, but force a normal authenticated reload before considering it recently verified. |
 | Lineup/waivers/trades/Board | Preserve draft mergers, fresh mutation preflight/readback, durable ambiguous-action markers and no automatic import retries. Board disk content contains list summaries only, not full posts. |
 | Artwork/views | Preserve lazy lists/grids, bounded downsampled image caching, request sharing, failure cooldowns and isolated cookieless artwork requests. No new image provider, dependency, poller or analytics. |
 

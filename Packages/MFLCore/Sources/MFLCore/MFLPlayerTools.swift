@@ -39,6 +39,35 @@ public struct MFLNFLScheduleResponse: Decodable, Sendable {
     public let nflSchedule: MFLNFLSchedule
 }
 
+public struct MFLNFLSeasonScheduleResponse: Decodable, Sendable {
+    public let fullNflSchedule: MFLNFLSeasonSchedule
+}
+
+/// `nflSchedule&W=ALL` uses a distinct envelope from the single-week feed.
+/// Each included week must be explicit and unique; never guess array order.
+public struct MFLNFLSeasonSchedule: Decodable, Equatable, Sendable {
+    public let weeks: [MFLNFLSchedule]
+    private enum CodingKeys: String, CodingKey { case nflSchedule }
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        guard c.contains(.nflSchedule), try !c.decodeNil(forKey: .nflSchedule) else {
+            throw DecodingError.dataCorruptedError(forKey: .nflSchedule, in: c,
+                debugDescription: "The full NFL schedule must identify its weeks.")
+        }
+        weeks = try c.mflArray(of: MFLNFLSchedule.self, forKey: .nflSchedule)
+        var known: Set<Int> = []
+        for value in weeks {
+            guard let week = value.week, (1...25).contains(week), known.insert(week).inserted else {
+                throw DecodingError.dataCorruptedError(forKey: .nflSchedule, in: c,
+                    debugDescription: "Full NFL schedule weeks must be explicit, valid and unique.")
+            }
+        }
+    }
+    public var byWeek: [Int: MFLNFLSchedule] {
+        Dictionary(uniqueKeysWithValues: weeks.compactMap { value in value.week.map { ($0, value) } })
+    }
+}
+
 public struct MFLNFLSchedule: Decodable, Equatable, Sendable {
     public let week: Int?
     public let matchups: [MFLNFLMatchup]

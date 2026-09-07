@@ -16,7 +16,7 @@ struct TeamSummary: Codable, Identifiable, Equatable, Sendable {
     var accentSeed: Int = 0
 }
 
-struct PlayerIdentity: Codable, Identifiable, Equatable, Sendable {
+struct PlayerIdentity: Codable, Identifiable, Hashable, Sendable {
     let id: String
     var name: String
     var position: String? = nil
@@ -260,8 +260,10 @@ struct PlayerWeekMetrics: Equatable, Sendable {
     var statLine: String?
 
     static func matching(playerID: String, week: Int, scores: ScoresSnapshot,
-                         lineup: LineupSnapshot, waivers: WaiverSnapshot) -> Self? {
+                         lineup: LineupSnapshot, waivers: WaiverSnapshot,
+                         history: PlayerResearchPage? = nil, scope: String? = nil) -> Self? {
         var points: Double?
+        var pointsConflict = false
         var projection: Double?
         var statLine: String?
         if scores.week == week, scores.lastUpdated != .distantPast {
@@ -269,6 +271,7 @@ struct PlayerWeekMetrics: Equatable, Sendable {
             // Doubleheaders/duplicate leagues can repeat a player. Conflicting
             // points stay unavailable; never select an arbitrary team's score.
             let knownPoints = Set(players.compactMap(\.livePoints).filter(\.isFinite))
+            pointsConflict = knownPoints.count > 1
             if knownPoints.count == 1 { points = knownPoints.first }
             let knownProjections = Set(players.compactMap(\.projectedPoints).filter(\.isFinite))
             if knownProjections.count == 1 { projection = knownProjections.first }
@@ -282,6 +285,12 @@ struct PlayerWeekMetrics: Equatable, Sendable {
         if projection == nil, waivers.projectionWeek == week,
            let value = waivers.candidates.first(where: { $0.id == playerID })?.projectedPoints, value.isFinite {
             projection = value
+        }
+        if points == nil, !pointsConflict, let scope, let history, history.scope == scope, history.playerID == playerID {
+            let rows = history.weeks.filter { $0.week == week }
+            if rows.count == 1, !rows[0].unavailable, let value = rows[0].points, value.isFinite {
+                points = value
+            }
         }
         guard points != nil || projection != nil || statLine != nil else { return nil }
         return Self(week: week, points: points, projection: projection, statLine: statLine)

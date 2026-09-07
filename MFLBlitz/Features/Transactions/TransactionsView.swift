@@ -243,7 +243,8 @@ struct TradePlayerResearchLink: View {
     let asset: TradeAsset
     var body: some View {
         if asset.kind == .player, let scope = model.browseScope {
-            NavigationLink(value: PlayerRoute(scope: scope, playerID: asset.id, inspectedWeek: model.currentWeek)) {
+            NavigationLink(value: PlayerRoute(scope: scope, playerID: asset.id, inspectedWeek: model.currentWeek,
+                previewIdentity: PlayerIdentity(id: asset.id, name: asset.name))) {
                 Image(systemName: "info.circle").frame(width: 44, height: 44)
             }
             .buttonStyle(.borderless)
