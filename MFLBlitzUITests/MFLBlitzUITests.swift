@@ -1104,14 +1104,14 @@ final class MFLBlitzUITests: XCTestCase {
         for _ in 0..<10 where !player.isHittable { app.swipeUp() }
         XCTAssertTrue(player.isHittable)
         XCTAssertTrue(player.label.contains("vs CHI ·"))
-        app.swipeUp() // Bring the caption, not just the top of the large player cell, into the screenshot.
-        let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = "Matchup — largest text opponent and kickoff"
-        screenshot.lifetime = .keepAlways; add(screenshot)
         player.tap()
         XCTAssertTrue(app.descendants(matching: .any)["player-detail-0003-starter-0"].firstMatch.waitForExistence(timeout: 5))
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 3))
+        app.swipeUp() // Bring the caption, not just the top of the large player cell, into the screenshot.
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Matchup — largest text opponent and kickoff"
+        screenshot.lifetime = .keepAlways; add(screenshot)
     }
 
     @MainActor
