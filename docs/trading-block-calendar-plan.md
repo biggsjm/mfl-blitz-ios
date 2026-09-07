@@ -11,7 +11,7 @@ Status: **Implemented, tested, installed and merged in [PR #10](https://github.c
 - [x] Final exact-source regression, signed phone delivery and GitHub merge/documentation completion. Source `3663a37`; merge `e946b1c`; all 107 core tests, 209 app unit functions and 45 native journeys pass. Installation is not live-owner acceptance.
 - [ ] Owner Week 1 validation of intended native publication, device reminders, Apple Calendar handoff and real Live Activity behavior.
 - [x] Build 35: explicit last-player/full-block removal review, recoverable empty draft, owner/baseline preflight and exact empty readback; requested after Josh found the build-34 restriction.
-- [ ] Owner verification that MFL accepts the explicit empty-field replacement and shows the intended removal. Fixtures are not provider acceptance evidence.
+- [x] Owner-reported acceptance: Josh confirmed September 7 that removing the last trading-block player works on MFL. This closes the specific removal check; fixtures alone were not provider acceptance evidence.
 - [ ] Listing new blind-bid dollars remains MFL-only until its undocumented import semantics are verified.
 - [ ] Continuous background Live Activity updates need an APNs service; none is connected in this increment. Inferred lineup-review reminders remain deferred until a general league lock-rule interpretation is verified.
 
@@ -61,7 +61,7 @@ Build 34 moves Settings to the top-left of My Team. Scores retains its Week sele
 
 The official [MFL request reference](https://api.myfantasyleague.com/2026/api_info?STATE=details) documents `tradeBait` export/import. Export with `INCLUDE_DRAFT_PICKS` includes additional asset codes. Import replaces the owner's existing block, accepts player/pick codes and a 256-character needs description. Export documents blind-bid dollars, but import does not explicitly document them: display existing dollar assets if recognized, but do not enable new dollar listings without verification.
 
-The league's unauthenticated export required sign-in on September 7. After approval, Josh supplied authenticated empty and nonempty singleton examples: `tradeBaits.tradeBait` uses `franchise_id`, `willGiveUp`, `inExchangeFor` and `timestamp`. Sanitized tests cover empty/singleton/array handling, assets, escaping, ownership conflicts and uncertain readback. At Josh's subsequent request, build 35 implements explicit full-list removal through empty `WILL_GIVE_UP` and `IN_EXCHANGE_FOR` fields, with fresh absent/empty readback required. MFL's reference documents full replacement but not clearing semantics; live acceptance remains an owner validation item. Unknown assets remain visible and prevent silent partial replacement, but can be cleared in an explicit whole-list removal. No real import was sent by automated QA.
+The league's unauthenticated export required sign-in on September 7. After approval, Josh supplied authenticated empty and nonempty singleton examples: `tradeBaits.tradeBait` uses `franchise_id`, `willGiveUp`, `inExchangeFor` and `timestamp`. Sanitized tests cover empty/singleton/array handling, assets, escaping, ownership conflicts and uncertain readback. At Josh's subsequent request, build 35 implements explicit full-list removal through empty `WILL_GIVE_UP` and `IN_EXCHANGE_FOR` fields, with fresh absent/empty readback required. MFL's reference documents full replacement but not clearing semantics; Josh subsequently confirmed September 7 that last-player removal works on MFL. That owner observation is separate from synthetic tests and does not certify every league or unsupported asset format. Unknown assets remain visible and prevent silent partial replacement, but can be cleared in an explicit whole-list removal. No real import was sent by automated QA.
 
 ## 2. League Calendar
 
@@ -116,7 +116,7 @@ Offer **Add to Calendar** for a selected, verified dated event using Apple's eve
 | Stage | Deliverable | Acceptance gate |
 | --- | --- | --- |
 | 0 — Contracts and layout | Authenticated read-only wire validation, sanitized fixtures, reviewable native layout | Confirm listing round trip/clear behavior and precise calendar occurrences; unresolved cases get explicit read-only limits |
-| 1 — Trading Block | Browse, staged edit/publish/remove, draft recovery, Make offer handoff | Exact MFL readback, conflict/timeout handling, no lost offer draft or unintended roster change; owner verifies actual empty-list acceptance |
+| 1 — Trading Block | Browse, staged edit/publish/remove, draft recovery, Make offer handoff | Exact MFL readback, conflict/timeout handling, no lost offer draft or unintended roster change; last-player removal owner-confirmed September 7, broader cases remain open |
 | 2 — Calendar | Shared typed feed and agenda with correct event/action labels | Matches MFL dates/types, time-zone/DST correctness, cancellation and offline recovery |
 | 3 — Reminders | Opt-in local alerts, timing preferences, deep links, selected-event Apple Calendar handoff | No duplicate/wrong-league/past reminders; changed-event reconciliation and permission-denial paths work |
 | 4 — Owner trial | Signed development builds and updated documentation | Josh validates intended live actions on his dev device; TestFlight stays on hold |

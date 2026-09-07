@@ -28,6 +28,8 @@ These checks remain open unless explicitly marked with an observation. They are 
 
 ### Build 35 league extras — installed for owner validation
 
+- [x] Josh confirmed September 7 that removing the last trading-block player works on MFL. This closes that specific reported issue; the broader checks below remain open.
+
 Build 35 is installed with the requested lineup-style editor, last-player removal and Settings gear on My Team. Open Blitz after unlocking the phone; see [current status](current-status.md) for launch and verification evidence. In the block editor, move a player up, move them back down, then review/cancel: your actual roster and starting lineup must stay unchanged. Submit only a block you intend to publish or remove. Confirm Settings opens from My Team and is absent from Scores.
 
 - [ ] My Team → Trades → Trading Block matches intended MFL listings. Edit only a listing you want published; verify it on MFL, then relaunch and check it. Resume/discard a private block draft without changing the published list. Build 35: if you intend to clear the block, demote the last player, review removal and confirm; verify the listing/needs note clears on MFL while roster and starters stay unchanged. Check status after uncertainty; do not resend. Cash listings still use MFL.

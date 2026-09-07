@@ -86,7 +86,7 @@ Follow-up 0.5.3 (22): replace the Transactions/Manage roster umbrellas with six 
 
 September 7: Josh approved items 6–7 as stages 1–3 of the [Trading Block, League Calendar and reminder plan](trading-block-calendar-plan.md), plus a current-matchup Live Activity. Implementation is in 0.6.0 (33); [current status](current-status.md) separates verification, delivery and acceptance. Week 1 stays on Josh's dev device, and TestFlight waits until iOS 27 and macOS 27 are both out of beta plus the release gates.
 
-6. [x] Trading Block: publish own players/picks and needs, browse listings, resume block drafts and safely start offers (`tradeBait`). Build 35 adds reviewed entire-list removal with fresh empty readback; live acceptance remains an owner check. New cash assets remain MFL-only.
+6. [x] Trading Block: publish own players/picks and needs, browse listings, resume block drafts and safely start offers (`tradeBait`). Build 35 adds reviewed entire-list removal with fresh empty readback; Josh confirmed last-player removal works on MFL September 7. Broader cases remain in the owner checklist. New cash assets remain MFL-only.
 7. [x] League Calendar: actual deadlines/occurrences, selected-event Apple Calendar handoff and opt-in local reminders (`calendar`, `ics`). Inferred lineup-review deadlines and a full calendar subscription are not included.
 8. [ ] League polls: view and vote from Board (`polls`, `pollVote`).
 9. [ ] Playoff brackets: add configured postseason brackets beside schedules (`playoffBrackets`, `playoffBracket`).

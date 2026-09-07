@@ -65,13 +65,13 @@ Implementation boundaries: team/player work owns roster/player surfaces; schedul
 
 ## Next feature queue — after player tools 1–5
 
-6. [x] Trading Block: browse listings, publish players/picks/needs with owner preflight and readback, resume drafts and safely start offers. [Approved plan](trading-block-calendar-plan.md); build 35 adds explicit whole-list removal with empty readback, pending owner provider acceptance. New cash publication remains MFL-only.
+6. [x] Trading Block: browse listings, publish players/picks/needs with owner preflight and readback, resume drafts and safely start offers. [Approved plan](trading-block-calendar-plan.md); Josh confirmed build 35's last-player removal works on MFL September 7. Broader publication/update cases remain open; new cash publication remains MFL-only.
 7. [x] League Calendar, opt-in deadline reminders and selected-event Apple Calendar handoff. Exact recurring instances/DST verified from owner-provided MFL exports. Development-device validation only until the distribution hold is lifted.
    - [x] Build 34 owner feedback: Lineup-style block promotion/demotion and pinned review/submit; Settings gear relocated to My Team. Exact-source verification and device delivery are recorded separately.
 8. [ ] Board polls and voting.
 9. [ ] Playoff brackets beside schedules.
 
-Items 6–7 are implemented in 0.6.0 (33–35), installed as build 35 and merged in [PR #10](https://github.com/biggsjm/mfl-blitz-ios/pull/10) after full local/GitHub checks. Items 8–9 remain queued in the [feature plan](player-tools-plan.md). Delivery and live-owner acceptance are distinct. Real block removal/readback, device reminder delivery, changed deadlines, active-game ActivityKit behavior and broader new-feature accessibility checks remain open in the [checklist](week-1-testing.md).
+Items 6–7 are implemented in 0.6.0 (33–35), installed as build 35 and merged in [PR #10](https://github.com/biggsjm/mfl-blitz-ios/pull/10) after full local/GitHub checks. Items 8–9 remain queued in the [feature plan](player-tools-plan.md). Delivery and live-owner acceptance are distinct. Last-player removal is owner-confirmed; broader block publication/update, device reminder delivery, changed deadlines, active-game ActivityKit behavior and broader new-feature accessibility checks remain open in the [checklist](week-1-testing.md).
 
 ## P2 — Broader coverage and polish
 
