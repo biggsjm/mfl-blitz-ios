@@ -193,7 +193,9 @@ final class PlayerToolsUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["About this log"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "earlier teams may differ after a trade")).firstMatch.exists)
         capture(app, "Game log — current-team NFL opponent caveat anchored to info")
-        app.navigationBars["Dak Prescott"].staticTexts["Dak Prescott"].tap()
+        // The title is not an action. Touch outside the popover to dismiss it,
+        // without asking XCTest to scroll a dimmed navigation title into view.
+        tapVisibleNavigationElement(app.navigationBars["Dak Prescott"].staticTexts["Dak Prescott"], in: app)
         XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.staticTexts["About this log"])], timeout: 3) == .completed)
         let bio = app.buttons["player-bio"]
         for _ in 0..<6 where !bio.isHittable { app.swipeUp() }
@@ -285,7 +287,23 @@ final class PlayerToolsUITests: XCTestCase {
         let menu = app.buttons["player-actions-\(playerID)"]
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
         XCTAssertTrue(waitUntilEnabled(menu))
-        menu.tap()
+        XCTAssertFalse(app.alerts.firstMatch.exists)
+        XCTAssertFalse(app.sheets.firstMatch.exists)
+        tapVisibleNavigationElement(menu, in: app)
+    }
+
+    @MainActor private func tapVisibleNavigationElement(_ element: XCUIElement, in app: XCUIApplication) {
+        // Xcode 16.4 / iOS 18.5 reports no AX hit point for this visible native
+        // toolbar Menu, just as it does for some in-list Menu wrappers. Use an
+        // actual touch at its measured center, not a test-only action hook.
+        // Keep visibility and the resulting menu/action assertions mandatory.
+        let bar = app.navigationBars.firstMatch
+        guard element.exists, bar.exists, !element.frame.isEmpty,
+              bar.frame.contains(element.frame), app.frame.contains(element.frame) else {
+            XCTFail("Navigation touch target must be fully inside the visible bar")
+            return
+        }
+        element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     @MainActor private func revealAction(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
