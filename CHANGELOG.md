@@ -2,6 +2,14 @@
 
 Implemented private-build history through September 6, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.5.3 (22) — September 6, 2026 — direct My Team tools
+
+- Replace Transactions and Manage roster with six direct shortcuts: Schedule, Adds / Drops, Trades, Watchlist, Injured Reserve and League Activity. Two columns become one at accessibility text sizes; every button has its own accessible label and route. Trades alone carries the trade-attention count.
+- Adds / Drops reuses the available-player browser and saved waiver queue, with a My roster view for standalone drops. Person-plus offers Add now and Place waiver bid when both methods are supported. Search stays below the picker and preserves a separate query for each side.
+- Injured Reserve shows capacity, current IR players with activation and eligible active-roster players with neutral medical bags. Drop uses a red person-minus. Existing review, final confirmation, fresh preflight and exact membership readback remain mandatory.
+- Scoped roster-tool state rejects mismatched/late results and disables actions after failed refresh without discarding known roster display data. No new backend, private response persistence, automatic writes or polling is introduced.
+- Updated native/model regressions and the [direct-tool contract](docs/my-team-shortcuts.md). [Current status](docs/current-status.md) records actual test and phone delivery evidence separately from live-owner acceptance.
+
 ## 0.5.2 (21) — September 6, 2026 — My Team and compact player actions
 
 - Player Detail uses compact person-plus Add, red person-minus Drop and neutral medical-bag IR buttons inside its ownership card. IR appears only for an eligible player on the owner's active roster; existing IR players retain Activate. Spoken action/player labels and explicit review/confirmation remain.

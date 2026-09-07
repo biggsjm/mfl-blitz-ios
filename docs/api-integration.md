@@ -1,6 +1,6 @@
 # MFL 2026 API integration
 
-Implementation audit: September 6, 2026, **0.5.2 (21)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
+Implementation audit: September 6, 2026, **0.5.3 (22)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
 
 Primary sources: [general API guidance](https://api.myfantasyleague.com/2026/api_info), [request reference](https://api.myfantasyleague.com/2026/api_info?STATE=details), and [sample code](https://api.myfantasyleague.com/2026/api_info?STATE=example).
 
@@ -165,7 +165,7 @@ The API does not include raw NFL player statistics or third-party news because o
 
 Owner-feedback follow-up: history reads start only after View scoring history. Main-section pull-to-refresh no longer invokes refreshAll; ordinary watchlist/roster review loads use caches, while mutation preflight and readback remain forced. Requests remain globally spaced, now at least 1.25 seconds in the live repository. HTTP 429 records Retry-After by request/response host, matching MFL's documented per-server limits; another host's cached/allowed data can still load. Requests never switch host to evade a cooldown and failed imports never retry. A public-feed cooldown does not automatically block a different league server.
 
-IR controls use the current action week's matching injury snapshot, not the browsed historical week. Out/IR qualify for the conservative native scope verified for Champion Hall; Questionable, Doubtful, unknown/missing, loading, failed and stale data keep Move to IR unavailable. Build 21 hides it on Player Detail; Manage roster and review keep their disabled gates, followed by a fresh injury read before import. Broader league-specific IR formats still require certification; this is not a claim that the league export provides all IR eligibility rules.
+IR controls use the current action week's matching injury snapshot, not the browsed historical week. Out/IR qualify for the conservative native scope verified for Champion Hall; Questionable, Doubtful, unknown/missing, loading, failed and stale data keep Move to IR unavailable. Player Detail hides it and the direct Injured Reserve list includes only qualifying players; review retains its disabled gates, followed by a fresh injury read before import. Broader league-specific IR formats still require certification; this is not a claim that the league export provides all IR eligibility rules.
 
 | Data/action | Request | Cache / verification |
 | --- | --- | --- |

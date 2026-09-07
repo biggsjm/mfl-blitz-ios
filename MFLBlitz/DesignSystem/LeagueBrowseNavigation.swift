@@ -1,5 +1,31 @@
 import SwiftUI
 
+private struct OpenTeamToolKey: EnvironmentKey {
+    static let defaultValue: (@MainActor (TeamToolsRoute) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var openTeamTool: (@MainActor (TeamToolsRoute) -> Void)? {
+        get { self[OpenTeamToolKey.self] }
+        set { self[OpenTeamToolKey.self] = newValue }
+    }
+}
+
+/// Button-based shortcut grids append to the same typed path as player and
+/// matchup links. Each tab or modal owns its path; browsing never changes a
+/// different stack behind a sheet.
+struct LeagueBrowseStack<Content: View>: View {
+    @State private var path = NavigationPath()
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            content().leagueBrowseDestinations()
+                .environment(\.openTeamTool, { path.append($0) })
+        }
+    }
+}
+
 /// Ownership scope belongs to a signed-in franchise, not the team being browsed.
 struct LeagueBrowseScope: Hashable, Sendable {
     let season: Int
@@ -25,10 +51,67 @@ struct PlayerRoute: Hashable, Sendable {
     var inspectedWeek: Int? = nil
 }
 
-struct TeamToolsRoute: Hashable, Sendable {
-    enum Destination: Hashable, Sendable { case transactions, rosterMoves, schedule, watchlist }
+struct TeamToolsRoute: Hashable, Identifiable, Sendable {
+    enum Destination: String, CaseIterable, Identifiable, Sendable {
+        case schedule, addsDrops, trades, watchlist, injuredReserve, activity
+        var id: Self { self }
+        var title: String {
+            switch self {
+            case .schedule: "Schedule"
+            case .addsDrops: "Adds / Drops"
+            case .trades: "Trades"
+            case .watchlist: "Watchlist"
+            case .injuredReserve: "Injured Reserve"
+            case .activity: "League Activity"
+            }
+        }
+        var symbol: String {
+            switch self {
+            case .schedule: "calendar"
+            case .addsDrops: "person.badge.plus"
+            case .trades: "arrow.triangle.swap"
+            case .watchlist: "star"
+            case .injuredReserve: "cross.case"
+            case .activity: "clock.arrow.circlepath"
+            }
+        }
+        var accessibilityID: String {
+            switch self {
+            case .addsDrops: "my-team-adds-drops"
+            case .injuredReserve: "my-team-injured-reserve"
+            default: "my-team-\(rawValue)"
+            }
+        }
+    }
     let scope: LeagueBrowseScope
     let destination: Destination
+    var id: Self { self }
+}
+
+struct TeamToolDestination: View {
+    @Environment(AppModel.self) private var model
+    let route: TeamToolsRoute
+
+    var body: some View {
+        Group {
+            if route.scope == model.browseScope {
+                switch route.destination {
+                case .addsDrops: AddsDropsView()
+                case .trades: TradesView().environment(model.transactions)
+                case .injuredReserve: InjuredReserveView()
+                case .schedule: TeamScheduleView(franchiseID: route.scope.ownerID)
+                case .watchlist: WatchListView()
+                case .activity: TransactionActivityView().environment(model.transactions)
+                }
+            } else {
+                ContentUnavailableView("League changed", systemImage: "person.crop.circle.badge.exclamationmark",
+                    description: Text("Go back to open details for your current league."))
+            }
+        }
+        .navigationTitle(route.destination.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .id(route)
+    }
 }
 
 struct ScheduleRoute: Hashable, Sendable {
@@ -58,17 +141,7 @@ private struct LeagueBrowseDestinations: ViewModifier {
     func body(content: Content) -> some View {
         content
             .navigationDestination(for: TeamToolsRoute.self) { route in
-                if route.scope == model.browseScope {
-                    switch route.destination {
-                    case .transactions: TransactionsView().environment(model.transactions)
-                    case .rosterMoves: RosterManagementView()
-                    case .schedule:
-                        TeamScheduleView(franchiseID: route.scope.ownerID)
-                            .navigationTitle("Schedule").navigationBarTitleDisplayMode(.inline)
-                    case .watchlist:
-                        WatchListView().navigationTitle("Watchlist").navigationBarTitleDisplayMode(.inline)
-                    }
-                } else { unavailableSession }
+                TeamToolDestination(route: route)
             }
             .navigationDestination(for: TeamRoute.self) { route in
                 if route.scope == model.browseScope {

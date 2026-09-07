@@ -1,6 +1,6 @@
 # Player tools and roster actions
 
-Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in 0.5.0 (19), with owner-feedback fixes in 0.5.1 (20) and **0.5.2 (21)**. Build 21 adds compact player actions, strict visible Add gating and the My Team standing/season-roster refinement. Implementation and automated verification are separate from live-owner certification. [Current status](current-status.md) records exact device/test evidence; [roadmap](roadmap.md) retains release gates and remaining work.
+Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in 0.5.0 (19), with owner-feedback fixes in 0.5.1 (20) and 0.5.2 (21), followed by **0.5.3 (22)** direct-tool navigation. Build 21 adds compact player actions, strict visible Add gating and the My Team standing/season-roster refinement. Implementation and automated verification are separate from live-owner certification. [Current status](current-status.md) records exact device/test evidence; [roadmap](roadmap.md) retains release gates and remaining work.
 
 ## Scope and sequence
 
@@ -52,9 +52,11 @@ Champion Hall's September 6 public configuration reports `BBID_FCFS`, conditiona
 
 Follow-up 0.5.2 (21): symbol-only Add/Drop, eligible-only Player Detail IR, strict player-specific Add gating, and My Team's standing/navigation cards/position roster with season-to-date ordering are implemented; [current status](current-status.md) tracks tests/device delivery. This does not add automatic bids or bypass a locked player's next waiver run.
 
+Follow-up 0.5.3 (22): replace the Transactions/Manage roster umbrellas with six [direct My Team tools](my-team-shortcuts.md), Schedule first. Adds / Drops unifies acquisition and owned-player drops; Injured Reserve gets capacity and eligible moves. Existing drafts, scopes, caches, fresh preflight and exact readback remain mandatory. Features 6–9 below and live-owner checks remain unfinished.
+
 - [x] Offer Move to IR / Activate only on the signed-in owner's applicable players, using current roster membership rather than displayed starter slot.
 - [x] Show available IR/active-roster capacity and review the move. Check current capabilities, limits and baseline; MFL enforces league-specific injury eligibility.
-- [x] Keep Move to IR unavailable without a current matching Out/IR report; loading, missing, stale and failed reports do not qualify. Build 21 omits it from Player Detail when ineligible; Manage roster and review keep their disabled gates.
+- [x] Keep Move to IR unavailable without a current matching Out/IR report; loading, missing, stale and failed reports do not qualify. Player Detail omits ineligible IR; build 22's dedicated IR list includes only qualifying players, and review keeps its disabled gates.
 - [x] Support explicit activation with a required reviewed drop when necessary; never silently drop a player to make space.
 - [x] Reuse the durable roster-action and verification machinery. Confirm the target player's new roster status and any intended drop before declaring success.
 - [x] Keep taxi, salary and commissioner-on-behalf writes outside this increment.

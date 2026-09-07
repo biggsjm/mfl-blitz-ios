@@ -2,7 +2,7 @@ import XCTest
 
 final class PlayerToolsUITests: XCTestCase {
     @MainActor
-    func testIneligibleIRIsHiddenInDetailAndDisabledInRosterMenu() {
+    func testIneligibleIRIsHiddenInDetailAndIRDestination() {
         let app = preview()
         app.tabBars.buttons["My Team"].firstMatch.tap()
         let player = app.buttons["roster-player-13319"]
@@ -22,17 +22,11 @@ final class PlayerToolsUITests: XCTestCase {
         XCTAssertEqual(drop.label, "Drop player, Aaron Jones")
         capture(app, "Player Detail — symbol-only Drop, ineligible IR omitted")
         app.navigationBars["Aaron Jones"].buttons.firstMatch.tap()
-        let manage = app.buttons["Manage roster"]
-        for _ in 0..<6 where !manage.isHittable { app.swipeDown() }
-        manage.tap()
-        let menu = revealRosterMenu("13319", in: app)
-        // Exercise the measured-touch path on every SDK, even where XCTest
-        // can also resolve an accessibility hit point for this menu.
-        tapRosterMenu(menu, in: app, useMeasuredTouch: true)
-        let menuMove = app.buttons["Move to IR"]
-        XCTAssertTrue(menuMove.waitForExistence(timeout: 5))
-        XCTAssertFalse(menuMove.isEnabled)
-        capture(app, "Roster menu — Questionable does not permit IR")
+        openTool("injured-reserve", title: "Injured Reserve", in: app)
+        XCTAssertTrue(app.buttons["roster-reserve-12620"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["roster-reserve-13319"].exists)
+        capture(app, "Injured Reserve — only eligible owned players")
+
     }
 
     @MainActor
@@ -61,12 +55,11 @@ final class PlayerToolsUITests: XCTestCase {
     @MainActor
     func testFreeAgentAddReviewDoesNotChangeRosterOnCancel() {
         let app = preview()
-        app.tabBars.buttons["My Team"].firstMatch.tap()
-        app.buttons["Manage roster"].tap()
-        app.segmentedControls.buttons["Free agents"].tap()
-        let add = app.buttons["Add Isaiah Bond"]
-        XCTAssertTrue(add.waitForExistence(timeout: 5))
-        app.buttons["roster-move-player-w1"].tap()
+        openTool("adds-drops", title: "Adds / Drops", in: app)
+        let search = app.textFields["waiver-search"]
+        search.tap(); search.typeText("Isaiah Bond\n")
+        let add = revealAction("acquire-player-w1", in: app)
+        app.buttons["waiver-player-w1"].tap()
         XCTAssertTrue(app.buttons["player-watch-w1"].waitForExistence(timeout: 5))
         let detailAdd = app.buttons["player-action-add-w1"]
         XCTAssertTrue(detailAdd.waitForExistence(timeout: 5))
@@ -75,9 +68,12 @@ final class PlayerToolsUITests: XCTestCase {
         XCTAssertEqual(detailAdd.label, "Add player, Isaiah Bond")
         capture(app, "Player Detail — available symbol-only Add")
         app.navigationBars["Isaiah Bond"].buttons.firstMatch.tap()
-        XCTAssertTrue(app.navigationBars["Roster moves"].waitForExistence(timeout: 5))
-        XCTAssertTrue(add.exists)
-        add.tap()
+        XCTAssertTrue(app.navigationBars["Adds / Drops"].waitForExistence(timeout: 5))
+        tapAction(revealAction("acquire-player-w1", in: app), in: app, useMeasuredTouch: true)
+        XCTAssertTrue(app.buttons["Place waiver bid"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Add now"].exists)
+        capture(app, "Person-plus — choose immediate add or waiver bid")
+        app.buttons["Add now"].tap()
         let drop = app.buttons["roster-drop-player"]
         XCTAssertTrue(drop.waitForExistence(timeout: 5))
         drop.tap()
@@ -92,17 +88,18 @@ final class PlayerToolsUITests: XCTestCase {
         app.buttons["Close"].tap()
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         app.segmentedControls.buttons["My roster"].tap()
-        let retained = revealRosterMenu("12620", in: app)
+        let retained = revealAction("roster-drop-12620", in: app)
         XCTAssertTrue(retained.exists)
     }
 
     @MainActor
     func testLockedFreeAgentCannotOpenImmediateAdd() {
         let app = preview()
-        app.tabBars.buttons["My Team"].firstMatch.tap()
-        app.buttons["Manage roster"].tap()
-        app.segmentedControls.buttons["Free agents"].tap()
-        let player = app.buttons["roster-move-player-w2"]
+        openTool("adds-drops", title: "Adds / Drops", in: app)
+        let search = app.textFields["waiver-search"]
+        search.tap(); search.typeText("Bhayshul Tuten\n")
+        let player = app.buttons["waiver-player-w2"]
+        _ = revealAction("acquire-player-w2", in: app)
         XCTAssertTrue(player.waitForExistence(timeout: 5))
         player.tap()
         let add = app.buttons["player-action-add-w2"]
@@ -182,14 +179,10 @@ final class PlayerToolsUITests: XCTestCase {
     @MainActor
     func testRosterReviewCancelAndIRReadback() {
         let app = preview()
-        app.tabBars.buttons["My Team"].firstMatch.tap()
-        let manage = app.buttons["Manage roster"]
-        XCTAssertTrue(manage.waitForExistence(timeout: 5))
-        manage.tap()
-        let playerMenu = revealRosterMenu("12620", in: app)
-        XCTAssertTrue(playerMenu.waitForExistence(timeout: 5))
-        tapRosterMenu(playerMenu, in: app)
-        app.buttons["Drop player"].tap()
+        openTool("adds-drops", title: "Adds / Drops", in: app)
+        app.segmentedControls.buttons["My roster"].tap()
+        let drop = revealAction("roster-drop-12620", in: app)
+        tapAction(drop, in: app)
         let confirm = app.buttons["confirm-roster-move"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 5))
         XCTAssertTrue(waitUntilEnabled(confirm))
@@ -198,9 +191,11 @@ final class PlayerToolsUITests: XCTestCase {
         XCTAssertTrue(app.alerts["Drop player?"].waitForExistence(timeout: 3))
         app.alerts.buttons["Cancel"].tap()
         app.buttons["Close"].tap()
-        XCTAssertTrue(playerMenu.waitForExistence(timeout: 5))
-        tapRosterMenu(playerMenu, in: app)
-        app.buttons["Move to IR"].tap()
+        XCTAssertTrue(drop.waitForExistence(timeout: 5))
+        openTool("injured-reserve", title: "Injured Reserve", in: app)
+        let reserve = revealAction("roster-reserve-12620", in: app)
+        XCTAssertTrue(waitUntilEnabled(reserve))
+        tapAction(reserve, in: app)
         XCTAssertTrue(confirm.waitForExistence(timeout: 5))
         XCTAssertTrue(waitUntilEnabled(confirm))
         confirm.tap()
@@ -208,23 +203,29 @@ final class PlayerToolsUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Preview roster updated"].waitForExistence(timeout: 15))
         capture(app, "Roster move — confirmed synthetic IR move")
         app.buttons["Close"].tap()
-        app.swipeUp()
-        XCTAssertTrue(app.navigationBars["Roster moves"].exists)
+        XCTAssertTrue(app.navigationBars["Injured Reserve"].exists)
+        let activate = revealAction("roster-activate-12620", in: app)
+        XCTAssertTrue(waitUntilEnabled(activate))
+        XCTAssertFalse(app.buttons["roster-reserve-12620"].exists)
+        capture(app, "Injured Reserve — readback updates capacity and activation")
+        tapAction(activate, in: app)
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitUntilEnabled(confirm))
+        confirm.tap()
+        XCTAssertTrue(app.alerts["Activate player?"].waitForExistence(timeout: 3))
+        app.alerts.buttons["Cancel"].tap()
+        app.buttons["Close"].tap()
+        XCTAssertTrue(activate.waitForExistence(timeout: 5))
     }
 
     @MainActor
     func testLargeTextRosterReview() {
         let app = preview(arguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
-        app.tabBars.buttons["My Team"].firstMatch.tap()
-        let manage = app.buttons["Manage roster"]
-        for _ in 0..<6 where !manage.isHittable { app.swipeUp() }
-        XCTAssertTrue(manage.waitForExistence(timeout: 5))
-        manage.tap()
-        let menu = revealRosterMenu("12620", in: app)
-        XCTAssertTrue(menu.exists)
-        XCTAssertGreaterThanOrEqual(menu.frame.height, 44)
-        tapRosterMenu(menu, in: app)
-        app.buttons["Drop player"].tap()
+        openTool("adds-drops", title: "Adds / Drops", in: app)
+        app.segmentedControls.buttons["My roster"].tap()
+        let drop = revealAction("roster-drop-12620", in: app)
+        XCTAssertGreaterThanOrEqual(drop.frame.height, 44)
+        tapAction(drop, in: app)
         XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 5))
         capture(app, "Roster review — largest text identity")
         let confirm = app.buttons["confirm-roster-move"]
@@ -235,8 +236,8 @@ final class PlayerToolsUITests: XCTestCase {
         app.buttons["Close"].tap()
     }
 
-    @MainActor private func revealRosterMenu(_ playerID: String, in app: XCUIApplication) -> XCUIElement {
-        let container = app.descendants(matching: .any).matching(identifier: "roster-manage-\(playerID)").firstMatch
+    @MainActor private func revealAction(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let container = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         for _ in 0..<12 {
             // iOS 18 exposes a labeled accessibility wrapper around the actual
             // UIKit menu button. The wrapper itself has no hittable point.
@@ -244,7 +245,7 @@ final class PlayerToolsUITests: XCTestCase {
             let target = nativeButton.exists ? nativeButton : container
             // Existence alone can include an offscreen row at large text.
             // Use measured visibility, not the wrapper's unreliable hit point.
-            if target.exists && rosterMenuIsVisible(target, in: app) { return target }
+            if target.exists && actionIsVisible(target, in: app) { return target }
             let aboveContent = target.exists && target.frame.minY < app.navigationBars.firstMatch.frame.maxY
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: aboveContent ? 0.45 : 0.7))
             let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: aboveContent ? 0.7 : 0.45))
@@ -252,11 +253,11 @@ final class PlayerToolsUITests: XCTestCase {
         }
         let nativeButton = container.buttons.firstMatch
         let target = nativeButton.exists ? nativeButton : container
-        XCTAssertTrue(target.exists, "Roster action must exist for \(playerID)")
+        XCTAssertTrue(target.exists, "Roster action must exist: \(identifier)")
         return target
     }
 
-    @MainActor private func rosterMenuIsVisible(_ menu: XCUIElement, in app: XCUIApplication) -> Bool {
+    @MainActor private func actionIsVisible(_ menu: XCUIElement, in app: XCUIApplication) -> Bool {
         let top = app.navigationBars.firstMatch.frame.maxY
         let bottom = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : app.frame.maxY
         let frame = menu.frame
@@ -265,9 +266,9 @@ final class PlayerToolsUITests: XCTestCase {
             frame.minY >= top && frame.maxY <= bottom
     }
 
-    @MainActor private func tapRosterMenu(_ menu: XCUIElement, in app: XCUIApplication, useMeasuredTouch: Bool = false) {
+    @MainActor private func tapAction(_ menu: XCUIElement, in app: XCUIApplication, useMeasuredTouch: Bool = false) {
         XCTAssertTrue(menu.exists && menu.isEnabled)
-        guard rosterMenuIsVisible(menu, in: app) else {
+        guard actionIsVisible(menu, in: app) else {
             XCTFail("Roster menu must be fully visible before tapping: \(menu.frame)")
             return
         }
@@ -282,6 +283,16 @@ final class PlayerToolsUITests: XCTestCase {
         // the callers must still verify the menu and its actual actions.
         capture(app, "Roster menu — visible target before native touch")
         menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    @MainActor private func openTool(_ id: String, title: String, in app: XCUIApplication) {
+        app.tabBars.buttons["My Team"].firstMatch.tap()
+        if app.navigationBars[title].exists { return }
+        for _ in 0..<5 where !app.navigationBars["My Team"].exists {
+            app.navigationBars.buttons.firstMatch.tap()
+        }
+        tapAction(revealAction("my-team-\(id)", in: app), in: app)
+        XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 5))
     }
 
     @MainActor private func preview(arguments: [String] = []) -> XCUIApplication {

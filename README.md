@@ -8,13 +8,13 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
-**0.5.2 (21) — installed private build, September 6, 2026.** Compact person-plus Add, red person-minus Drop, neutral medical-bag IR for eligible players, consistent immediate-add gating, and My Team's standing/navigation-card/position-roster redesign with actual season points. This is not a public or TestFlight release. See [current status](docs/current-status.md) for exact verification and device evidence.
+**0.5.3 (22) — My Team direct-tool candidate, September 6, 2026.** Schedule-first shortcuts replace the overlapping Transactions and Manage roster pages. Adds / Drops combines the available-player browser and owned-player drops; Injured Reserve has its own capacity and eligibility view. Official standing, season points and compact contextual actions remain. This is not a public or TestFlight release. See [current status](docs/current-status.md) for exact verification and device evidence.
 
 Connect mode talks directly to MFL and permits user-reviewed lineup, supported conditional blind-bid, trade, and board actions with readback and no automatic write retries. MFL does not expose saved lineup tiebreakers for confirmation; accepted trades may still need league approval/processing. **Preview Champion Hall** uses sample data and sends nothing to MFL, including its fictional trade offers.
 
 Verification includes core fixtures, app-model regressions, native UI journeys and the two-week synthetic model scenarios—not two real game weeks or a human usability study. Exact current counts and device evidence are recorded in the status document. See [current status and known limits](docs/current-status.md), the [historical performance report](docs/two-week-synthetic-testing.md), and the [Week 1 checklist](docs/week-1-testing.md) before inviting the league.
 
-The build additionally includes official injury/kickoff/bye context, on-demand progressive fantasy scoring history, a synced watchlist, reviewed native FCFS add/drop and IR moves. See the [approved feature plan and later queue](docs/player-tools-plan.md). Roster writes require explicit owner capabilities and a supported format; unknown/closed states use MFL. Move to IR is hidden on Player Detail and disabled in roster management without a current Out/IR designation. Star toggles sync immediately and are read back for confirmation. Ordinary browsing reuses caches; pull-to-refresh reloads only the visible main section. MFL cooldowns remain enforced per server without moving requests to another host or retrying failed imports.
+The build additionally includes official injury/kickoff/bye context, on-demand progressive fantasy scoring history, a synced watchlist, reviewed native FCFS add/drop and IR moves. See the [approved feature plan and later queue](docs/player-tools-plan.md). Roster writes require explicit owner capabilities and a supported format; unknown/closed states use MFL. Move to IR is hidden on Player Detail and omitted from the eligible IR list without a current Out/IR designation. Star toggles sync immediately and are read back for confirmation. Ordinary browsing reuses caches; pull-to-refresh reloads only the visible main section. MFL cooldowns remain enforced per server without moving requests to another host or retrying failed imports.
 
 The app includes:
 
@@ -22,10 +22,10 @@ The app includes:
 - a tap- and swipe-accessible lineup editor with league-aware bench/starter/FLEX replacements and rotations, projections, validation, review, and saved-starter receipts;
 - explicit Week N calendar controls on Scores and Lineup, Settings at the upper left of Scores, and an original crossing-play-route Lineup icon;
 - an ordered conditional-FAAB queue with search, useful sorting, bid/drop editing, budget checks, reordering, and explicit full-queue confirmation;
-- a native My Team tab with franchise logo/initials, official league standing, matching Transactions/Schedule/Watchlist navigation cards, and a position-grouped roster sorted by season-to-date fantasy points; Manage roster stays separate and trade attention badges remain visible;
+- a native My Team tab with franchise logo/initials, official league standing, six direct [Schedule-first shortcuts](docs/my-team-shortcuts.md), and a position-grouped roster sorted by season-to-date fantasy points; trade attention badges remain visible;
 - shared player details with identity, current ownership, available matching-week metrics and optional biography, linked from rosters, Lineup and matchup cells;
 - team and league season timelines with published opponents, configured week bounds, clear future/playoff states and matchup browsing that preserves lineup edits and the selected week;
-- a Transactions hub inside My Team with Waivers, Trades, and Activity; native player/pick/FAAB offers, acceptance, decline, withdrawal, and explicitly separate counteroffers;
+- direct Adds / Drops, Trades and League Activity pages inside My Team; native player/pick/FAAB offers, acceptance, decline, withdrawal, and explicitly separate counteroffers;
 - a prominent Create trade / Resume trade action, Cancel with draft rollback, Save & close disabled for blank drafts, exact two-sided review, fresh ownership checks, and restart-safe protection against repeating an unconfirmed trade action;
 - division and overall standings with owner names from MFL that preserve its official ordering;
 - league team artwork in scores, matchup details, and standings, with initials as an offline/missing-image fallback;

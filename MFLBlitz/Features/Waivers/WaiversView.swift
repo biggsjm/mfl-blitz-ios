@@ -3,6 +3,8 @@ import SwiftUI
 struct WaiversView: View {
     @Environment(AppModel.self) private var model
     @Binding var searchText: String
+    @Bindable var rosterTools: RosterToolsModel
+    let refreshRoster: () async -> Void
     @State private var position = "All"
     @State private var sort = CandidateSort.projection
     @State private var editingClaim: WaiverClaim?
@@ -21,9 +23,15 @@ struct WaiversView: View {
     var body: some View {
         let candidates = filteredCandidates
         List {
-            Section {
-                NavigationLink(value: model.browseScope.map { TeamToolsRoute(scope: $0, destination: .rosterMoves) }) {
-                    Label("First-come add/drop & IR", systemImage: "person.crop.circle.badge.plus")
+            PendingRosterChangeSection()
+            if rosterTools.isLoading {
+                ProgressView("Checking add/drop availability…").frame(maxWidth: .infinity)
+            }
+            if let error = rosterTools.error {
+                Section {
+                    Text(error).font(.subheadline)
+                    Button("Retry add/drop availability") { Task { await refreshRoster() } }
+                        .disabled(rosterTools.isLoading)
                 }
             }
             if model.isLoadingWaivers {
@@ -45,7 +53,7 @@ struct WaiversView: View {
                     .listRowBackground(Color.clear)
             } else if !model.isLoadingWaivers, let reason = model.waivers.unavailableReason {
                 Section {
-                    Label("Manage waivers on MFL", systemImage: "info.circle").font(.headline)
+                    Label("Blind bids unavailable", systemImage: "info.circle").font(.headline)
                     Text(reason).font(.subheadline).foregroundStyle(.secondary)
                     if let workspace = model.workspace { Link("Open MyFantasyLeague", destination: workspace.leagueURL) }
                 }
@@ -143,8 +151,10 @@ struct WaiversView: View {
                     WaiverCandidateRow(
                         candidate: candidate,
                         hasClaim: hasClaim,
-                        canAdd: model.waivers.maxRounds > 0,
-                        showTrends: model.isDemo
+                        canBid: model.waivers.maxRounds > 0 && (model.waivers.unavailableReason == nil || hasClaim),
+                        canAddNow: rosterTools.canPerform(.add, scope: model.workspace?.storageScope),
+                        showTrends: model.isDemo,
+                        addNow: { rosterTools.selected = .init(kind: .add, playerID: candidate.id) }
                     ) {
                         if let claim = model.waivers.claims.first(where: { $0.player.id == candidate.id }) {
                             editingClaim = claim
@@ -171,7 +181,6 @@ struct WaiversView: View {
 
         }
         .listStyle(.insetGrouped)
-        .navigationTitle("Transactions")
         .task(id: "\(model.workspace?.storageScope ?? "none")|\(model.waivers.projectionWeek ?? model.currentWeek)") {
             await model.loadPlayerAvailability(week: model.waivers.projectionWeek ?? model.currentWeek)
             await model.loadWatchList()
@@ -211,7 +220,7 @@ struct WaiversView: View {
         .sheet(isPresented: $showingReview) {
             WaiverReviewView()
         }
-        .refreshable { await model.refreshWaivers() }
+        .refreshable { await model.refreshWaivers(); await refreshRoster() }
     }
 
     private var filterControls: some View {
@@ -374,8 +383,10 @@ private struct WaiverCandidateRow: View {
     @Environment(AppModel.self) private var model
     let candidate: WaiverCandidate
     let hasClaim: Bool
-    let canAdd: Bool
+    let canBid: Bool
+    let canAddNow: Bool
     let showTrends: Bool
+    let addNow: () -> Void
     let action: () -> Void
 
     var body: some View {
@@ -404,24 +415,38 @@ private struct WaiverCandidateRow: View {
                     .font(.body.bold().monospacedDigit())
                 Text("proj").font(.caption2).foregroundStyle(.secondary)
             }
-            Button(action: action) {
-                Image(systemName: hasClaim ? "checkmark.circle.fill" : "plus.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(hasClaim ? Color.green : Color.blitzGreen)
-                    .frame(width: BlitzMetrics.minimumTapTarget, height: BlitzMetrics.minimumTapTarget)
-            }
-            .buttonStyle(.plain)
-            .disabled(!canAdd)
-            .opacity(canAdd ? 1 : 0.45)
-            .accessibilityLabel(
-                hasClaim
-                    ? "Edit claim for \(candidate.name)"
-                    : canAdd
-                        ? "Add claim for \(candidate.name)"
-                        : "Maximum conditional rounds reached"
-            )
+            acquisitionControl
+                .disabled((!canBid && !canAddNow) || model.isBusy || model.transactions.isBusy ||
+                          model.isLoadingWaivers || model.pendingRosterChange != nil)
+                .opacity(canBid || canAddNow ? 1 : 0.45)
+                .accessibilityIdentifier("acquire-player-\(candidate.id)")
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private var acquisitionLabel: some View {
+        Image(systemName: "person.badge.plus")
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundStyle(Color.blitzGreen)
+            .frame(width: BlitzMetrics.minimumTapTarget, height: BlitzMetrics.minimumTapTarget)
+    }
+
+    @ViewBuilder private var acquisitionControl: some View {
+        if canBid && canAddNow {
+            Menu {
+                Button("Add now", systemImage: "person.badge.plus", action: addNow)
+                Button(hasClaim ? "Edit waiver bid" : "Place waiver bid", systemImage: "envelope", action: action)
+            } label: { acquisitionLabel }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Add \(candidate.name)")
+            .accessibilityHint("Choose an immediate add or a waiver bid; both require review")
+        } else {
+            Button(action: canAddNow ? addNow : action) { acquisitionLabel }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(canAddNow ? "Add \(candidate.name)" : canBid
+                    ? "\(hasClaim ? "Edit" : "Place") waiver bid for \(candidate.name)"
+                    : "Adding \(candidate.name) unavailable")
+        }
     }
 
     @ViewBuilder private func identityLink<Content: View>(@ViewBuilder content: () -> Content) -> some View {

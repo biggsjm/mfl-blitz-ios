@@ -2,7 +2,13 @@
 
 Audited September 6, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Current installed private build
+## Current candidate — 0.5.3 (22)
+
+The [direct My Team tools](my-team-shortcuts.md) are implemented: Schedule first, then Adds / Drops, Trades, Watchlist, Injured Reserve and League Activity. Transactions and Manage roster no longer overlap as umbrella pages. Existing official standing, position-grouped season points, cached reads, drafts and reviewed mutation protections remain.
+
+Verification and phone delivery are in progress. Build 21 below remains the last confirmed installed version until a build-22 receipt is recorded. No live league mutation is part of QA; all write tests use explicit Preview. The next feature queue and Week 1/Week 2 release gates are unchanged.
+
+## Previous installed private build — 0.5.2 (21)
 
 **0.5.2 (21)** installed on Josh's iPhone September 6 from source `e1fcba5`. It adds symbol-only person-plus Add, red person-minus Drop and neutral medical-bag IR for eligible owned players, strict acquisition gating, and My Team's official standing/navigation-card/position-roster redesign with batched season-to-date scores. No live roster changes are part of QA. Installation is confirmed; iOS refused automatic launch because the phone was locked. Open the installed app after unlocking.
 
@@ -46,7 +52,7 @@ Default request spacing reduces pressure but does not guarantee freedom from MFL
 - **MFL Blitz 0.4.1 (18): My Team and Board drafts.** Implemented, tested and signed. The final compatibility rebuild was installed and launched successfully on Josh's iPhone on September 6 after the phone became available. Includes the concise schedule update label and Board Close/save/discard with visible draft recovery.
 - Previous installed baseline: **0.3.7 (16), [e779e4b](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b)**. The documentation baseline was merged in [PR #1](https://github.com/biggsjm/mfl-blitz-ios/pull/1).
 - **Private owner testing**, not an App Store/TestFlight release. Production MFL registration and Week 2 invitation readiness remain unconfirmed.
-- Tabs: **Scores / Lineup / My Team / Standings / Board**. Transactions is prominently available inside My Team, above Roster / Schedule. Settings remains upper-left on Scores; Scores and Lineup retain Week N controls.
+- Tabs remain **Scores / Lineup / My Team / Standings / Board**. The current candidate exposes six Schedule-first tools directly inside My Team. Settings remains upper-left on Scores; Scores and Lineup retain Week N controls.
 - Connected mode performs real reads and explicitly reviewed writes. Champion Hall preview uses synthetic data, offers, owners and schedules; its actions send nothing to MFL.
 
 ## Implemented workflows
@@ -55,10 +61,10 @@ Default request spacing reduces pressure but does not guarantee freedom from MFL
 | --- | --- | --- |
 | Scores | Featured/all matchups, positional/FLEX detail, foreground refresh and final reconciliation | No background push; projections are not live win forecasts |
 | Lineup | League-aware bench/starter/FLEX replacements and rotations, saved drafts, review and starter readback | MFL stores starter IDs, not FLEX placements; saved tiebreakers cannot be read back |
-| My Team / team pages | Official own-team standing, matching Transactions/Schedule/Watchlist cards and position-grouped roster sorted by actual season points; separate Manage roster | Missing totals stay absent; other teams retain assignment-based rosters and never show your inbox or owner controls |
+| My Team / team pages | Official own-team standing, six Schedule-first tools, then position-grouped roster sorted by actual season points | Missing totals stay absent; other teams retain assignment-based rosters and never show your inbox or owner controls |
 | Player Detail | Identity, ownership/status, weekly metrics, availability, progressive history, totals/average, points allowed, watch star and supplied biography | Missing source data stays absent; no external imagery/news or guessed facts |
 | Season schedule | Shared team/league timelines, configured bounds, current/future/final/unset states and route-local matchup scoring | Ambiguous doubleheaders never select an arbitrary scoring game; missing opponents are not guessed byes |
-| Waivers / roster moves | Available-player search/watch filtering, conditional blind bids and reviewed FCFS/IR actions with exact membership readback | Supported owner/rule gates only; broader classic/non-conditional, taxi, salary and duplicate-player formats use MFL |
+| Adds / Drops and Injured Reserve | One available-player browser for FCFS or blind bids; owned-player drops; dedicated IR capacity/eligible moves, all with exact membership readback | Supported owner/rule gates only; broader classic/non-conditional, taxi, salary and duplicate-player formats use MFL |
 | Trades | Create/Resume, private drafts, Cancel/rollback, blank-save disabled, exact proposal/response review and separate counters | Counter leaves original open; acceptance can await MFL processing; no blind retries |
 | Standings | Official overall/division order, owners, artwork, anchored info and team drill-through | Missing owners not guessed; current record is not a projected record |
 | Board | Native threads/posts/replies, visible Drafts, Resume reply, Close/save/discard and exact-post readback | Saving a draft sends no post; plain text, not rich HTML or proprietary chat |

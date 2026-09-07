@@ -1,12 +1,12 @@
 # Player and team detail
 
-Status: **Extended player tools and My Team refinement — private build 0.5.2 (21)**, September 6, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work.
+Status: **Extended player tools and My Team refinement — private build 0.5.3 (22)**, September 6, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work.
 
 ## Navigation and action boundaries
 
 Tabs are **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. Its native tab icon is a 26-point franchise thumbnail, with initials fallback and a visible label. Lineup remains the dedicated editor.
 
-My Team's 0.5.2 follow-up is one scrolling page: team identity, current official league standing, matching **Transactions / Schedule / Watchlist** navigation cards, and a position-grouped roster. Schedule and Watchlist are pushed destinations, not segmented tabs. **Manage roster** opens separate reviewed add/drop/IR workflows. Waivers / Trades / Activity, existing available-player search, saved drafts and reviewed writes stay in Transactions. The trade-specific attention badge appears on the tab and Transactions entry. Other teams never display the owner's transaction inbox.
+My Team is one scrolling page: team identity, official standing, six [Schedule-first shortcuts](my-team-shortcuts.md), then a position-grouped season-points roster. Direct tools are Schedule, Adds / Drops, Trades, Watchlist, Injured Reserve and League Activity. Adds / Drops reuses waiver search and adds owned-player drops; separate IR shows capacity and eligible moves. The trade badge appears on My Team and Trades. Other teams never display owner controls.
 
 | Surface | Implemented player/team entry | Action preserved |
 | --- | --- | --- |
@@ -40,7 +40,7 @@ Ownership can contain multiple franchise assignments and acquisition availabilit
 
 ### Compact roster actions — 0.5.2 (21) follow-up
 
-Player Detail places compact native bordered controls **inside the ownership card**, separate from its team navigation link. The owner's final symbol choices are **person.badge.plus** for Add, **person.badge.minus in red** for Drop, and a **neutral cross.case (medical bag)** for Move to IR. All three are symbol-only controls with at least 44-point touch targets and spoken action/player labels. Move to IR appears only for the signed-in owner's active-roster player with a current qualifying designation; ineligible/loading/unknown states omit the button and explanation. Existing IR players retain labeled **Activate**, which can stack at large text sizes. There is no extra full-width action card or hidden overflow menu. Existing review, Cancel/Close and final confirmation remain mandatory; a detail button never submits a roster change. Manage roster's separate menu still dims ineligible IR; this follow-up changes the detail screen.
+Player Detail places compact native bordered controls **inside the ownership card**, separate from its team navigation link. The owner's final symbol choices are **person.badge.plus** for Add, **person.badge.minus in red** for Drop, and a **neutral cross.case (medical bag)** for Move to IR. All three are symbol-only controls with at least 44-point touch targets and spoken action/player labels. Move to IR appears only for the signed-in owner's active-roster player with a current qualifying designation; ineligible/loading/unknown states omit the button and explanation. Existing IR players retain labeled **Activate**, which can stack at large text sizes. There is no extra full-width action card or hidden overflow menu. Existing review, Cancel/Close and final confirmation remain mandatory; a detail button never submits a roster change. Build 22 replaces Manage roster with direct Adds / Drops and Injured Reserve destinations; only qualifying active-roster players appear in the eligible IR list.
 
 Two independent AI design reviews (native iOS layout and accessibility/usability, not a human study) favored visible compact controls over hiding just two actions in a menu. Apple's [short-menu guidance](https://developer.apple.com/design/human-interface-guidelines/pull-down-buttons) and [button hierarchy and touch targets](https://developer.apple.com/design/human-interface-guidelines/buttons) informed this layout. NN/g's [icon-label research](https://www.nngroup.com/articles/icon-usability/) informed the initial labeled proposal; the owner's explicit preference superseded it with the Add/Drop/IR symbols above. Accessible action names remain.
 

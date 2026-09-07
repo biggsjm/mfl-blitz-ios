@@ -1,6 +1,6 @@
 # Week 1 owner test and Week 2 go/no-go
 
-Updated September 6, 2026 for **0.5.2 (21)**, installed on Josh's iPhone. Build 21 refines My Team, player action controls and acquisition gating; it retains build 20's IR eligibility and cooldown fixes. See [current status](current-status.md) for exact delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
+Updated September 6, 2026 for **0.5.3 (22)**. The candidate replaces overlapping My Team tools with six direct destinations. See [current status](current-status.md) for actual delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use a validated build for owner testing.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
@@ -29,7 +29,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 ### My Team, players and schedule
 
-- [ ] My Team shows the correct franchise/logo/owner and official league standing. Matching Transactions, Schedule and Watchlist cards open their own pages and return without changing lineup/trade drafts; the badge remains trade-specific. Other teams do not display your inbox.
+- [ ] My Team shows the correct franchise/logo/owner and official standing. Schedule, Adds / Drops, Trades, Watchlist, Injured Reserve and League Activity open distinct pages in that order without changing lineup/trade drafts; the badge stays trade-specific. Other teams do not display your tools.
 - [ ] Compare My Team's position-grouped roster and season-to-date points with MFL. Players sort highest to lowest within each position; real zero/negative totals remain distinct from missing “—” values. Pull to refresh after processing; no Starting/Bench assignment callout should reappear.
 - [ ] Compare the current roster and labeled starting/bench assignments with MFL. Generic roster status must not be guessed as Bench. Open players and check ownership, available matching-week points/projections and optional biography.
 - [ ] Compare your remaining opponents and the league timeline against MFL, including playoff boundaries. Future games must not show fake scores; missing opponents are not assumed byes.
@@ -97,7 +97,7 @@ Do these only for moves you actually intend. Automated journeys use Preview, not
 - [ ] Star/unstar a player and confirm MFL's watchlist, My Team Watchlist and the waiver filter agree after reload. Preserve unrelated saved players.
 - [ ] In an open first-come window, review an intended add (and necessary drop), cancel once, then submit only the intended move. Verify membership, lineup/waiver draft conflicts, free-agent pool and Activity.
 - [ ] Verify locked/unavailable players and unsupported/closed capabilities cannot be submitted as immediate adds.
-- [ ] Confirm Move to IR is absent from Player Detail (build 21+) and disabled in Manage roster for players without Out/IR, including Questionable, and while the injury report is unavailable. Compare an eligible player's designation to MFL before an intended move.
+- [ ] Confirm Move to IR is absent from Player Detail (build 21+) and absent from Injured Reserve's eligible list for players without Out/IR, including Questionable, and while the injury report is unavailable. Compare an eligible player's designation to MFL before an intended move.
 - [ ] On build 21 or later, check compact Player Detail actions in Light/Dark and preferred text size. Compare a locked free agent and an unlocked FCFS player: only the latter should offer enabled Add review. Generic lock wording must not invent a waiver deadline. Drop must still require explicit review and confirmation; cancel unless it is an intended move.
 - [ ] Compare ordinary browsing and section refresh after the build-20 traffic changes. If MFL returns 429, honor its wait; note the screen/build without repeated retries. No claim of immunity to MFL's variable limits is made.
 - [ ] For an actually eligible Out/IR player, compare capacity, review Move to IR and verify on MFL. Later activate, including an explicit reviewed drop only if needed. No starter or FLEX position should imply eligibility.

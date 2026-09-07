@@ -6,6 +6,99 @@ import UIKit
 
 @MainActor
 struct MyTeamNavigationTests {
+    @Test("My Team exposes six unique direct destinations with Schedule first")
+    func directDestinations() {
+        let routes = TeamToolsRoute.Destination.allCases
+        #expect(routes == [.schedule, .addsDrops, .trades, .watchlist, .injuredReserve, .activity])
+        #expect(routes.map(\.title) == ["Schedule", "Adds / Drops", "Trades", "Watchlist", "Injured Reserve", "League Activity"])
+        #expect(Set(routes.map(\.accessibilityID)).count == 6)
+        #expect(routes.allSatisfy { !$0.symbol.isEmpty })
+    }
+
+    @Test("Roster tools require a matching successful capability read")
+    func rosterToolCapabilities() async throws {
+        let tools = RosterToolsModel()
+        let context = try await DemoLeagueRepository().loadRosterActionContext()
+        #expect(!tools.canPerform(.add, scope: context.scope))
+        await tools.load(scope: context.scope) { context }
+        #expect(tools.canPerform(.add, scope: context.scope))
+        #expect(!tools.canPerform(.add, scope: nil))
+        #expect(!tools.canPerform(.add, scope: "other-owner"))
+        var disabled = context
+        disabled.allowed = [.drop]
+        await tools.load(scope: context.scope) { disabled }
+        #expect(!tools.canPerform(.add, scope: context.scope))
+        #expect(tools.canPerform(.drop, scope: context.scope))
+    }
+
+    @Test("Failed refresh keeps roster readable but disables mutations")
+    func rosterToolRefreshFailure() async throws {
+        let tools = RosterToolsModel()
+        let context = try await DemoLeagueRepository().loadRosterActionContext()
+        await tools.load(scope: context.scope) { context }
+        await tools.load(scope: context.scope) {
+            #expect(tools.isLoading)
+            #expect(!tools.canPerform(.drop, scope: context.scope))
+            throw URLError(.notConnectedToInternet)
+        }
+        #expect(tools.context == context)
+        #expect(tools.error != nil && !tools.isLoading)
+        #expect(!tools.canPerform(.drop, scope: context.scope))
+        await tools.load(scope: context.scope) { context }
+        #expect(tools.error == nil && tools.canPerform(.drop, scope: context.scope))
+    }
+
+    @Test("Changing owner clears selected actions and rejects mismatched payloads")
+    func rosterToolOwnerChange() async throws {
+        let tools = RosterToolsModel()
+        let context = try await DemoLeagueRepository().loadRosterActionContext()
+        await tools.load(scope: context.scope) { context }
+        tools.selected = RosterActionRequest(kind: .drop, playerID: "12620")
+        await tools.load(scope: "other-owner") {
+            #expect(tools.context == nil && tools.selected == nil)
+            return context
+        }
+        #expect(tools.context == nil && tools.error != nil)
+        #expect(!tools.canPerform(.drop, scope: "other-owner"))
+    }
+
+    @Test("Late roster reads cannot overwrite a newer owner")
+    func rosterToolLateRead() async throws {
+        let tools = RosterToolsModel()
+        let original = try await DemoLeagueRepository().loadRosterActionContext()
+        var next = original
+        next.scope = "other-owner"; next.ownerID = "0002"
+        var gate: CheckedContinuation<RosterActionContext, Never>?
+        let oldRead = Task { await tools.load(scope: original.scope) {
+            await withCheckedContinuation { gate = $0 }
+        } }
+        while gate == nil { await Task.yield() }
+        await tools.load(scope: next.scope) { next }
+        gate?.resume(returning: original)
+        await oldRead.value
+        #expect(tools.context == next)
+        #expect(tools.canPerform(.drop, scope: next.scope))
+        #expect(!tools.canPerform(.drop, scope: original.scope))
+    }
+
+    @Test("A newer same-owner roster revision supersedes an in-flight read")
+    func rosterToolSameOwnerRevision() async throws {
+        let tools = RosterToolsModel()
+        let original = try await DemoLeagueRepository().loadRosterActionContext()
+        var updated = original
+        updated.membership["12620"] = "INJURED_RESERVE"
+        var gate: CheckedContinuation<RosterActionContext, Never>?
+        let oldRead = Task { await tools.load(scope: original.scope) {
+            await withCheckedContinuation { gate = $0 }
+        } }
+        while gate == nil { await Task.yield() }
+        await tools.load(scope: updated.scope) { updated }
+        gate?.resume(returning: original)
+        await oldRead.value
+        #expect(tools.context == updated)
+        #expect(!tools.isLoading)
+    }
+
     @Test("The native team tab uses a small original-rendering logo or readable fallback")
     func tabArtwork() {
         let fallback = TeamTabArtwork.image(abbreviation: "UB")

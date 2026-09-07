@@ -3,24 +3,41 @@ import XCTest
 final class MFLBlitzUITests: XCTestCase {
 
     @MainActor
-    private func openTransactions(in app: XCUIApplication) {
-        let myTeam = app.tabBars.buttons["My Team"].firstMatch
-        XCTAssertTrue(myTeam.waitForExistence(timeout: 5))
-        myTeam.tap()
-        if app.navigationBars["Transactions"].exists { return }
-        let entry = app.buttons["my-team-transactions"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 5))
-        for _ in 0..<3 where !entry.isHittable { app.swipeDown() }
-        XCTAssertTrue(entry.isHittable)
+    private func enterPreview(in app: XCUIApplication) {
+        let preview = app.buttons["Preview Champion Hall"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        let alert = app.alerts["Something went wrong"]
+        if alert.exists { alert.buttons["OK"].tap() }
+        preview.tap()
+        XCTAssertTrue(app.tabBars.buttons["My Team"].firstMatch.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func openTool(_ id: String, title: String, in app: XCUIApplication) {
+        app.tabBars.buttons["My Team"].firstMatch.tap()
+        if app.navigationBars[title].exists { return }
+        for _ in 0..<5 where !app.navigationBars["My Team"].exists {
+            app.navigationBars.buttons.firstMatch.tap()
+        }
+        let entry = app.buttons["my-team-\(id)"]
+        for _ in 0..<12 {
+            if entry.exists && entry.isHittable &&
+                entry.frame.minY >= app.navigationBars.firstMatch.frame.maxY &&
+                entry.frame.maxY <= app.tabBars.firstMatch.frame.minY { break }
+            if entry.exists && entry.frame.minY < app.navigationBars.firstMatch.frame.maxY {
+                app.swipeDown()
+            } else { app.swipeUp() }
+        }
+        XCTAssertTrue(entry.isHittable, "The \(title) shortcut must be accessible")
         entry.tap()
-        XCTAssertTrue(app.navigationBars["Transactions"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 5))
     }
 
     @MainActor
     func testCurrentScheduleMatchupKeepsIndependentWeekAndOpensPlayer() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
         let week = app.buttons["week-picker"]
         XCTAssertTrue(week.waitForExistence(timeout: 5))
         week.tap()
@@ -55,7 +72,7 @@ final class MFLBlitzUITests: XCTestCase {
     func testMyTeamRosterPlayerAndFutureSchedulePreserveLineupDraft() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
         app.tabBars.buttons["Lineup"].firstMatch.tap()
         let quarterback = app.buttons["lineup-replace-12620"]
         XCTAssertTrue(quarterback.waitForExistence(timeout: 5))
@@ -64,24 +81,32 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Review & submit lineup"].waitForExistence(timeout: 3))
 
         app.tabBars.buttons["My Team"].firstMatch.tap()
-        let transactions = app.buttons["my-team-transactions"]
-        XCTAssertTrue(transactions.waitForExistence(timeout: 5))
-        XCTAssertTrue(transactions.isHittable)
-        XCTAssertFalse(app.segmentedControls["team-section-picker"].exists)
         let scheduleLink = app.buttons["my-team-schedule"]
-        let watchlistLink = app.buttons["my-team-watchlist"]
-        XCTAssertGreaterThan(scheduleLink.frame.minY, transactions.frame.maxY)
-        XCTAssertGreaterThan(watchlistLink.frame.minY, scheduleLink.frame.maxY)
+        XCTAssertTrue(scheduleLink.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.segmentedControls["team-section-picker"].exists)
+        XCTAssertFalse(app.buttons["Manage roster"].exists)
+        XCTAssertFalse(app.buttons["my-team-transactions"].exists)
+        let ids = ["schedule", "adds-drops", "trades", "watchlist", "injured-reserve", "activity"]
+        let shortcuts = ids.map { app.buttons["my-team-\($0)"] }
+        for shortcut in shortcuts {
+            XCTAssertTrue(shortcut.isHittable)
+            XCTAssertGreaterThanOrEqual(shortcut.frame.height, 44)
+        }
+        for row in 0..<3 {
+            XCTAssertEqual(shortcuts[row * 2].frame.midY, shortcuts[row * 2 + 1].frame.midY, accuracy: 2)
+            XCTAssertLessThan(shortcuts[row * 2].frame.maxX, shortcuts[row * 2 + 1].frame.minX)
+            if row > 0 { XCTAssertGreaterThan(shortcuts[row * 2].frame.minY, shortcuts[(row - 1) * 2].frame.maxY) }
+        }
         let header = app.descendants(matching: .any)["team-header-0001"].firstMatch
         XCTAssertTrue(header.label.contains("League standing"))
         XCTAssertFalse(app.staticTexts["Current roster · Week 1 assignments"].exists)
         let home = XCTAttachment(screenshot: app.screenshot())
-        home.name = "My Team — standing and matching destination cards"; home.lifetime = .keepAlways; add(home)
+        home.name = "My Team — six direct shortcuts and official standing"; home.lifetime = .keepAlways; add(home)
         let rosterPlayer = app.buttons["roster-player-12620"]
         for _ in 0..<5 where !rosterPlayer.isHittable { app.swipeUp() }
         XCTAssertTrue(rosterPlayer.isHittable)
         let hub = XCTAttachment(screenshot: app.screenshot())
-        hub.name = "My Team — roster and Transactions entry"; hub.lifetime = .keepAlways; add(hub)
+        hub.name = "My Team — position roster below shortcuts"; hub.lifetime = .keepAlways; add(hub)
         rosterPlayer.tap()
         XCTAssertTrue(app.navigationBars["Dak Prescott"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["player-owner-0001"].waitForExistence(timeout: 5))
@@ -115,7 +140,7 @@ final class MFLBlitzUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-AppleInterfaceStyle", "Dark"]
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
         app.tabBars.buttons["Standings"].firstMatch.tap()
         let team = app.buttons["standings-team-0004"]
         XCTAssertTrue(team.waitForExistence(timeout: 5))
@@ -123,7 +148,8 @@ final class MFLBlitzUITests: XCTestCase {
         standings.name = "Standings — tappable team rows"; standings.lifetime = .keepAlways; add(standings)
         team.tap()
         XCTAssertTrue(app.segmentedControls["team-section-picker"].waitForExistence(timeout: 3))
-        XCTAssertFalse(app.buttons["my-team-transactions"].exists)
+        XCTAssertFalse(app.buttons["my-team-adds-drops"].exists)
+        XCTAssertFalse(app.buttons["my-team-trades"].exists)
         app.segmentedControls.buttons["Schedule"].tap()
         let league = app.buttons["open-league-schedule"]
         XCTAssertTrue(league.waitForExistence(timeout: 5))
@@ -138,9 +164,8 @@ final class MFLBlitzUITests: XCTestCase {
     func testDecliningPreviewOfferOpensDeclineReviewFirst() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
-        openTransactions(in: app)
-        app.segmentedControls.buttons["Trades"].tap()
+        enterPreview(in: app)
+        openTool("trades", title: "Trades", in: app)
         let incoming = app.buttons["trade-offer-demo-incoming"]
         XCTAssertTrue(incoming.waitForExistence(timeout: 5))
         incoming.tap()
@@ -175,13 +200,12 @@ final class MFLBlitzUITests: XCTestCase {
         let preview = app.buttons["Preview Champion Hall"]
         for _ in 0..<6 where !preview.isHittable { app.swipeUp() }
         preview.tap()
-        openTransactions(in: app)
-        app.segmentedControls.buttons["Trades"].tap()
+        openTool("trades", title: "Trades", in: app)
         let create = app.buttons["trade-new"]
         XCTAssertTrue(create.waitForExistence(timeout: 5))
         XCTAssertTrue(create.isHittable && create.isEnabled)
         XCTAssertEqual(create.label, "Create trade")
-        XCTAssertGreaterThan(create.frame.minY, app.segmentedControls.firstMatch.frame.maxY)
+        XCTAssertGreaterThan(create.frame.minY, app.navigationBars.firstMatch.frame.maxY)
         app.swipeUp()
         app.swipeUp()
         XCTAssertTrue(create.isHittable)
@@ -200,17 +224,16 @@ final class MFLBlitzUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--preview-empty-trades"]
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
-        openTransactions(in: app)
-        app.segmentedControls.buttons["Trades"].tap()
+        enterPreview(in: app)
+        openTool("trades", title: "Trades", in: app)
         let create = app.buttons["trade-new"]
         XCTAssertTrue(create.waitForExistence(timeout: 5))
         XCTAssertTrue(create.isEnabled && create.isHittable)
         XCTAssertEqual(create.label, "Create trade")
         XCTAssertGreaterThan(create.frame.width, app.frame.width * 0.8)
         XCTAssertGreaterThanOrEqual(create.frame.height, 44)
-        XCTAssertGreaterThan(create.frame.minY, app.segmentedControls.firstMatch.frame.maxY)
-        XCTAssertLessThan(create.frame.minY - app.segmentedControls.firstMatch.frame.maxY, 24)
+        XCTAssertGreaterThan(create.frame.minY, app.navigationBars.firstMatch.frame.maxY)
+        XCTAssertLessThan(create.frame.minY - app.navigationBars.firstMatch.frame.maxY, 24)
         XCTAssertTrue(app.staticTexts["No active trades"].exists)
         XCTAssertFalse(app.staticTexts["No incoming offers"].exists)
         XCTAssertFalse(app.staticTexts["No sent offers"].exists)
@@ -271,7 +294,7 @@ final class MFLBlitzUITests: XCTestCase {
     func testScoresToolbarKeepsWeekAndSettingsInCorners() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
         let settings = app.navigationBars.buttons["scores-settings"]
         let week = app.navigationBars.buttons["week-picker"]
         XCTAssertTrue(settings.waitForExistence(timeout: 3))
@@ -294,7 +317,7 @@ final class MFLBlitzUITests: XCTestCase {
     func testLineupWeekControlShowsSelectedWeek() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
         app.tabBars.buttons["Lineup"].firstMatch.tap()
         let week = app.navigationBars.buttons["week-picker"]
         XCTAssertTrue(week.waitForExistence(timeout: 3))
@@ -323,7 +346,7 @@ final class MFLBlitzUITests: XCTestCase {
     func testStarterCanSwapBetweenRunningBackAndFlexWithoutChangingMembership() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
         app.tabBars.buttons["Lineup"].firstMatch.tap()
         let rb = app.buttons["lineup-replace-14073"]
         for _ in 0..<10 where !rb.isHittable { app.swipeUp() }
@@ -357,7 +380,7 @@ final class MFLBlitzUITests: XCTestCase {
     func testCrossPositionStarterMoveCanCancelThenFillWithoutSubmitting() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
         app.tabBars.buttons["Lineup"].firstMatch.tap()
         let flex = app.buttons["lineup-replace-15256"]
         for _ in 0..<10 where !flex.isHittable { app.swipeUp() }
@@ -398,7 +421,7 @@ final class MFLBlitzUITests: XCTestCase {
     func testLineupPlayIconKeepsLabelAndSelection() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
         let lineup = app.tabBars.buttons["Lineup"].firstMatch
         XCTAssertTrue(lineup.waitForExistence(timeout: 3))
         XCTAssertFalse(lineup.isSelected)
@@ -481,12 +504,11 @@ final class MFLBlitzUITests: XCTestCase {
             XCTAssertTrue(flex.isHittable)
             app.navigationBars.buttons.firstMatch.tap()
 
-            openTransactions(in: app)
-            app.segmentedControls.buttons["Waivers"].tap()
+            openTool("adds-drops", title: "Adds / Drops", in: app)
             XCTAssertTrue(app.textFields["waiver-search"].waitForExistence(timeout: 3))
-            app.segmentedControls.buttons["Trades"].tap()
+            openTool("trades", title: "Trades", in: app)
             XCTAssertTrue(app.buttons["trade-new"].waitForExistence(timeout: 3))
-            app.segmentedControls.buttons["Activity"].tap()
+            openTool("activity", title: "League Activity", in: app)
             XCTAssertTrue(app.staticTexts["$3.00 bid"].waitForExistence(timeout: 3))
             app.tabBars.buttons["Standings"].firstMatch.tap()
             XCTAssertTrue(app.buttons["standings-order-info"].waitForExistence(timeout: 3))
@@ -499,7 +521,7 @@ final class MFLBlitzUITests: XCTestCase {
     func testFlexReplacementShowsLeagueEligiblePositions() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
         app.tabBars.buttons["Lineup"].firstMatch.tap()
         let replace = app.buttons["lineup-replace-15256"]
         for _ in 0..<8 where !replace.isHittable { app.swipeUp() }
@@ -527,43 +549,56 @@ final class MFLBlitzUITests: XCTestCase {
     }
 
     @MainActor
-    func testTransactionSearchStaysBelowSectionsAndActivityLoads() throws {
+    func testAddsDropsSearchAndDirectActivityNavigation() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
-        openTransactions(in: app)
-        let sections = app.segmentedControls.firstMatch
+        enterPreview(in: app)
+        openTool("adds-drops", title: "Adds / Drops", in: app)
+        let sections = app.segmentedControls["adds-drops-sections"]
         let search = app.textFields["waiver-search"]
         XCTAssertTrue(search.waitForExistence(timeout: 3))
         XCTAssertGreaterThan(search.frame.minY, sections.frame.maxY)
-        XCTAssertTrue(app.navigationBars["Transactions"].waitForExistence(timeout: 3))
-        XCTAssertTrue(sections.buttons["Trades"].isHittable)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = "Waiver search below section tabs"; screenshot.lifetime = .keepAlways; add(screenshot)
+        screenshot.name = "Adds and Drops — search below Available and My roster"; screenshot.lifetime = .keepAlways; add(screenshot)
         search.tap()
         search.typeText("test")
-        app.segmentedControls.buttons["Trades"].tap()
+        sections.buttons["My roster"].tap()
+        XCTAssertTrue(app.textFields["roster-search"].exists)
         XCTAssertFalse(search.exists)
         XCTAssertFalse(app.keyboards.firstMatch.exists)
-        app.segmentedControls.buttons["Activity"].tap()
+        sections.buttons["Available"].tap()
+        XCTAssertEqual(search.value as? String, "test")
+        openTool("activity", title: "League Activity", in: app)
         XCTAssertTrue(app.switches["Trades only"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["$3.00 bid"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Braelon Allen"].exists)
         XCTAssertTrue(app.staticTexts["Jaylin Noel"].exists)
+        XCTAssertFalse(app.textFields["waiver-search"].exists)
+        XCTAssertFalse(app.buttons["trade-new"].exists)
         let activity = XCTAttachment(screenshot: app.screenshot())
-        activity.name = "Readable transaction amounts and player moves"; activity.lifetime = .keepAlways; add(activity)
-        app.segmentedControls.buttons["Waivers"].tap()
-        XCTAssertEqual(search.value as? String, "test")
-        XCTAssertGreaterThan(search.frame.minY, sections.frame.maxY)
+        activity.name = "League Activity — independent destination"; activity.lifetime = .keepAlways; add(activity)
+    }
+
+    @MainActor
+    func testAllSixShortcutsOpenDistinctDestinations() {
+        let app = XCUIApplication()
+        app.launch()
+        enterPreview(in: app)
+        let routes = [("schedule", "Schedule"), ("adds-drops", "Adds / Drops"), ("trades", "Trades"),
+                      ("watchlist", "Watchlist"), ("injured-reserve", "Injured Reserve"), ("activity", "League Activity")]
+        for (id, title) in routes {
+            openTool(id, title: title, in: app)
+            XCTAssertTrue(app.navigationBars[title].exists)
+            XCTAssertFalse(app.buttons["Manage roster"].exists)
+        }
     }
 
     @MainActor
     func testTransactionsReviewsIncomingOfferWithoutAccepting() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
-        openTransactions(in: app)
-        app.segmentedControls.buttons["Trades"].tap()
+        enterPreview(in: app)
+        openTool("trades", title: "Trades", in: app)
         let incoming = app.buttons["trade-offer-demo-incoming"]
         XCTAssertTrue(incoming.waitForExistence(timeout: 5))
         let create = app.buttons["trade-new"]
@@ -614,9 +649,8 @@ final class MFLBlitzUITests: XCTestCase {
     func testTradeDraftPersistsAndRequiresReview() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
-        openTransactions(in: app)
-        app.segmentedControls.buttons["Trades"].tap()
+        enterPreview(in: app)
+        openTool("trades", title: "Trades", in: app)
         let newTrade = app.buttons["trade-new"]
         XCTAssertTrue(newTrade.waitForExistence(timeout: 5))
         newTrade.tap()
@@ -719,7 +753,7 @@ final class MFLBlitzUITests: XCTestCase {
     func testBoardCloseEmptyKeepEditingAndDiscard() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
         app.tabBars.buttons["Board"].firstMatch.tap()
         app.buttons["New thread"].tap()
         XCTAssertTrue(app.buttons["board-composer-close"].waitForExistence(timeout: 3))
@@ -749,7 +783,7 @@ final class MFLBlitzUITests: XCTestCase {
     func testBoardReplyDraftIsAccessibleFromBoard() throws {
         let app = XCUIApplication()
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
         app.tabBars.buttons["Board"].firstMatch.tap()
         let thread = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Week 1 is finally here")).firstMatch
         XCTAssertTrue(thread.waitForExistence(timeout: 3))
@@ -780,7 +814,7 @@ final class MFLBlitzUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
 
         XCTAssertTrue(app.tabBars.buttons["Scores"].firstMatch.waitForExistence(timeout: 3))
         XCTAssertTrue(app.tabBars.buttons["Lineup"].firstMatch.exists)
@@ -795,7 +829,7 @@ final class MFLBlitzUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        app.buttons["Preview Champion Hall"].tap()
+        enterPreview(in: app)
 
         let matchup = app.buttons["matchup-0001-0008"]
         XCTAssertTrue(matchup.waitForExistence(timeout: 3))

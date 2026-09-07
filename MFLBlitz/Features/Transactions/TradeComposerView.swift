@@ -41,7 +41,7 @@ struct TradeComposerView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        LeagueBrowseStack {
             Form {
                 Section {
                     Picker("Trade with", selection: Binding(get: { draft.partnerID }, set: { partnerID in
@@ -85,7 +85,6 @@ struct TradeComposerView: View {
                     Text(trades.validationMessage(for: draft) ?? "Ready for review. Your draft has not been sent.")
                 }
             }
-            .leagueBrowseDestinations()
             .navigationDestination(for: TradeComposerRoute.self) { route in
                 switch route {
                 case .assets(let teamID):
