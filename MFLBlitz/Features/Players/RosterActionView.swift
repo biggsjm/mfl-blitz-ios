@@ -295,7 +295,8 @@ struct RosterActionListView: View {
     private func playerRow(_ player: PlayerIdentity, kind: RosterActionKind, membership: String?) -> some View {
         HStack(spacing: 12) {
             if let scope = model.browseScope {
-                NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: model.currentWeek)) {
+                NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: model.currentWeek,
+                    previewIdentity: player)) {
                     PlayerIdentityView(player: player, subtitle: membership == "INJURED_RESERVE" ? "IR" : nil)
                 }
                 .buttonStyle(.plain).accessibilityIdentifier("roster-move-player-\(player.id)")

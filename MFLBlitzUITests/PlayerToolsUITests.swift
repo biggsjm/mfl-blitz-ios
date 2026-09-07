@@ -2,6 +2,30 @@ import XCTest
 
 final class PlayerToolsUITests: XCTestCase {
     @MainActor
+    func testPlayerIdentityAppearsWhileOwnershipIsDelayed() {
+        let app = preview(arguments: ["--synthetic-slow-player"])
+        app.tabBars.buttons["Lineup"].firstMatch.tap()
+        let player = app.buttons["lineup-player-12620"]
+        XCTAssertTrue(player.waitForExistence(timeout: 5))
+        player.tap()
+        let card = app.descendants(matching: .any)["player-detail-12620"].firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 2), "Show the tapped identity before the held ownership read finishes")
+        XCTAssertTrue(card.staticTexts["Dak Prescott"].exists)
+        XCTAssertTrue(app.staticTexts["player-ownership-pending"].exists)
+        XCTAssertFalse(app.buttons["player-actions-12620"].exists)
+        XCTAssertFalse(app.buttons["player-watch-12620"].isEnabled)
+        XCTAssertTrue(app.staticTexts["Projection"].exists, "Known Week information does not wait for ownership")
+        capture(app, "Player Detail — known identity and Week metrics while ownership is held")
+        let menu = app.buttons["player-actions-12620"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 25))
+        XCTAssertTrue(waitUntilEnabled(menu))
+        XCTAssertFalse(app.staticTexts["player-ownership-pending"].exists)
+        capture(app, "Player Detail — ownership fills in after its independent read")
+        app.navigationBars["Dak Prescott"].buttons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Lineup"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testIneligibleIRIsHiddenInDetailAndIRDestination() {
         let app = preview()
         app.tabBars.buttons["My Team"].firstMatch.tap()

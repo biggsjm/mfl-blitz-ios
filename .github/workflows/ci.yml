@@ -23,7 +23,7 @@ jobs:
 
   ios:
     runs-on: macos-15
-    # The full 188-model / 39-journey run already takes about 28 minutes
+    # The expanded model / native-journey run already takes about 28 minutes
     # on this runner; leave room for completing every native flow.
     timeout-minutes: 40
     steps:

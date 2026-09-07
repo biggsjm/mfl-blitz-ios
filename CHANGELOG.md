@@ -2,6 +2,12 @@
 
 Implemented private-build history through September 7, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.5.4 (31) — September 7, 2026 — immediate player identity
+
+- Show the tapped player's known name, position and NFL team before ownership finishes; season/game-log reads and matching-week metrics no longer wait for that response.
+- Carry only display identity in scoped canonical routes; no ownership, eligibility or mutation authority is inferred. Keep actionable errors and existing reconnect boundaries.
+- Add player/scope mismatch coverage and a delayed-ownership native Preview journey. Josh confirmed build 30 fixed the spinner; build 31 addresses his remaining card-latency report. Delivery evidence is recorded in [current status](docs/current-status.md).
+
 ## 0.5.4 (30) — September 7, 2026 — player loading follow-up
 
 - Stop optional biography from blocking the primary player card; fetch it on disclosure using its existing cache.

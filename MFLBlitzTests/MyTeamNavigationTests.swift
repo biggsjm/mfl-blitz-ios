@@ -183,6 +183,21 @@ struct MyTeamNavigationTests {
                 != PlayerRoute(scope: scope, playerID: "00042", inspectedWeek: 2))
     }
 
+    @Test("Tapped player identity is display-only and rejects another player or league scope")
+    func playerIdentityPreviewScope() {
+        let scope = LeagueBrowseScope(workspace: SampleData.workspace)
+        let identity = PlayerIdentity(id: "12620", name: "Dak Prescott", position: "QB", nflTeam: "DAL")
+        let route = PlayerRoute(scope: scope, playerID: identity.id, inspectedWeek: 1, previewIdentity: identity)
+        #expect(route.identityPreview(in: scope) == identity)
+        #expect(route.identityPreview(in: nil) == nil)
+        let otherWorkspace = LeagueWorkspace(leagueID: "different", season: 2026, leagueName: "Synthetic",
+            franchiseID: "0001", franchiseName: "Synthetic", baseURL: SampleData.workspace.baseURL, week: 1)
+        #expect(route.identityPreview(in: LeagueBrowseScope(workspace: otherWorkspace)) == nil)
+        let wrongPlayer = PlayerRoute(scope: scope, playerID: "another", previewIdentity: identity)
+        #expect(wrongPlayer.identityPreview(in: scope) == nil)
+        #expect(PlayerRoute(scope: scope, playerID: identity.id).identityPreview(in: scope) == nil)
+    }
+
     @Test("Roster, player and other-week scoring reads preserve lineup, score selection and trade drafts")
     func draftIsolation() async throws {
         let app = AppModel(repository: DemoLeagueRepository(), privateStore: MemoryPrivateStore())

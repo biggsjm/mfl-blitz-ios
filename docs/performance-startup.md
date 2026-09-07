@@ -6,6 +6,10 @@ September 7, 2026 · **0.5.3 (28)**. This is an engineering review and synthetic
 
 The owner reported slow player loading and a lingering game-info spinner on build 29. The optional biography previously held the whole primary read; it now loads on disclosure, from its existing daily memory cache. Ordinary card reappearance no longer forces an ownership request, while explicit refresh and roster changes still do. The league model owns shared availability tasks across screen navigation; scope reset cancels them, interrupted attempts clear their suppression, and UI loading reflects the actual task state. Tests reproduce navigation cancellation and enforce cache/request budgets; phone timing remains an owner check, not an inferred benchmark.
 
+## First-frame player identity — build 31
+
+Josh confirmed the build-30 spinner fix but still observed slow card opening. The UI only rendered its primary card after the joined identity/league/ownership read. Navigation now hands off the public identity already visible in the tapped row, so that content and existing Week metrics can render before ownership. Season/history requests are independent; actions remain gated on completed detail. Scope/ID mismatch rejection and an offline held-ownership native test cover the display-only boundary. No extra API call or storage is introduced, and this does not claim measured real-network latency.
+
 ## Outcome
 
 A returning manager sees the last successfully loaded scores, lineup, standings, Board summaries and own-team season roster while the app reconnects. A small “Updating league…” status replaces the blocking reconnect overlay when an eligible cache exists. Offline, content remains with “Offline · Last update shown,” Retry and Sign in. Section timestamps use coarse relative wording, not a running seconds counter.

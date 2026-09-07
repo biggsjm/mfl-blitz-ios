@@ -25,6 +25,13 @@ extension DemoLeagueRepository {
 
     func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot {
         try Task.checkCancellation()
+        #if DEBUG
+        // Offline-only native regression: prove the tapped row's identity is
+        // visible while ownership is still pending, with no enabled actions.
+        if ProcessInfo.processInfo.arguments.contains("--synthetic-slow-player") {
+            try await Task.sleep(for: .seconds(20))
+        }
+        #endif
         let rosters = SampleTeamPlayers.teams.map { team in
             (team, previewRoster(franchiseID: team.id, week: SampleData.workspace.week))
         }

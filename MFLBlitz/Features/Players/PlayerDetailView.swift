@@ -10,10 +10,12 @@ struct PlayerDetailView: View {
     @State private var loadedRosterRevision: Int?
     let playerID: String
     let inspectedWeek: Int?
+    let previewIdentity: PlayerIdentity?
 
-    init(playerID: String, inspectedWeek: Int? = nil) {
+    init(playerID: String, inspectedWeek: Int? = nil, previewIdentity: PlayerIdentity? = nil) {
         self.playerID = playerID
         self.inspectedWeek = inspectedWeek
+        self.previewIdentity = previewIdentity
     }
 
     var body: some View {
@@ -29,13 +31,19 @@ struct PlayerDetailView: View {
                         .disabled(detailModel.isLoading)
                 }
             }
-            if let detail {
+            if let displayedIdentity {
                 Section {
-                    PlayerSummaryCard(player: detail.identity,
+                    PlayerSummaryCard(player: displayedIdentity,
                         seasonTotal: season.summary?.total, weeklyAverage: season.summary?.average,
                         health: currentHealth, scorePrecision: model.scores.scorePrecision)
                         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
-                    ownershipRows(detail)
+                    if let detail {
+                        ownershipRows(detail)
+                    } else {
+                        Text(detailModel.errorMessage == nil ? "Checking league status…" : "League status unavailable")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("player-ownership-pending")
+                    }
                 }
                 if let error = season.errorMessage {
                     Section {
@@ -49,7 +57,7 @@ struct PlayerDetailView: View {
                     }
                 }
                 WatchListStatusSection()
-                PlayerWeekSection(player: detail.identity, week: contextWeek, metrics: metrics)
+                PlayerWeekSection(player: displayedIdentity, week: contextWeek, metrics: metrics)
                 PlayerResearchSections(research: research, scorePrecision: model.scores.scorePrecision,
                     retry: { Task { await loadResearch() } },
                     loadMore: { Task { await loadResearch(more: true) } })
@@ -75,9 +83,9 @@ struct PlayerDetailView: View {
                     }
                     .accessibilityIdentifier("player-bio")
                 }
-                if !detail.issues.isEmpty {
+                if let issues = detail?.issues, !issues.isEmpty {
                     Section {
-                        ForEach(detail.issues) { issue in
+                        ForEach(issues) { issue in
                             Label(issue.message, systemImage: "info.circle")
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
@@ -85,7 +93,7 @@ struct PlayerDetailView: View {
                 }
                 Section {
                     if detailModel.isLoading { ProgressView("Updating player…") }
-                    if let verifiedAt = detail.ownershipVerifiedAt {
+                    if let verifiedAt = detail?.ownershipVerifiedAt {
                         Text("Ownership refreshed \(verifiedAt.formatted(date: .omitted, time: .shortened))")
                     } else {
                         Text("Player information from MFL · Pull to refresh")
@@ -106,7 +114,7 @@ struct PlayerDetailView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle(detail?.identity.name ?? "Player")
+        .navigationTitle(displayedIdentity?.name ?? "Player")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if let status = ownAssignment?.status {
@@ -139,7 +147,7 @@ struct PlayerDetailView: View {
             }
         }
         .task(id: "\(model.workspace?.storageScope ?? "none")|\(playerID)|\(model.rosterRevision)|\(model.isUsingCachedSession)") { await load(refresh: false) }
-        .task(id: "biography|\(readKey)|\(showingBiography)") {
+        .task(id: "biography|\(readKey)|\(detail != nil)|\(showingBiography)") {
             if showingBiography, detail != nil { await loadBiography() }
         }
         .task(id: "availability|\(model.workspace?.storageScope ?? "none")|\(contextWeek)|\(model.isUsingCachedSession)") {
@@ -147,13 +155,13 @@ struct PlayerDetailView: View {
         }
         .task(id: "watchlist|\(model.workspace?.storageScope ?? "none")|\(model.isUsingCachedSession)") { await model.loadWatchList() }
         .task(id: "current-health|\(readKey)|\(model.currentWeek)") {
-            if detail != nil { await model.loadPlayerAvailability(week: model.currentWeek) }
+            if displayedIdentity != nil { await model.loadPlayerAvailability(week: model.currentWeek) }
         }
         .task(id: "season|\(readKey)") {
-            if detail != nil { await loadSeason() }
+            if displayedIdentity != nil { await loadSeason() }
         }
         .task(id: "research|\(readKey)|\(contextWeek)") {
-            if detail != nil { await loadResearch() }
+            if displayedIdentity != nil { await loadResearch() }
         }
         .refreshable {
             await load(refresh: true)
@@ -171,7 +179,7 @@ struct PlayerDetailView: View {
 
     private var contextWeek: Int { inspectedWeek ?? model.workspace?.lineupWeek ?? model.currentWeek }
     private var readKey: String {
-        "\(model.workspace?.storageScope ?? "none")|\(playerID)|\(detail != nil)|\(model.isUsingCachedSession)"
+        "\(model.workspace?.storageScope ?? "none")|\(playerID)|\(displayedIdentity != nil)|\(model.isUsingCachedSession)"
     }
     private var currentHealth: PlayerHealth? {
         guard let value = model.playerTools.availability[model.currentWeek],
@@ -213,8 +221,14 @@ struct PlayerDetailView: View {
         return value
     }
 
+    private var displayedIdentity: PlayerIdentity? {
+        if let detail { return detail.identity }
+        guard !model.isUsingCachedSession, previewIdentity?.id == playerID else { return nil }
+        return previewIdentity
+    }
+
     private var metrics: PlayerWeekMetrics? {
-        guard detail != nil, let workspace = model.workspace else { return nil }
+        guard displayedIdentity != nil, let workspace = model.workspace else { return nil }
         let week = inspectedWeek ?? (workspace.weekIsConfirmed ? model.currentWeek : nil)
         guard let week else { return nil }
         return .matching(playerID: playerID, week: week, scores: model.scores,
@@ -285,7 +299,7 @@ struct PlayerDetailView: View {
     }
 
     private var actionsUnavailable: Bool {
-        model.isUsingCachedSession || detailModel.isLoading || detailModel.errorMessage != nil || model.isBusy ||
+        detail == nil || model.isUsingCachedSession || detailModel.isLoading || detailModel.errorMessage != nil || model.isBusy ||
             model.transactions.isBusy || model.pendingRosterChange != nil
     }
 

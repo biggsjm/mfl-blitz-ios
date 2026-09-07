@@ -16,7 +16,7 @@ struct TeamSummary: Codable, Identifiable, Equatable, Sendable {
     var accentSeed: Int = 0
 }
 
-struct PlayerIdentity: Codable, Identifiable, Equatable, Sendable {
+struct PlayerIdentity: Codable, Identifiable, Hashable, Sendable {
     let id: String
     var name: String
     var position: String? = nil

@@ -1,10 +1,12 @@
 # Week 1 owner test and Week 2 go/no-go
 
-Updated September 7, 2026 for **0.5.4 (30)**. It includes player cards/game logs and their loading follow-up, cached startup, the Lineup projection margin, six direct My Team destinations and the shared numeric standings pattern. See [current status](current-status.md) for actual delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use a validated, installed build for owner testing.
+Updated September 7, 2026 for candidate **0.5.4 (31)**; build 30 is installed. It includes player cards/game logs and their loading follow-up, cached startup, the Lineup projection margin, six direct My Team destinations and the shared numeric standings pattern. See [current status](current-status.md) for actual delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use a validated, installed build for owner testing.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
 ## Already observed
+
+- Build **0.5.4 (30)** installed and launched September 7. Josh confirmed the game-log/game-info spinner is fixed but reported that the player card still takes a while. Build 31 addresses that remaining dependency. No real-phone latency benchmark is claimed.
 
 - Build **0.5.4 (29)** installed and launched September 7. Josh confirmed Scores → matchup → player → Back works, then reported slow player loading and a lingering game-info spinner. Build 30 addresses those paths; final delivery evidence is recorded in Current status. This observation is not live scoring/season-history certification.
 
@@ -44,6 +46,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 ### Player cards and live-matchup navigation — builds 29–30
 
+- [ ] On build 31, open a player from Scores, Lineup and My Team. The tapped identity should appear before league status finishes, with Week metrics available independently and no roster action enabled by that preview.
 - [ ] Open/reopen a player and switch away while game information is loading. It must finish for the next screen or show a retry state, not remain spinning. Biography loads only on expansion, without holding back the primary card.
 - [ ] Open a player from live scoring: one tap goes to Player Detail; one Back returns to the same matchup. Owner names sit below team names and position headers no longer repeat team acronyms/subtotals.
 - [ ] Check primary identity, current injury/roster status, season points and average. Own-team status has no link; other-team roster links and pushed team shortcuts still work.

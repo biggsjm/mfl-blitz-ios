@@ -51,6 +51,13 @@ struct PlayerRoute: Hashable, Sendable {
     let scope: LeagueBrowseScope
     let playerID: String
     var inspectedWeek: Int? = nil
+    /// Display-only identity from the tapped row, never ownership or permission.
+    var previewIdentity: PlayerIdentity? = nil
+
+    func identityPreview(in activeScope: LeagueBrowseScope?) -> PlayerIdentity? {
+        guard scope == activeScope, previewIdentity?.id == playerID else { return nil }
+        return previewIdentity
+    }
 }
 
 struct TeamToolsRoute: Hashable, Identifiable, Sendable {
@@ -185,7 +192,8 @@ private struct LeagueBrowseDestinations: ViewModifier {
             }
             .navigationDestination(for: PlayerRoute.self) { route in
                 if route.scope == model.browseScope {
-                    PlayerDetailView(playerID: route.playerID, inspectedWeek: route.inspectedWeek)
+                    PlayerDetailView(playerID: route.playerID, inspectedWeek: route.inspectedWeek,
+                        previewIdentity: route.identityPreview(in: model.browseScope))
                         .id(route)
                 } else { unavailableSession }
             }

@@ -603,7 +603,8 @@ private struct MatchupPlayerCell: View {
     @ViewBuilder
     private func playerIdentityLink<Content: View>(_ player: MatchupPlayer, @ViewBuilder content: () -> Content) -> some View {
         if let scope = model.browseScope {
-            NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: inspectedWeek)) {
+            NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: inspectedWeek,
+                previewIdentity: PlayerIdentity(id: player.id, name: player.name, position: player.position, nflTeam: player.nflTeam))) {
                 content()
             }
             .buttonStyle(.plain)

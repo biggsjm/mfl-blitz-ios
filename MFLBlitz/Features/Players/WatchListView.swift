@@ -14,7 +14,8 @@ struct WatchListView: View {
                 } else if let scope = model.browseScope {
                     Section("Watching · \(watchList.players.count)") {
                         ForEach(watchList.players) { player in
-                            NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: model.currentWeek)) {
+                            NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: model.currentWeek,
+                                previewIdentity: player)) {
                                 VStack(alignment: .leading, spacing: 6) {
                                     PlayerIdentityView(player: player)
                                     PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.nflTeam ?? "", week: model.currentWeek)
