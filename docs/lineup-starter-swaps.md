@@ -31,4 +31,4 @@ September 6 verification: the full app unit suite plus five lineup UI journeys p
 
 Removed storage-specific and redundant save footers from both replacement screens. The existing review, submission and authoritative MFL starter readback remain unchanged. The shared calendar control explicitly shows its icon and selected week, including in the Lineup toolbar; selecting another week updates the visible label.
 
-Scores uses the same week control at top right, with Settings at top left. Live status remains beside the last-updated indicator above the matchups.
+Scores uses the same week control at top right. Build 34 moves Settings from Scores to the top-left of My Team. Live status remains beside the last-updated indicator above the matchups.

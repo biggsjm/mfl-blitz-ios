@@ -165,6 +165,7 @@ private struct MyTeamRootView: View {
     @Environment(AppModel.self) private var model
     @State private var showingInitialActivity = false
     @State private var handledInitialDestination = false
+    @State private var showingSettings = false
 
     var body: some View {
         Group {
@@ -177,6 +178,13 @@ private struct MyTeamRootView: View {
         .navigationDestination(isPresented: $showingInitialActivity) {
             TransactionActivityView().environment(model.transactions)
         }
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Settings", systemImage: "gearshape") { showingSettings = true }
+                    .accessibilityIdentifier("my-team-settings")
+            }
+        }
+        .sheet(isPresented: $showingSettings) { SettingsView() }
         .task {
             guard !handledInitialDestination else { return }
             handledInitialDestination = true

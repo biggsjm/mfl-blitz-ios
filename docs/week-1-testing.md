@@ -28,6 +28,8 @@ These checks remain open unless explicitly marked with an observation. They are 
 
 ### Build 33 league extras — after confirmed installation
 
+Build 33 is installed/launched. Build 34 adds the requested lineup-style editor and moves the Settings gear to My Team; check [current status](current-status.md) before validating that revision. In the block editor, move a player up, move them back down, then review/cancel: your actual roster and starting lineup must stay unchanged. Submit only a block you intend to publish. Confirm Settings opens from My Team and is absent from Scores.
+
 - [ ] My Team → Trades → Trading Block matches intended MFL listings. Edit only a listing you want published; verify it on MFL, then relaunch and check it. Resume/discard a private block draft without changing the published list. Entire-list removal and cash listings use MFL.
 - [ ] Make offer from a listing opens the right partner/assets without sending. With an existing trade draft, Cancel/Resume preserves it and Replace requires the explicit choice.
 - [ ] My Team → Schedule → Calendar matches MFL's waiver-processing, adds-open/closed and trade deadlines in local time. Compare September and November/DST occurrences. Calendar browsing must preserve the selected lineup week, edits and offers.
@@ -42,7 +44,7 @@ These checks remain open unless explicitly marked with an observation. They are 
 - [ ] Let build 28 or newer successfully load Scores, Lineup, Standings, Board and My Team once. Close/reopen: saved content should appear while reconnecting, then update. In airplane mode reopen again: keep last-known content, no LIVE claims or editable cached lineup. Restore connectivity and tap Retry; confirm current week and starters with MFL before an intended change. Record phone time-to-content on Wi-Fi/cellular; first-ever loading and cache eviction legitimately need downloads.
 - [ ] Make a lineup edit, switch tabs, refresh, close/reopen and confirm the draft survives without submission. On an intended submission, compare saved starters on MFL. Verify the tiebreaker on MFL separately: the API cannot read its saved state back.
 - [ ] Check a starter's projection beside candidates, including a genuinely missing value. Missing values remain a dash, not zero; projections are pregame, not a live forecast.
-- [ ] Check Week N controls on Scores/Lineup and Settings upper-left on Scores. Avoid changing an active draft's week unintentionally.
+- [ ] Check Week N controls on Scores/Lineup and Settings upper-left on My Team (build 34 onward). Avoid changing an active draft's week unintentionally.
 - [ ] Check the Lineup projection card against both teams' Week 1 projected starters: positive margin green, negative orange, rounded tie Even. A substitution changes the projected margin without submitting. Status sits beside kickoff locks (stacked at larger text); incomplete or wrong-week opponent data never implies an advantage. See [comparison rules](lineup-projections.md).
 - [ ] Confirm owner names and the [standings pattern](standings-pattern.md): before results, `0–0 · Warner` without a made-up first place. Later, compare division rank in Divisions and league-wide rank in Overall against MFL. Matching records alone do not mean a tie. Unknown/custom/cyclic cases must not invent rank. Info opens an anchored popover; missing owners are not guessed. Check artwork fallback and long names.
 

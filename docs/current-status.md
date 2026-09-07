@@ -2,12 +2,20 @@
 
 Audited September 7, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Implementation candidate — 0.6.0 (33), Trading Block, Calendar and Live Activity
+## Current revision — 0.6.0 (34), lineup-style Trading Block and My Team Settings
+
+Josh tested build 33 and requested roster-to-block promotion/demotion like Lineup, plus moving Settings from Scores to My Team. Build 34 replaces the separate asset picker with **On the block / Your roster**, green up/orange down controls, optional needs text and a pinned **Review & submit trading block** action. Review is a separate, cancelable sheet with an explicit final submit; moving a row never changes MFL roster membership or lineup starters. Owned draft picks remain in a secondary disclosure. The Settings gear is now top-leading on My Team, absent from Scores.
+
+The initial older-Xcode CI run for build 33 stopped at notification SDK Sendable annotations before running iOS tests. The notification import now bridges those legacy annotations while retaining actor-owned scheduling. A local older-iOS run also identified an obsolete inbox geometry assertion after adding the Offers / Trading Block selector; the test now requires Create trade directly below the selector, not immediately below navigation. No workflow assertion or safety check was removed. Build-34 final regression, phone delivery and exact-head CI/merge are pending.
+
+## Installed private build — 0.6.0 (33), Trading Block, Calendar and Live Activity
 
 Josh approved plan items 1–3 and added the current-week matchup Live Activity. The [implementation contract](league-extras-implementation.md) records native navigation, fresh publication/readback, durable draft/uncertain-write recovery, protected optional-feed caches, exact calendar occurrences and notification lifecycle behavior. The [approved plan](trading-block-calendar-plan.md) records remaining scope. No TestFlight upload is authorized before the OS-beta hold and existing release gates are lifted.
 
 - Owner-provided empty/singleton trading-block JSON verified `willGiveUp` / `inExchangeFor`; the attached ICS verified explicit repeat dates and the November DST shift against JSON anchors. Private exports are not committed; fixtures are synthetic.
-- **Local verification:** all 106 core tests / 13 suites pass (`mfl-build33-core-final.log`). All 204 app unit functions and four new native Preview journeys pass on iOS 27 in Dark Mode: 208 functions / 260 executions, zero failures/skips/runtime warnings (`mfl-build33-final27.xcresult`). Actual screenshots were inspected; final confirmation-toolbar polish is under recheck, and the complete older-iOS suite is running. Exact final source, signed phone delivery and GitHub checks will be recorded here when confirmed; the installed baseline remains build 32 meanwhile.
+- **Local verification:** all 106 core tests / 13 suites pass (`mfl-build33-core-final.log`). Final source `24d64fc` passes all 204 app unit functions and four new native Preview journeys on iOS 27 in Dark Mode: 208 functions / 260 executions, zero failures/skips/runtime warnings (`mfl-build33-confirmed27.xcresult`). Actual screenshots were inspected; reminder confirmation stays visible in the toolbar. Read-only execution of the compiled parser against Josh's attachment verified all nine JSON anchors, 57 occurrences, and noon Central deadlines across CDT/CST (`mfl-verify-calendar`).
+- **Phone:** signed **0.6.0 (33)** installed and launched September 7; CoreDevice confirms version/build (`mfl-build33-installed.json`, `mfl-build33-launch.json`). No preview launch arguments or live mutation were used. Owner feedback on the Trading Block editor prompted build 34.
+- **GitHub:** [PR #10](https://github.com/biggsjm/mfl-blitz-ios/pull/10) contains the implementation, plan and documentation. Initial [run 34157196227](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/34157196227) passes core but fails older-SDK iOS compilation; it is not a passing release run. Merge awaits build-34 exact-head checks.
 - Entire-block removal and new cash listings remain on MFL. No commissioner calendar editing, inferred lineup-review deadline, calendar subscription or raw NFL statistics is added.
 - Live Activity updates are on-device/foreground only, stale after two minutes without an update. There is no APNs backend or promise of continued scores while Blitz is closed. Real active-game appearance, permission denial/delivery and Apple Calendar insertion remain owner/device checks; automated QA makes no real league, calendar or notification changes.
 
@@ -179,7 +187,7 @@ Default request spacing reduces pressure but does not guarantee freedom from MFL
 - **MFL Blitz 0.4.1 (18): My Team and Board drafts.** Implemented, tested and signed. The final compatibility rebuild was installed and launched successfully on Josh's iPhone on September 6 after the phone became available. Includes the concise schedule update label and Board Close/save/discard with visible draft recovery.
 - Previous installed baseline: **0.3.7 (16), [e779e4b](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b)**. The documentation baseline was merged in [PR #1](https://github.com/biggsjm/mfl-blitz-ios/pull/1).
 - **Private owner testing**, not an App Store/TestFlight release. Production MFL registration and Week 2 invitation readiness remain unconfirmed.
-- Tabs remain **Scores / Lineup / My Team / Standings / Board**. Build 22 exposes six Schedule-first tools directly inside My Team. Settings remains upper-left on Scores; Scores and Lineup retain Week N controls.
+- Tabs remain **Scores / Lineup / My Team / Standings / Board**. Build 22 exposes six Schedule-first tools directly inside My Team. Build 34 moves Settings to My Team; Scores and Lineup retain Week N controls.
 - Connected mode performs real reads and explicitly reviewed writes. Champion Hall preview uses synthetic data, offers, owners and schedules; its actions send nothing to MFL.
 
 ## Implemented workflows

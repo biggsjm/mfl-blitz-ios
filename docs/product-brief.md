@@ -29,7 +29,7 @@ Five stable, labeled tabs keep Scores and Lineup one tap away; team tools are on
 | Standings | Divisions using supported league-configured tiebreakers | Switch overall/divisions or open a team |
 | Board | Existing MFL threads with unread state and visible Drafts | New thread / reply / resume draft; Close offers save/discard |
 
-Settings is upper-left on Scores, not a top-level tab. Scores and Lineup share a calendar control labeled Week N. Standings order information stays behind an anchored information popover. Trades put the native Create/Resume action first and move the routine MFL link into secondary options; errors retain visible recovery links.
+Settings is upper-left on My Team (moved from Scores in build 34), not a top-level tab. Scores and Lineup share a calendar control labeled Week N. Standings order information stays behind an anchored information popover. Trades put the native Create/Resume action first and move the routine MFL link into secondary options; errors retain visible recovery links. Trading Block follows Lineup's promotion/demotion, pinned review and explicit submit pattern without changing roster membership.
 
 This follows Apple's guidance that tabs represent persistent peer destinations, use familiar symbols plus labels, and avoid behaving like action buttons: [Tab bars](https://developer.apple.com/design/human-interface-guidelines/tab-bars).
 

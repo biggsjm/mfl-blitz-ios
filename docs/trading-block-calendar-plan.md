@@ -1,6 +1,6 @@
 # Trading Block, League Calendar and Deadline Reminders
 
-Status: **Approved and in implementation**, September 7, 2026. Josh approved items 1–3 and added a current-matchup Live Activity. Installed baseline remains 0.5.4 (32) until the development-build delivery is confirmed. Candidate: 0.6.0 (33). No real league listing, personal calendar event or reminder has been created for automated QA.
+Status: **Approved and in verification**, September 7, 2026. Josh approved items 1–3 and added a current-matchup Live Activity. Build 0.6.0 (33) is installed and launched. His feedback is implemented in candidate 34: Lineup-style roster/block promotion/demotion with review/submit, and Settings relocated to My Team. No real league listing, personal calendar event or reminder has been created for automated QA.
 
 ## Implementation checkpoint
 

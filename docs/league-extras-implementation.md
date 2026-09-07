@@ -1,12 +1,14 @@
 # Trading Block, Calendar, reminders and Live Activity
 
-September 7, 2026 · candidate **0.6.0 (33)**. This document describes implemented code, not confirmed phone installation or owner acceptance; see [current status](current-status.md) for delivery evidence. The [approved plan](trading-block-calendar-plan.md) remains the scope/remaining-work record. TestFlight stays on hold at Josh's request.
+September 7, 2026 · **0.6.0 (33–34)**. Build 33 is installed; build 34 responds to owner UI feedback. This document describes implemented code; see [current status](current-status.md) for exact delivery/acceptance evidence. The [approved plan](trading-block-calendar-plan.md) remains the scope/remaining-work record. TestFlight stays on hold at Josh's request.
 
 ## Navigation and interaction
 
 The five tabs and six My Team shortcuts are unchanged. Trades adds Offers / Trading Block, defaulting to Offers. Schedule adds Matchups / Calendar, defaulting to Matchups. Once visited, each mode remains mounted to preserve its scroll position; hidden modes are not interactive or exposed to accessibility. New feeds do not join startup loading.
 
-Trading Block has a visible Add/Edit/Resume action, owner/team identity, player/pick listings and Make offer. Prefilling an offer never sends it and never silently replaces an existing offer draft. Block drafts are separate from trade-offer drafts. Close prompts after changes; Publish/Save changes is disabled for empty, unchanged or overlong edits. A saved draft can be explicitly discarded without changing the published listing. Removing the entire published listing or offering new FAAB dollars stays on MFL until the import semantics are verified.
+Trading Block has a visible Add/Edit/Resume action, owner/team identity, player/pick listings and Make offer. Build 34's editor follows Lineup: On the block above Your roster, green up/orange down controls, position badges and a pinned Review & submit trading block action. Owned draft picks are secondary. A separate review lists every intended asset and needs text, offers Cancel, and requires a final Submit trading block. Neither moving a row nor canceling review changes the roster, lineup or published listing. Prefilling an offer never sends it and never silently replaces an existing offer draft. Block drafts are separate from trade-offer drafts. Close prompts after changes; review is disabled for empty, unchanged or overlong edits. A saved draft can be explicitly discarded without changing the published listing. Removing the entire published listing or offering new FAAB dollars stays on MFL until the import semantics are verified.
+
+Build 34 moves the Settings gear from Scores to the upper-left of My Team. Scores retains its trailing Week control. The Live Activity preference is therefore My Team → Settings → Game day.
 
 Calendar is a dated agenda grouped as Today, This week and Later, with Earlier events collapsed. Event details distinguish waiver processing from availability windows and trade deadlines. Navigation to bids/players/trades does not submit anything or change the edited lineup week. Date/source information uses an anchored information popover. Unknown or incomplete recurrence is disclosed instead of becoming a precise inferred deadline.
 

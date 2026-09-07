@@ -10,26 +10,43 @@ final class LeagueExtrasUITests: XCTestCase {
         XCTAssertTrue(enabled(edit))
         capture(app, "Trading Block — league listings and visible owner action")
         edit.tap()
-        let publish = app.buttons["block-publish"]
-        XCTAssertTrue(publish.waitForExistence(timeout: 5))
-        XCTAssertFalse(publish.isEnabled)
-        app.buttons["block-choose-assets"].tap()
-        let player = app.buttons["trade-asset-12620"]
+        let review = app.buttons["block-review"]
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertFalse(review.isEnabled)
+        let player = app.buttons["block-promote-12620"]
         for _ in 0..<5 where !player.isHittable { app.swipeUp() }
         XCTAssertTrue(player.isHittable)
         player.tap()
-        app.navigationBars["Choose assets"].buttons["Done"].tap()
-        XCTAssertTrue(app.navigationBars["My trading block"].waitForExistence(timeout: 5))
-        XCTAssertTrue(publish.isEnabled)
+        XCTAssertTrue(review.isEnabled)
+        XCTAssertFalse(app.buttons["block-publish"].exists, "Promotion only stages a change")
+        let demote = app.buttons["block-demote-12620"]
+        for _ in 0..<5 where !demote.isHittable { app.swipeDown() }
+        XCTAssertTrue(demote.isHittable)
+        capture(app, "Trading Block — lineup-style roster promotion")
+        demote.tap()
+        XCTAssertFalse(review.isEnabled)
+        for _ in 0..<5 where !player.isHittable { app.swipeUp() }
+        player.tap()
+        XCTAssertTrue(review.isEnabled)
         app.navigationBars["My trading block"].buttons["Close"].tap()
         XCTAssertTrue(app.buttons["Save draft"].waitForExistence(timeout: 5))
         app.buttons["Save draft"].tap()
         XCTAssertTrue(edit.waitForExistence(timeout: 5))
         XCTAssertEqual(edit.label, "Resume draft")
         edit.tap()
-        XCTAssertTrue(publish.waitForExistence(timeout: 5))
-        XCTAssertTrue(publish.isEnabled)
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertTrue(review.isEnabled)
         capture(app, "Trading Block — recovered owner draft, explicit publication")
+        review.tap()
+        XCTAssertTrue(app.navigationBars["Review trading block"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Dak Prescott"].exists)
+        capture(app, "Trading Block — review before submitting")
+        app.navigationBars["Review trading block"].buttons["Cancel"].tap()
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertTrue(review.isEnabled, "Canceling review preserves staged moves")
+        review.tap()
+        let publish = app.buttons["block-publish"]
+        XCTAssertTrue(publish.waitForExistence(timeout: 5))
         // This app was explicitly placed in its offline Demo repository above.
         // Publishing here changes only synthetic in-memory league state.
         publish.tap()
@@ -40,9 +57,26 @@ final class LeagueExtrasUITests: XCTestCase {
         XCTAssertTrue(edit.waitForExistence(timeout: 5))
         XCTAssertEqual(edit.label, "Edit block")
         edit.tap()
-        XCTAssertTrue(publish.waitForExistence(timeout: 5))
-        XCTAssertFalse(publish.isEnabled, "Unchanged published terms cannot be sent again")
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertFalse(review.isEnabled, "Unchanged published terms cannot be sent again")
         app.navigationBars["My trading block"].buttons["Close"].tap()
+    }
+
+    @MainActor func testSettingsLivesOnMyTeamNotScores() {
+        let app = preview()
+        XCTAssertFalse(app.buttons["scores-settings"].exists)
+        XCTAssertFalse(app.buttons["my-team-settings"].exists)
+        app.tabBars.buttons["My Team"].firstMatch.tap()
+        let settings = app.buttons["my-team-settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        XCTAssertTrue(settings.isHittable)
+        settings.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        app.navigationBars["Settings"].buttons["Done"].tap()
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        app.tabBars.buttons["Scores"].firstMatch.tap()
+        XCTAssertFalse(app.buttons["my-team-settings"].exists)
+        XCTAssertFalse(app.buttons["scores-settings"].exists)
     }
 
     @MainActor func testBlockOfferPreservesExistingTradeDraft() {
@@ -106,6 +140,14 @@ final class LeagueExtrasUITests: XCTestCase {
         XCTAssertTrue(edit.waitForExistence(timeout: 5))
         XCTAssertTrue(edit.isHittable)
         capture(app, "Trading Block — maximum Dynamic Type")
+        edit.tap()
+        let review = app.buttons["block-review"]
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertTrue(review.isHittable)
+        XCTAssertFalse(review.isEnabled)
+        capture(app, "Trading Block editor — maximum Dynamic Type and pinned review")
+        app.navigationBars["My trading block"].buttons["Close"].tap()
+        XCTAssertTrue(app.navigationBars["Trades"].waitForExistence(timeout: 5))
         app.navigationBars["Trades"].buttons.firstMatch.tap()
         openTool("schedule", title: "Schedule", in: app)
         app.segmentedControls["schedule-section"].buttons["Calendar"].tap()

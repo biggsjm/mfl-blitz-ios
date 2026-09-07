@@ -28,6 +28,8 @@ Click-through QA uncovered a first-presentation bug: separate response-action an
 
 ## Regression coverage
 
+Build 34 responds to owner feedback with a Lineup-style block editor: On the block / Your roster, green up/orange down controls, optional needs text, secondary owned picks and a pinned Review & submit action. The cancelable review lists exact terms before the final send. Empty/unchanged drafts cannot submit; roster membership and starter assignments never change. Native tests must cover promote → demote → promote, saved-draft recovery, Cancel review, explicit offline submit and unchanged readback. The Offers page's Create action remains directly below the new mode selector; geometry tests must account for that selector instead of assuming the action touches the navigation bar.
+
 The native test helper enters Trades directly through My Team. UI validation includes large-text access to the new entry, then the existing Create/Resume, draft and response journeys. See [current status](current-status.md) for candidate-specific results; the build-16 counts below remain historical.
 
 `TradeInboxPresentationTests` checks confirmed-empty states, loading/errors, pending verification, unresolved offers, and draft changes that must not alter existing offers. Existing trade safety and transaction refresh suites cover ownership, preflight, authoritative readback, duplicate prevention, cancellation, caching, and cooldowns.

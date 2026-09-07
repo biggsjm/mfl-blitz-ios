@@ -2,6 +2,13 @@
 
 Implemented private-build history through September 7, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.6.0 (34) — September 7, 2026 — lineup-style block editor
+
+- Replace the block's asset-selection form with On the block / Your roster sections, position badges and green up/orange down actions; draft picks stay secondary.
+- Pin Review & submit trading block, add an exact-list review with Cancel and an explicit final send, and retain save/discard/recovery safeguards. Promoting/demoting never changes the roster or lineup.
+- Move Settings from Scores to the upper-left of My Team; Scores retains the Week control.
+- Bridge older notification SDK concurrency annotations without weakening actor serialization. Update native geometry checks for the new Trades selector and cover block promotion/demotion/review and the relocated Settings.
+
 ## 0.6.0 (33) — September 7, 2026 — league tools and matchup activity
 
 - Add Offers / Trading Block inside Trades, own-player/pick publication, separate resumable block drafts, fresh owner/asset/baseline checks and durable ambiguous-publication recovery without replay.

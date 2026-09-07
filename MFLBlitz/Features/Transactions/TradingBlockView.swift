@@ -9,6 +9,7 @@ struct TradingBlockView: View {
     @State private var editing: BlockEditSession?
     @State private var offerToReplace: TradeDraft?
     @State private var discardingDraft = false
+    @State private var presentedNotice: String?
 
     var body: some View {
         List {
@@ -99,14 +100,19 @@ struct TradingBlockView: View {
         }
         .task { guard !app.isUsingCachedSession else { return }; await block.refresh() }
         .refreshable { await block.refresh(force: true) }
-        .sheet(item: $editing) { session in TradingBlockEditor(block: block, session: session).id(session.id) }
+        .sheet(item: $editing, onDismiss: { presentedNotice = block.notice }) { session in
+            TradingBlockEditor(block: block, session: session).id(session.id)
+        }
+        .onChange(of: block.notice) {
+            if editing == nil { presentedNotice = block.notice }
+        }
         .alert("Discard trading block draft?", isPresented: $discardingDraft) {
             Button("Cancel", role: .cancel) {}
             Button("Discard draft", role: .destructive) { Task { if await block.saveDraft(nil) { await block.refresh(force: true) } } }
         } message: { Text("Your published trading block won’t change.") }
-        .alert("Trading Block", isPresented: Binding(get: { block.notice != nil && editing == nil }, set: { if !$0 { block.notice = nil } })) {
-            Button("OK") { block.notice = nil }
-        } message: { Text(block.notice ?? "") }
+        .alert("Trading Block", isPresented: Binding(get: { presentedNotice != nil }, set: { if !$0 { presentedNotice = nil; block.notice = nil } })) {
+            Button("OK") { presentedNotice = nil; block.notice = nil }
+        } message: { Text(presentedNotice ?? "") }
         .confirmationDialog("You have a saved trade draft", isPresented: Binding(get: { offerToReplace != nil }, set: { if !$0 { offerToReplace = nil } }), titleVisibility: .visible) {
             Button("Resume existing draft") { if let draft = trades.draft { makeOffer(draft) }; offerToReplace = nil }
             Button("Replace with this offer", role: .destructive) {
@@ -137,50 +143,47 @@ struct TradingBlockView: View {
 }
 
 struct BlockEditSession: Identifiable { let id = UUID(); var draft: TradingBlockDraft }
-private enum BlockEditorRoute: Hashable { case assets }
-
 private struct TradingBlockEditor: View {
     @Environment(\.dismiss) private var dismiss
     let block: TradingBlockModel
     let session: BlockEditSession
     @State private var draft: TradingBlockDraft
     @State private var showingClose = false
+    @State private var review: BlockReviewSelection?
+    @State private var didSubmit = false
     init(block: TradingBlockModel, session: BlockEditSession) {
         self.block = block; self.session = session; _draft = State(initialValue: session.draft)
     }
     var body: some View {
         LeagueBrowseStack {
-            Form {
+            List {
                 Section {
-                    if let owner = block.owner {
-                        NavigationLink(value: BlockEditorRoute.assets) {
-                            LabeledContent("Available to trade", value: draft.codes.isEmpty ? "Choose players or picks" : "\(draft.codes.count) selected")
-                        }.accessibilityIdentifier("block-choose-assets")
-                        ForEach(draft.codes.sorted(), id: \.self) { code in
-                            Text(owner.assets.first { $0.id == code }?.name ?? "Unrecognized asset: \(code)")
-                                .font(.subheadline)
-                        }
+                    if listed.isEmpty {
+                        Text("Use ↑ to put players on the block.").font(.subheadline).foregroundStyle(.secondary)
                     }
-                } footer: { Text("Visible to your league.") }
-                Section("Looking for") {
-                    TextField("Players, positions, or picks", text: $draft.lookingFor, axis: .vertical).lineLimit(3...5)
+                    ForEach(listed) { asset in assetRow(asset, listed: true) }
+                } header: {
+                    HStack { Text("On the block"); Spacer(); Text("\(draft.codes.count)").monospacedDigit() }
+                }
+                Section {
+                    TextField("Looking for · optional", text: $draft.lookingFor, axis: .vertical).lineLimit(1...3)
                         .accessibilityIdentifier("block-looking-for")
                     if draft.lookingFor.count > 200 {
                         Text("\(draft.lookingFor.count)/256").font(.caption)
                             .foregroundStyle(draft.lookingFor.count > 256 ? Color.orange : .secondary)
                     }
                 }
-                if block.isBusy { ProgressView("Publishing…").frame(maxWidth: .infinity) }
                 if let notice = block.notice { Text(notice).font(.footnote).foregroundStyle(.secondary) }
-                if let snapshot = block.feed.snapshot, draft.canPublish,
-                   (try? TradingBlockPolicy.validate(draft, fresh: snapshot, ownerID: block.workspace.franchiseID)) == nil {
-                    Text("Review the latest listing and selected assets before publishing.").font(.footnote).foregroundStyle(.orange)
+                Section("Your roster") {
+                    if roster.isEmpty { Text("All available players are on the block.").foregroundStyle(.secondary) }
+                    ForEach(roster) { asset in assetRow(asset, listed: false) }
                 }
-            }
-            .navigationDestination(for: BlockEditorRoute.self) { _ in
-                if let owner = block.owner {
-                    TradeAssetPicker(team: TradeTeam(id: owner.id, name: owner.name, abbreviation: owner.abbreviation,
-                        assets: owner.assets.filter { [.player, .pick].contains($0.kind) }, blindBidBalance: nil), selected: $draft.codes)
+                if !picks.isEmpty {
+                    Section {
+                        DisclosureGroup("Draft picks") {
+                            ForEach(picks) { asset in assetRow(asset, listed: false) }
+                        }
+                    }
                 }
             }
             .navigationTitle("My trading block").navigationBarTitleDisplayMode(.inline)
@@ -188,11 +191,26 @@ private struct TradingBlockEditor: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { if draft != session.draft { showingClose = true } else { dismiss() } }.disabled(block.isBusy)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(draft.baseline == nil ? "Publish" : "Save changes") {
-                        Task { if await block.publish(draft) { dismiss() } }
-                    }.disabled(!draft.canPublish || !block.canEdit)
-                        .accessibilityIdentifier("block-publish")
+            }
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 7) {
+                    if let validationMessage {
+                        Text(validationMessage).font(.caption).foregroundStyle(.orange)
+                    }
+                    PrimaryActionButton(title: "Review & submit trading block", systemImage: "checkmark.circle.fill",
+                        isBusy: block.isBusy, isDisabled: !draft.canPublish || !block.canEdit || validationMessage != nil) {
+                        review = BlockReviewSelection(draft: draft, assets: listed)
+                    }.accessibilityIdentifier("block-review")
+                }.padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 8).background(.ultraThinMaterial)
+            }
+            .sheet(item: $review, onDismiss: {
+                // Finish the child dismissal before closing its editor. Two
+                // simultaneous dismissals can strand the receipt behind it.
+                if didSubmit { dismiss() }
+            }) { selection in
+                TradingBlockSubmissionReview(block: block, selection: selection) {
+                    didSubmit = true
+                    review = nil
                 }
             }
             .interactiveDismissDisabled(draft != session.draft || block.isBusy)
@@ -202,5 +220,106 @@ private struct TradingBlockEditor: View {
                 Button("Keep editing", role: .cancel) {}
             }
         }
+    }
+
+    private var listed: [TradeAsset] {
+        draft.codes.map { code in
+            block.owner?.assets.first { $0.id == code }
+                ?? TradeAsset(id: code, name: "Unrecognized asset: \(code)", detail: "Check current ownership", kind: .unknown)
+        }.sorted(by: BlockAssetSummary.precedes)
+    }
+    private var roster: [TradeAsset] {
+        (block.owner?.assets ?? []).filter { $0.kind == .player && !draft.codes.contains($0.id) }.sorted(by: BlockAssetSummary.precedes)
+    }
+    private var picks: [TradeAsset] {
+        (block.owner?.assets ?? []).filter { $0.kind == .pick && !draft.codes.contains($0.id) }.sorted(by: BlockAssetSummary.precedes)
+    }
+    private var validationMessage: String? {
+        if draft.codes.isEmpty, draft.baseline != nil { return "Remove your entire listing on MFL for now." }
+        guard draft.canPublish, let snapshot = block.feed.snapshot else { return nil }
+        return (try? TradingBlockPolicy.validate(draft, fresh: snapshot, ownerID: block.workspace.franchiseID)) == nil
+            ? "Review the latest listing and current ownership before submitting." : nil
+    }
+    private func assetRow(_ asset: TradeAsset, listed: Bool) -> some View {
+        HStack(spacing: 12) {
+            BlockAssetSummary(asset: asset)
+            Spacer(minLength: 8)
+            Button {
+                if listed { draft.codes.remove(asset.id) }
+                else { draft.codes.insert(asset.id) }
+            } label: {
+                Image(systemName: listed ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
+                    .font(.title3).foregroundStyle(listed ? Color.orange : Color.blitzGreen)
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
+            }.buttonStyle(.borderless).disabled(block.isBusy)
+                .accessibilityLabel("\(listed ? "Remove from trading block" : "Add to trading block"): \(asset.name)")
+                .accessibilityHint("Review and submit when ready. Your roster and lineup stay unchanged.")
+                .accessibilityIdentifier("block-\(listed ? "demote" : "promote")-\(asset.id)")
+        }.padding(.vertical, 4)
+    }
+}
+
+private struct BlockReviewSelection: Identifiable {
+    let id = UUID()
+    let draft: TradingBlockDraft
+    let assets: [TradeAsset]
+}
+
+private struct TradingBlockSubmissionReview: View {
+    @Environment(\.dismiss) private var dismiss
+    let block: TradingBlockModel
+    let selection: BlockReviewSelection
+    let submitted: () -> Void
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("On the block · \(selection.assets.count)") {
+                    ForEach(selection.assets) { BlockAssetSummary(asset: $0).padding(.vertical, 4) }
+                }
+                if !selection.draft.lookingFor.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Section("Looking for") { Text(selection.draft.lookingFor) }
+                }
+                Section {
+                    Text("Visible to your league. Your roster and lineup won’t change.").font(.subheadline).foregroundStyle(.secondary)
+                    if let notice = block.notice { Text(notice).font(.footnote).foregroundStyle(.orange) }
+                }
+            }
+            .navigationTitle("Review trading block").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(block.isBusy) } }
+            .safeAreaInset(edge: .bottom) {
+                PrimaryActionButton(title: "Submit trading block", systemImage: "checkmark.circle.fill",
+                    isBusy: block.isBusy, isDisabled: !block.canEdit || !selection.draft.canPublish) {
+                    Task { if await block.publish(selection.draft) { submitted() } }
+                }.accessibilityIdentifier("block-publish")
+                    .padding(16).background(.ultraThinMaterial)
+            }
+        }.interactiveDismissDisabled(block.isBusy).presentationDetents([.large])
+    }
+}
+
+private struct BlockAssetSummary: View {
+    let asset: TradeAsset
+    private var position: String? {
+        guard asset.kind == .player else { return nil }
+        let code = asset.detail.components(separatedBy: " · ").first ?? ""
+        return Self.positions.contains(code) ? code : nil
+    }
+    private static let positions = ["QB", "RB", "WR", "TE", "PK", "K", "DEF", "DT", "DE", "DL", "LB", "CB", "S", "DB", "PN"]
+    static func precedes(_ left: TradeAsset, _ right: TradeAsset) -> Bool {
+        func order(_ asset: TradeAsset) -> Int {
+            positions.firstIndex(of: asset.detail.components(separatedBy: " · ").first ?? "") ?? positions.count
+        }
+        if order(left) != order(right) { return order(left) < order(right) }
+        return left.name.localizedStandardCompare(right.name) == .orderedAscending
+    }
+    var body: some View {
+        HStack(spacing: 12) {
+            if let position { PositionBadge(position: position) }
+            else { Image(systemName: asset.kind == .pick ? "ticket" : "person.crop.circle").foregroundStyle(Color.blitzGreen).frame(width: 40) }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(asset.name).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                Text(asset.detail).font(.caption).foregroundStyle(.secondary)
+            }
+        }.accessibilityElement(children: .combine)
     }
 }

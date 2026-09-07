@@ -1,5 +1,7 @@
 import Foundation
-import UserNotifications
+// Older SDKs lack Sendable annotations on the immutable notification snapshots.
+// All scheduling and mutation remain serialized by this actor.
+@preconcurrency import UserNotifications
 
 enum DeadlineAuthorization: Sendable { case undecided, denied, allowed }
 
