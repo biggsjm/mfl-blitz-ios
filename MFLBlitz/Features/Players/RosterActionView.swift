@@ -256,7 +256,8 @@ struct RosterActionListView: View {
                             }
                             ForEach(eligible) { playerRow($0, kind: .reserve, membership: "ROSTER") }
                             if eligible.isEmpty {
-                                Text("No eligible players available").foregroundStyle(.secondary)
+                                Text(model.playerTools.irAvailabilityIssue(week: model.currentWeek)
+                                     ?? "No eligible players available").foregroundStyle(.secondary)
                             }
                         } header: { Text("Eligible to move") } footer: {
                             Text(context.irCount >= context.irLimit
