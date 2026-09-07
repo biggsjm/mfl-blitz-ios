@@ -6,6 +6,55 @@ import Testing
 @testable import MFLCore
 
 struct RefreshCoordinationTests {
+    @Test("Cancellation classification requires a cancellation type or URLSession domain and code")
+    func cancellationClassification() {
+        #expect(MFLCoreError.isCancellation(CancellationError()))
+        #expect(MFLCoreError.isCancellation(URLError(.cancelled)))
+        #expect(!MFLCoreError.isCancellation(URLError(.timedOut)))
+        #expect(!MFLCoreError.isCancellation(NSError(domain: "SyntheticOtherDomain", code: NSURLErrorCancelled)))
+        #expect(!MFLCoreError.isCancellation(MFLCoreError.transport("cancelled NSURLErrorDomain -999")))
+    }
+
+    @Test("Swift and URLSession cancellations stay cancellations, never raw transport errors", arguments: ["swift", "url", "ns"])
+    func transportCancellation(kind: String) async throws {
+        let transport = CancellationTransport(kind: kind)
+        let client = try client(transport)
+        await #expect(throws: CancellationError.self) {
+            try await client.liveScoring(week: 1, refreshPolicy: .reloadIgnoringCache)
+        }
+        #expect(await transport.calls == 1)
+    }
+
+    @Test("Network errors never expose URLSession diagnostics in user-facing copy")
+    func safeTransportMessage() async throws {
+        let transport = CancellationTransport(kind: "offline")
+        let client = try client(transport)
+        do {
+            _ = try await client.liveScoring(week: 1, refreshPolicy: .reloadIgnoringCache)
+            Issue.record("Expected the genuine network error")
+        } catch let error as MFLCoreError {
+            guard case .transport = error else { Issue.record("Expected a transport error"); return }
+            #expect(!String(describing: error).contains("private-test-url"))
+            #expect(error.localizedDescription == "Couldn’t complete the MFL request. Please try again.")
+        }
+        #expect(MFLCoreError.transport("private-test-url UserInfo raw diagnostics").localizedDescription ==
+                "Couldn’t complete the MFL request. Please try again.")
+        #expect(await transport.calls == 1)
+    }
+
+    @Test("A cancelled import is not acknowledged or automatically replayed")
+    func cancelledImport() async throws {
+        let transport = CancellationTransport(kind: "ns")
+        let client = MFLClient(configuration: MFLClientConfiguration(
+            league: try MFLLeagueReference(season: 2026, leagueID: "41333", host: MFLAPIHost("www45.myfantasyleague.com")),
+            userAgent: "Synthetic cancellation tests", minimumRequestInterval: .zero),
+            transport: transport, authenticationCookie: try MFLAuthenticationCookie(value: "synthetic-cookie"))
+        await #expect(throws: CancellationError.self) {
+            try await client.submitLineup(MFLLineupSubmission(week: 1, starterPlayerIDs: ["101"]))
+        }
+        #expect(await transport.calls == 1)
+    }
+
     @Test("A public-feed cooldown does not block a different league server; neither host is retried")
     func hostScopedCooldown() async throws {
         let transport = RefreshTransport(rateLimitFirst: true, retryHeader: "65")
@@ -118,6 +167,21 @@ struct RefreshCoordinationTests {
         try await Task.sleep(for: .milliseconds(1_100))
         _ = try await client.projectedScores(week: 1)
         #expect(await transport.calls == 2)
+    }
+}
+
+private actor CancellationTransport: MFLHTTPTransport {
+    let kind: String
+    var calls = 0
+    init(kind: String) { self.kind = kind }
+    func send(_ request: URLRequest) async throws -> MFLHTTPResponse {
+        calls += 1
+        if kind == "swift" { throw CancellationError() }
+        if kind == "url" { throw URLError(.cancelled) }
+        throw NSError(domain: NSURLErrorDomain,
+                      code: kind == "offline" ? NSURLErrorNotConnectedToInternet : NSURLErrorCancelled,
+                      userInfo: [NSURLErrorFailingURLStringErrorKey: "https://private-test-url/export?synthetic=1",
+                                 NSLocalizedDescriptionKey: "private-test-url UserInfo raw diagnostics"])
     }
 }
 

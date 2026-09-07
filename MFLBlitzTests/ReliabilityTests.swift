@@ -16,6 +16,8 @@ actor ReliabilityRepository: LeagueRepository {
     var transactionGate: TestGate?
     var restoreGate: TestGate?
     var lineupGate: TestGate?
+    var scoreGate: TestGate?
+    var scoreFailure: (any Error)?
     var restoreFailure: MFLCoreError?
     var testLineup = SampleData.lineup
     var testWaivers = SampleData.waivers
@@ -47,8 +49,12 @@ actor ReliabilityRepository: LeagueRepository {
     }
     func loadScores(week: Int) async throws -> ScoresSnapshot {
         scoreLoads += 1
+        if let scoreGate { await scoreGate.wait() }
+        if let scoreFailure { throw scoreFailure }
         var result = SampleData.scores; result.week = week; return result
     }
+    func failScores(_ error: (any Error)?) { scoreFailure = error }
+    func pauseScores(_ gate: TestGate) { scoreGate = gate }
     func loadLineup(week: Int) async throws -> LineupSnapshot {
         lineupLoads += 1
         if let lineupGate { await lineupGate.wait() }
@@ -121,6 +127,93 @@ actor TestGate {
 
 @MainActor
 struct ReliabilityTests {
+    private func cancellation(_ kind: String) -> any Error {
+        switch kind {
+        case "swift": CancellationError()
+        case "url": URLError(.cancelled)
+        default: NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled,
+                         userInfo: [NSURLErrorFailingURLStringErrorKey: "https://synthetic.invalid/private"])
+        }
+    }
+
+    @Test("Cancelled manual and polling score reads retain data without a stale banner or alert",
+          arguments: ["swift", "url", "ns"], [false, true])
+    func cancelledScoreRefresh(kind: String, silent: Bool) async throws {
+        let repository = ReliabilityRepository()
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore())
+        await model.signIn(credentials: LoginCredentials())
+        let previous = model.scores
+        await repository.failScores(cancellation(kind))
+        await model.refreshScores(silent: silent)
+        #expect(model.scores == previous)
+        #expect(model.scoreRefreshError == nil && model.notice == nil)
+        #expect(!model.isLoadingScores && !model.isRefreshing)
+        #expect(model.phase == .signedIn)
+        let beforeRetry = await repository.scoreLoads
+        await repository.failScores(nil)
+        await model.refreshScores()
+        #expect(await repository.scoreLoads == beforeRetry + 1)
+        #expect(model.scoreRefreshError == nil && model.notice == nil)
+    }
+
+    @Test("A cancelled score branch does not fail the full refresh or strand loading states", arguments: ["swift", "url", "ns"])
+    func cancelledFullRefresh(kind: String) async throws {
+        let repository = ReliabilityRepository()
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore())
+        await model.signIn(credentials: LoginCredentials())
+        let previous = model.scores, beforeBoard = await repository.boardLoads
+        await repository.failScores(cancellation(kind))
+        await model.refreshAll()
+        #expect(model.scores == previous)
+        #expect(model.scoreRefreshError == nil && model.notice == nil)
+        #expect(!model.isLoadingScores && !model.isLoadingLineup && !model.isLoadingBoard && !model.isLoadingWaivers)
+        #expect(!model.isRefreshing)
+        #expect(await repository.boardLoads == beforeBoard + 1)
+        // An interrupted full refresh must not start the foreground cooldown.
+        let beforeRetry = await repository.scoreLoads
+        await repository.failScores(nil)
+        await model.refreshForForeground()
+        #expect(await repository.scoreLoads == beforeRetry + 1)
+        #expect(model.notice == nil && model.scoreRefreshError == nil)
+    }
+
+    @Test("Cancelling a running score task does not surface its late network failure")
+    func cancelledScoreTask() async throws {
+        let repository = ReliabilityRepository()
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore())
+        await model.signIn(credentials: LoginCredentials())
+        let before = await repository.scoreLoads
+        let gate = TestGate()
+        await repository.pauseScores(gate)
+        await repository.failScores(URLError(.networkConnectionLost))
+        let task = Task { await model.refreshScores() }
+        while await repository.scoreLoads == before { await Task.yield() }
+        task.cancel()
+        await gate.open()
+        await task.value
+        #expect(model.scoreRefreshError == nil && model.notice == nil)
+        #expect(!model.isRefreshing && !model.isLoadingScores)
+    }
+
+    @Test("Genuine score failures remain visible and cancellation does not erase an existing warning")
+    func genuineScoreFailure() async throws {
+        let repository = ReliabilityRepository()
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore())
+        await model.signIn(credentials: LoginCredentials())
+        let previous = model.scores
+        await repository.failScores(MFLCoreError.transport("private diagnostics"))
+        await model.refreshScores()
+        #expect(model.notice == .error("Couldn’t complete the MFL request. Please try again."))
+        let warning = try #require(model.scoreRefreshError)
+        model.notice = nil
+        await repository.failScores(URLError(.cancelled))
+        await model.refreshScores()
+        #expect(model.notice == nil && model.scoreRefreshError == warning && model.scores == previous)
+        await repository.failScores(nil)
+        await model.refreshScores()
+        #expect(model.scoreRefreshError == nil && model.notice == nil)
+    }
+
     @Test("Visible-section refreshes do not reload unrelated feeds or replace an edited lineup")
     func scopedRefreshBudget() async throws {
         let repository = ReliabilityRepository()

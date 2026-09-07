@@ -2,6 +2,13 @@
 
 Implemented private-build history through September 7, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.5.4 (32) — September 7, 2026 — cancelled score refreshes
+
+- Preserve Swift and URLSession cancellation as cancellation instead of wrapping it in a user-facing transport failure.
+- Keep existing Scores data and warnings during cancelled manual/polling/full refreshes, release loading gates, and permit a later foreground refresh without a false successful-refresh cooldown.
+- Replace raw network diagnostic dumps with concise transport-error copy; retain only numeric network codes, never URLs or UserInfo. Genuine errors, rate limits, authentication and uncertain-write safeguards remain intact; no automatic retries are added.
+- Add typed cancellation, manual/polling refresh, retry, foreground recovery, safe-error and cancelled-import regressions. See [current status](docs/current-status.md) for actual delivery evidence.
+
 ## 0.5.4 (31) — September 7, 2026 — immediate player identity
 
 - Show the tapped player's known name, position and NFL team before ownership finishes; season/game-log reads and matching-week metrics no longer wait for that response.
