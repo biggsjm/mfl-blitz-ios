@@ -1,6 +1,6 @@
 # Player and team detail
 
-Status: **Player-card and matchup refinement — candidate 0.5.4 (31), installed baseline 30**, September 7, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work. The owner confirmed corrected matchup Back navigation on build 29 and the spinner fix on build 30. Remaining primary-card latency is addressed in build 31; completed-week scoring still needs owner validation.
+Status: **Player-card and matchup refinement — installed private build 0.5.4 (31)**, September 7, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work. The owner confirmed corrected matchup Back navigation on build 29 and the spinner fix on build 30. Remaining primary-card latency is addressed in build 31; completed-week scoring still needs owner validation.
 
 ## Navigation and action boundaries
 
@@ -75,7 +75,7 @@ Availability previously belonged to the first screen's cancellable task. Another
 
 A player route carries only the identity already visible in its source row: canonical ID, name and supplied position/NFL team. Matching player and active league/owner scope are required. Scores, Lineup, team rosters, available players, watchlist, roster tools and player-only trade research supply it; no position/team is guessed from trade prose.
 
-Player Detail renders that identity and any already-known matching-week metrics without waiting for ownership. Season scoring and game-log reads start independently. The primary card says Checking league status until that read completes; no Starting/Bench/Free agent claim or roster action comes from the identity preview. Watch remains disabled until detail is loaded. Failed reads retain the identity with actionable error state; the existing reconnect-only boundary is unchanged. This adds no API request, response store, permission or background task. A DEBUG-only offline Preview test deliberately delays ownership for 20 seconds and requires identity/Week content before completion, with actions unavailable.
+Player Detail renders that identity and any already-known matching-week metrics without waiting for ownership. Season scoring and game-log reads start independently. The primary card says Checking league status until that read completes; no Starting/Bench/Free agent claim or roster action comes from the identity preview. Watch remains disabled until detail is loaded. Failed reads retain the identity with actionable error state; the existing reconnect-only boundary is unchanged. This adds no API request, response store, permission or background task. A DEBUG-only offline Preview test deliberately delays ownership for 20 seconds and requires identity/Week content before completion, with actions unavailable. All final local/GitHub checks passed and PR #8 is merged; phone installation is confirmed, but automatic launch was blocked by the lock screen. Live opening-speed acceptance remains an owner check; see the exact delivery record in Current status.
 
 ## Caching, privacy and state
 

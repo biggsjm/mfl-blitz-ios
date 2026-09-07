@@ -1,10 +1,12 @@
 # Week 1 owner test and Week 2 go/no-go
 
-Updated September 7, 2026 for candidate **0.5.4 (31)**; build 30 is installed. It includes player cards/game logs and their loading follow-up, cached startup, the Lineup projection margin, six direct My Team destinations and the shared numeric standings pattern. See [current status](current-status.md) for actual delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use a validated, installed build for owner testing.
+Updated September 7, 2026 for installed private build **0.5.4 (31)**. It includes player cards/game logs and their loading follow-up, cached startup, the Lineup projection margin, six direct My Team destinations and the shared numeric standings pattern. See [current status](current-status.md) for actual delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use a validated, installed build for owner testing.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
 ## Already observed
+
+- Build **0.5.4 (31)** installed September 7 from the exact tested source. Full local/GitHub checks passed and PR #8 is merged. Automatic launch was denied by the phone lock; open MFL Blitz after unlocking and recheck player opening speed. Installation is not a real-network performance measurement.
 
 - Build **0.5.4 (30)** installed and launched September 7. Josh confirmed the game-log/game-info spinner is fixed but reported that the player card still takes a while. Build 31 addresses that remaining dependency. No real-phone latency benchmark is claimed.
 
@@ -44,7 +46,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 - [ ] Make an unsent lineup edit, browse a different schedule week/player/team, then return. The edit and selected Lineup/Scores week must remain unchanged. Check Back and section/scroll restoration.
 - [ ] Open this week's schedule matchup and confirm player scoring matches Scores. Backgrounding stops polling; returning does not create duplicate refreshers.
 
-### Player cards and live-matchup navigation — builds 29–30
+### Player cards and live-matchup navigation — builds 29–31
 
 - [ ] On build 31, open a player from Scores, Lineup and My Team. The tapped identity should appear before league status finishes, with Week metrics available independently and no roster action enabled by that preview.
 - [ ] Open/reopen a player and switch away while game information is loading. It must finish for the next screen or show a retry state, not remain spinning. Biography loads only on expansion, without holding back the primary card.

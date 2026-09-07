@@ -1,6 +1,6 @@
 # Execution plan and remaining work
 
-Updated September 7, 2026 for candidate **0.5.4 (31)**; installed baseline is build 30. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records exact installation/test evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 7, 2026 for installed private build **0.5.4 (31)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records exact installation/test evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 
@@ -21,7 +21,7 @@ Updated September 7, 2026 for candidate **0.5.4 (31)**; installed baseline is bu
 - [x] Designer-reviewed player summary, unified Week card, automatic paged game log with disclosed current-team NFL opponents, collapsed biography and secondary explicit Drop actions.
 - [x] Matchup owner names, simplified position headers and single-stack matchup → player → Back routing; team tools work from pushed destinations.
 - [x] Player loading: lazy cached biography, reused primary detail on ordinary reappearance, and model-owned availability reads that survive screen cancellation. Josh confirmed the spinner fix; remaining card latency prompted build 31. Actual phone timing remains open.
-- [x] Immediate display-only player identity from the tapped row, independent Week/research loading, and unchanged ownership/action gates (build 31; verification pending).
+- [x] Immediate display-only player identity from the tapped row, independent Week/research loading, and unchanged ownership/action gates (build 31; local/GitHub verification passed, owner latency recheck remains open).
 - [x] Initial My Team/shared team roster, Player Detail, team/league season schedules and canonical-ID navigation. Player tools 1–5 extend this in the installed build.
 
 ## P0 — Week 1 validation and Week 2 release gates
