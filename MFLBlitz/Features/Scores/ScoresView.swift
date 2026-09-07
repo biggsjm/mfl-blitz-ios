@@ -373,7 +373,7 @@ private struct MatchupCard: View {
                 Label("Live", systemImage: "circle.fill")
                     .foregroundStyle(.red)
             } else {
-                Text(matchup.status.label == "Final" ? "Final" : "Upcoming")
+                Text(matchup.status == .saved ? "Last update" : matchup.status.label == "Final" ? "Final" : "Upcoming")
                     .foregroundStyle(.secondary)
             }
         }

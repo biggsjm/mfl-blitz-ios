@@ -41,7 +41,7 @@ Section age does not reset when a different section refreshes. Wrong-week scores
 - Two synthetic repository launches perform **two fresh membership checks but one league download** with the protected metadata cache; daily public-catalog reuse remains one download across tabs/relaunch.
 - A suspended-lineup test proves scores can render before optional waivers/Board/standings/trades start. Another proves successful authentication alone does not enable a still-cached lineup.
 - Coverage includes offline retry, expired access, cookie/season/league/franchise isolation, sign-out, corrupt/future/aged cache rejection, per-section dates, no raw cookie persistence, backup exclusion, stricter balance TTLs, forced reads, mutation invalidation and week rollover.
-- Explicit DEBUG-only native Preview journeys hold authentication or simulate offline service, verifying saved Scores/Lineup/My Team, disabled lineup actions, reconnect controls and largest-text status placement. They use an isolated synthetic store and never the live Keychain/network.
+- Explicit DEBUG-only native Preview journeys hold authentication or simulate offline service, verifying saved Scores/Lineup/My Team, disabled lineup actions, reconnect controls and largest-text status placement. Cached score rows never call old scores “Upcoming.” Player detail opened during reconnection explains the connection requirement and reloads when verification finishes. Tests use an isolated synthetic store and never the live Keychain/network.
 - Development testing caught and fixed a stale foreground-week check, overlapping reconnect status and overly detailed timestamps. Final counts/results are recorded separately; failed or superseded runs are not passes.
 
 ## Remaining work
@@ -51,5 +51,8 @@ Section age does not reset when a different section refreshes. Wrong-week scores
 3. Review optional-feed loading on demand and an explicit manual cache-refresh affordance after commissioner rule changes; current fresh write checks remain mandatory.
 4. Consider separately scoped offline schedule/player-detail support only if needed; do not broaden private persistence silently. Keep background/push work in the existing feature plan.
 5. Complete broader maximum-Dynamic-Type Scores cards/Lineup rows, iPad/small-screen and manual assistive-technology checks in the [release gates](roadmap.md).
+6. Profile remaining main-actor work before expanding this pass: available-player filtering/localized sorting on view updates, synchronous Keychain draft writes, and repeated non-player response decoding. Small roster/offer collections do not justify speculative concurrency changes. My Team's trade badge refresh now waits for that tab to be visited; it is not a push notification.
+
+A short physical-phone App Launch trace was attempted twice after successful build-28 installation/launch. Instruments reported a device connection error and produced no timing samples, although CoreDevice reported the phone booted with developer services enabled. This is not a passing trace or evidence of an app hang; a stable profiling connection remains needed.
 
 The approach follows the existing [MFL API cache guidance](https://api.myfantasyleague.com/2026/api_info) and Apple's guidance to keep non-UI work away from interaction-sensitive execution in [Improving app responsiveness](https://developer.apple.com/documentation/xcode/improving-app-responsiveness). See [API policies](api-integration.md), [privacy](../PRIVACY.md) and [security](../SECURITY.md) for the exact implemented contract.

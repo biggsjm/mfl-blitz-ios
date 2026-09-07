@@ -24,6 +24,13 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertTrue(app.buttons["roster-player-12620"].waitForExistence(timeout: 3))
         let roster = XCTAttachment(screenshot: app.screenshot())
         roster.name = "Cached startup — saved season roster"; roster.lifetime = .keepAlways; add(roster)
+        let player = app.buttons["roster-player-12620"]
+        for _ in 0..<5 where !player.isHittable { app.swipeUp() }
+        XCTAssertTrue(player.isHittable)
+        player.tap()
+        XCTAssertTrue(app.staticTexts["Connect to view player"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["player-watch-12620"].isEnabled)
+        XCTAssertFalse(app.staticTexts["Loading player…"].exists)
         app.terminate()
     }
 

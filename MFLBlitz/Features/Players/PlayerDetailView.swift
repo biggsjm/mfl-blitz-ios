@@ -17,6 +17,9 @@ struct PlayerDetailView: View {
 
     var body: some View {
         List {
+            if model.isUsingCachedSession {
+                ConnectionStatusBanner().listRowBackground(Color.clear)
+            }
             if model.isDemo { DemoBanner().listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
             if let message = detailModel.errorMessage {
                 Section {
@@ -89,6 +92,10 @@ struct PlayerDetailView: View {
             } else if detailModel.isLoading {
                 ProgressView("Loading player…")
                     .frame(maxWidth: .infinity).listRowBackground(Color.clear)
+            } else if model.isUsingCachedSession {
+                ContentUnavailableView("Connect to view player", systemImage: "wifi",
+                    description: Text("Details will load when your league reconnects."))
+                    .listRowBackground(Color.clear)
             } else if detailModel.errorMessage == nil {
                 ContentUnavailableView("Player unavailable", systemImage: "person.crop.circle",
                     description: Text("Pull to refresh this player’s information."))
@@ -109,11 +116,11 @@ struct PlayerDetailView: View {
                     model.playerTools.isChangingWatchList || model.playerTools.unconfirmedWatch != nil)
             }
         }
-        .task(id: "\(model.workspace?.storageScope ?? "none")|\(playerID)|\(model.rosterRevision)") { await load(refresh: detailModel.detail != nil) }
-        .task(id: "availability|\(model.workspace?.storageScope ?? "none")|\(contextWeek)") {
+        .task(id: "\(model.workspace?.storageScope ?? "none")|\(playerID)|\(model.rosterRevision)|\(model.isUsingCachedSession)") { await load(refresh: detailModel.detail != nil) }
+        .task(id: "availability|\(model.workspace?.storageScope ?? "none")|\(contextWeek)|\(model.isUsingCachedSession)") {
             await model.loadPlayerAvailability(week: contextWeek)
         }
-        .task(id: "watchlist|\(model.workspace?.storageScope ?? "none")") { await model.loadWatchList() }
+        .task(id: "watchlist|\(model.workspace?.storageScope ?? "none")|\(model.isUsingCachedSession)") { await model.loadWatchList() }
         .task(id: "ir|\(model.workspace?.storageScope ?? "none")|\(model.currentWeek)|\(isOwnedPlayer)") {
             if isOwnedPlayer { await model.loadPlayerAvailability(week: model.currentWeek) }
         }
@@ -281,6 +288,7 @@ struct PlayerDetailView: View {
 
     private func load(refresh: Bool) async {
         guard let workspace = model.workspace else { detailModel.invalidate(); return }
+        guard !model.isUsingCachedSession else { return }
         await detailModel.load(scope: workspace.storageScope, playerID: playerID, force: refresh) {
             try await model.loadPlayerDetail(playerID: playerID, refresh: refresh)
         }
