@@ -1211,6 +1211,10 @@ final class AppModel {
         try await readForBrowsing { try await $0.loadPlayerDetail(playerID: playerID, refresh: refresh) }
     }
 
+    func loadPlayerBiography(playerID: String) async throws -> PlayerBio? {
+        try await readForBrowsing { try await $0.loadPlayerBiography(playerID: playerID) }
+    }
+
     func loadPlayerAvailability(week: Int, refresh: Bool = false) async {
         await playerTools.loadAvailability(week: week, refresh: refresh) {
             try await self.readForBrowsing { try await $0.loadPlayerAvailability(week: week, refresh: refresh) }

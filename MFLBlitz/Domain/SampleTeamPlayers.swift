@@ -66,11 +66,15 @@ extension DemoLeagueRepository {
         // MFL without borrowing a real player's private acquisition status.
         let locked = assignments.isEmpty && playerID == "w2"
         return PlayerDetailSnapshot(scope: SampleData.workspace.storageScope, identity: identity,
-            bio: playerID == "12620" ? PlayerBio(jerseyNumber: "4", height: "6′ 2″", weight: "238 lb") : nil,
             ownership: PlayerOwnership(assignments: assignments, availabilityFranchiseID: SampleData.workspace.franchiseID,
                 isFreeAgent: assignments.isEmpty, cannotAdd: nil, acquisitionLocked: locked,
                 canAddImmediately: assignments.isEmpty && !locked),
             ownershipVerifiedAt: refresh ? Date() : nil)
+    }
+
+    func loadPlayerBiography(playerID: String) async throws -> PlayerBio? {
+        _ = try await loadPlayerDetail(playerID: playerID, refresh: false)
+        return playerID == "12620" ? PlayerBio(jerseyNumber: "4", height: "6′ 2″", weight: "238 lb") : nil
     }
 }
 

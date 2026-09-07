@@ -42,7 +42,7 @@ struct PlayerResearchSections: View {
                     }
                     .padding(.vertical, 4)
                     .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Week \(item.week), \(pointsText(item)) fantasy points, NFL opponent: \(item.opponentLabel ?? "unavailable")")
+                    .accessibilityLabel("Week \(item.week), \(spokenPoints(item)), NFL opponent: \(item.opponentLabel ?? "unavailable")")
                     .accessibilityIdentifier("player-game-week-\(item.week)")
                 }
                 if page.nextBeforeWeek != nil {
@@ -91,5 +91,10 @@ struct PlayerResearchSections: View {
     private func pointsText(_ item: PlayerHistoryWeek) -> String {
         if item.unavailable { return "Unavailable" }
         return item.points.map { $0.pointsText(precision: scorePrecision) } ?? "—"
+    }
+
+    private func spokenPoints(_ item: PlayerHistoryWeek) -> String {
+        guard !item.unavailable, item.points != nil else { return "fantasy points unavailable" }
+        return "\(pointsText(item)) fantasy points"
     }
 }

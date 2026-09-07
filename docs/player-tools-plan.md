@@ -2,7 +2,7 @@
 
 Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in 0.5.0 (19), with owner-feedback fixes in 0.5.1 (20) and 0.5.2 (21), followed by **0.5.3 (22–26)** direct-tool navigation and the [shared standings pattern](standings-pattern.md). Build 21 adds compact player actions, strict visible Add gating and the My Team season-roster refinement. Implementation and automated verification are separate from live-owner certification. [Current status](current-status.md) records exact device/test evidence; [roadmap](roadmap.md) retains release gates and remaining work.
 
-Build **0.5.4 (29)** refines the [player-card hierarchy and matchup routing](player-detail-ux.md), adds the visible Week / Points / NFL opponent log with a disclosed current-team schedule approximation, and moves Drop into secondary labeled actions. Current status separates this candidate from installed/tested delivery.
+Build **0.5.4 (29–30)** refines the [player-card hierarchy and matchup routing](player-detail-ux.md), adds the visible Week / Points / NFL opponent log with a disclosed current-team schedule approximation, and moves Drop into secondary labeled actions. Build 30 also separates biography from primary loading and shares availability reads across navigation. Current status distinguishes candidate verification from installed/tested delivery.
 
 ## Scope and sequence
 
@@ -22,13 +22,13 @@ Champion Hall's September 6 public configuration reports `BBID_FCFS`, conditiona
 
 - [x] Decode official injury reports, NFL schedule/kickoffs, and bye weeks with singleton/array and missing-value handling.
 - [x] Share season/week caches; load secondary information independently so it never blocks sign-in, lineup or scores.
-- [x] Show compact injury/bye badges and opponent/kickoff context. Use local time and explicit source freshness in detail.
+- [x] Show compact injury/bye badges and opponent/kickoff context. Use local time and a daily-source caveat in the Week card; source timestamps remain data for freshness/eligibility checks.
 - [x] An absent injury record is not proof of health. A missing game is not proof of a bye. MFL injury data is documented as daily, not instant breaking news.
 - [x] Do not treat acquisition locks as lineup locks or the schedule export as live NFL scoring. MFL remains authoritative for write eligibility.
 
 ## 2 — Player research
 
-- [x] Add league-scored fantasy totals/average and completed-week game history, with a simple recent-form view.
+- [x] Add league-scored fantasy totals/average and completed-week game history, with a visible weekly points/opponent log.
 - [x] Build 29: primary YTD/AVG scoring loads independently; the visible game log loads four recent completed weeks, then explicit Earlier weeks. Reuse one cached full NFL season schedule for the current-team opponent approximation approved by Josh. Never fan out 18 forced week requests or request future results.
 - [x] Distinguish missing data from a real zero, partial history from complete history, and projections from results. Preserve exact season/week/player/league identity.
 - [x] Verified pointsAllowed decoder/client retained; build 29 removes its automatic request and secondary position-total card from default Player Detail. NFL opponent context now accompanies actual weekly player points.

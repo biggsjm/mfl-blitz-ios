@@ -4,6 +4,61 @@ import Testing
 @testable import MFLBlitz
 
 struct PlayerToolsSafetyTests {
+    @Test("Navigating away does not cancel the shared game-info read or strand another screen") @MainActor
+    func sharedAvailabilitySurvivesNavigation() async throws {
+        let model = PlayerToolsModel()
+        model.reset(scope: "s")
+        var release: CheckedContinuation<Void, Never>?
+        var reads = 0
+        let first = Task {
+            await model.loadAvailability(week: 1, refresh: false) {
+                reads += 1
+                await withCheckedContinuation { release = $0 }
+                try Task.checkCancellation()
+                return PlayerAvailabilitySnapshot(scope: "s", week: 1)
+            }
+        }
+        for _ in 0..<1_000 where release == nil { await Task.yield() }
+        let continuation = try #require(release)
+        #expect(model.isLoadingAvailability(week: 1))
+        first.cancel()
+        let second = Task {
+            await model.loadAvailability(week: 1, refresh: false) {
+                reads += 1
+                return PlayerAvailabilitySnapshot(scope: "s", week: 1)
+            }
+        }
+        await Task.yield()
+        continuation.resume()
+        await first.value
+        await second.value
+        #expect(reads == 1)
+        #expect(model.availability[1]?.scope == "s")
+        #expect(model.availabilityErrors[1] == nil)
+        #expect(!model.isLoadingAvailability(week: 1))
+    }
+
+    @Test("Interrupted game-info reads stop loading and allow an immediate normal retry") @MainActor
+    func interruptedAvailabilityCanRetry() async {
+        let model = PlayerToolsModel()
+        model.reset(scope: "s")
+        await model.loadAvailability(week: 1, refresh: false) { throw CancellationError() }
+        #expect(!model.isLoadingAvailability(week: 1))
+        #expect(model.availabilityErrors[1] != nil)
+        await model.loadAvailability(week: 1, refresh: false) { PlayerAvailabilitySnapshot(scope: "s", week: 1) }
+        #expect(model.availability[1] != nil && model.availabilityErrors[1] == nil)
+        #expect(!model.isLoadingAvailability(week: 1))
+    }
+
+    @Test("Mismatched game-info responses are explicit failures, not endless loading") @MainActor
+    func mismatchedAvailabilityEndsLoading() async {
+        let model = PlayerToolsModel()
+        model.reset(scope: "s")
+        await model.loadAvailability(week: 1, refresh: false) { PlayerAvailabilitySnapshot(scope: "other", week: 2) }
+        #expect(model.availability.isEmpty && model.availabilityErrors[1] != nil)
+        #expect(!model.isLoadingAvailability(week: 1))
+    }
+
     @Test("IR controls require a current matching injury report and an eligible designation") @MainActor
     func irControlEligibility() async {
         let model = PlayerToolsModel(), now = Date()

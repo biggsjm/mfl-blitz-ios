@@ -104,8 +104,14 @@ struct PlayerWeekSection: View {
                 } else if let error = model.playerTools.availabilityErrors[week] {
                     Text(error).font(.caption).foregroundStyle(.secondary)
                     Button("Retry game info") { Task { await model.loadPlayerAvailability(week: week, refresh: true) } }
+                } else if model.playerTools.isLoadingAvailability(week: week) {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        Text("Updating game info…").font(.caption).foregroundStyle(.secondary)
+                    }
                 } else {
-                    ProgressView("Updating game info…").font(.caption)
+                    Text("Game information unavailable").font(.caption).foregroundStyle(.secondary)
+                    Button("Retry game info") { Task { await model.loadPlayerAvailability(week: week, refresh: true) } }
                 }
             }
             .padding(.vertical, 6)

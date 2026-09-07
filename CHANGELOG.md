@@ -2,6 +2,13 @@
 
 Implemented private-build history through September 7, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.5.4 (30) — September 7, 2026 — player loading follow-up
+
+- Stop optional biography from blocking the primary player card; fetch it on disclosure using its existing cache.
+- Reuse loaded player detail on ordinary reappearance; explicit refresh and roster changes still refresh ownership.
+- Share game-info requests across screens, cancel on league reset, and allow immediate retry after interruption. Show a spinner only for an actual running request, with a compact inline presentation.
+- Add cancellation, shared-read, cache, lazy-biography and scope-isolation regressions; retain mutation gates and rate-limit enforcement. Build 29's navigation fix was confirmed on Josh's phone; build 30's exact delivery/recheck evidence is in [current status](docs/current-status.md).
+
 ## 0.5.4 (29) — September 7, 2026 — player cards and matchup navigation
 
 - Add owner names below matchup team names and remove repetitive acronyms/positional subtotals.

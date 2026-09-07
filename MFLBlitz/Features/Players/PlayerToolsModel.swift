@@ -12,6 +12,7 @@ final class PlayerToolsModel {
     private(set) var isChangingWatchList = false
     private(set) var unconfirmedWatch: PendingWatchAction?
     private var loadingWeeks: Set<Int> = []
+    private var availabilityTasks: [Int: Task<Void, Never>] = [:]
     private var lastAttempts: [Int: Date] = [:]
     private var generation = 0
 
@@ -36,32 +37,63 @@ final class PlayerToolsModel {
     }
 
     func reset(scope: String?) {
+        availabilityTasks.values.forEach { $0.cancel() }
+        availabilityTasks = [:]
         generation += 1
         self.scope = scope
         availability = [:]; availabilityErrors = [:]; loadingWeeks = []; lastAttempts = [:]
         watchList = nil; watchError = nil; isLoadingWatchList = false; isChangingWatchList = false; unconfirmedWatch = nil
     }
 
-    func loadAvailability(week: Int, refresh: Bool, loader: () async throws -> PlayerAvailabilitySnapshot) async {
-        guard !loadingWeeks.contains(week), let scope else { return }
+    func isLoadingAvailability(week: Int) -> Bool { loadingWeeks.contains(week) }
+
+    func loadAvailability(week: Int, refresh: Bool,
+                          loader: @escaping @MainActor () async throws -> PlayerAvailabilitySnapshot) async {
+        guard let scope else { return }
+        if let running = availabilityTasks[week] {
+            await running.value
+            return
+        }
         if !refresh, let last = lastAttempts[week], Date().timeIntervalSince(last) < 60 { return }
         if !refresh, let snapshot = availability[week], Date().timeIntervalSince(snapshot.fetchedAt) < 900 { return }
         let revision = generation
         loadingWeeks.insert(week); lastAttempts[week] = Date()
-        defer { if revision == generation { loadingWeeks.remove(week) } }
-        do {
-            let result = try await loader()
-            try Task.checkCancellation()
-            guard revision == generation, result.scope == scope, result.week == week else { return }
-            if availability.count >= 4, let oldest = availability.min(by: { $0.value.fetchedAt < $1.value.fetchedAt })?.key {
-                availability.removeValue(forKey: oldest)
+        // This is a shared read owned by the league model, not by whichever
+        // screen asked first. Navigating away must not strand a second waiter
+        // behind a cancelled request and the 60-second attempt throttle.
+        let task = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if revision == generation {
+                    loadingWeeks.remove(week)
+                    availabilityTasks[week] = nil
+                }
             }
-            availability[week] = result
-            availabilityErrors[week] = nil
-        } catch {
-            guard revision == generation, !(error is CancellationError), !Task.isCancelled else { return }
-            availabilityErrors[week] = error.localizedDescription
+            do {
+                let result = try await loader()
+                try Task.checkCancellation()
+                guard revision == generation else { return }
+                guard result.scope == scope, result.week == week else {
+                    throw RepositoryError.server("Game information belongs to a different league or week.")
+                }
+                if availability.count >= 4, availability[week] == nil,
+                   let oldest = availability.min(by: { $0.value.fetchedAt < $1.value.fetchedAt })?.key {
+                    availability.removeValue(forKey: oldest)
+                }
+                availability[week] = result
+                availabilityErrors[week] = nil
+            } catch {
+                guard revision == generation else { return }
+                if error is CancellationError || Task.isCancelled || (error as? URLError)?.code == .cancelled {
+                    lastAttempts[week] = nil
+                    availabilityErrors[week] = "Game information couldn’t finish loading. Try again."
+                } else {
+                    availabilityErrors[week] = error.localizedDescription
+                }
+            }
         }
+        availabilityTasks[week] = task
+        await task.value
     }
 
     func loadWatchList(refresh: Bool, loader: () async throws -> WatchListSnapshot) async {

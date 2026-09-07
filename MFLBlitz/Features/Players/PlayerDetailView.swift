@@ -6,6 +6,8 @@ struct PlayerDetailView: View {
     @State private var season = PlayerSeasonSummaryModel()
     @State private var research = PlayerResearchModel()
     @State private var rosterRequest: RosterActionRequest?
+    @State private var showingBiography = false
+    @State private var loadedRosterRevision: Int?
     let playerID: String
     let inspectedWeek: Int?
 
@@ -51,18 +53,27 @@ struct PlayerDetailView: View {
                 PlayerResearchSections(research: research, scorePrecision: model.scores.scorePrecision,
                     retry: { Task { await loadResearch() } },
                     loadMore: { Task { await loadResearch(more: true) } })
-                if let bio = detail.bio, !bio.isEmpty {
-                    Section {
-                        DisclosureGroup("Player bio") {
+                Section {
+                    DisclosureGroup("Player bio", isExpanded: $showingBiography) {
+                        if let bio = detailModel.biography, !bio.isEmpty {
                             if let jersey = bio.jerseyNumber { LabeledContent("Jersey", value: jersey) }
                             if let birthDate = bio.birthDate { LabeledContent("Born", value: birthDateText(birthDate)) }
                             if let height = bio.height { LabeledContent("Height", value: height) }
                             if let weight = bio.weight { LabeledContent("Weight", value: weight) }
                             if let year = bio.draftYear { LabeledContent("NFL draft year", value: String(year)) }
                             if let round = bio.draftRound { LabeledContent("NFL draft round", value: String(round)) }
+                        } else if detailModel.isLoadingBiography {
+                            ProgressView("Loading biography…")
+                        } else if detailModel.hasLoadedBiography {
+                            Text("No biography provided.").foregroundStyle(.secondary)
                         }
-                        .accessibilityIdentifier("player-bio")
+                        if let error = detailModel.biographyErrorMessage {
+                            Text(error).font(.caption).foregroundStyle(.secondary)
+                            Button("Retry biography") { Task { await loadBiography(force: true) } }
+                                .disabled(detailModel.isLoadingBiography)
+                        }
                     }
+                    .accessibilityIdentifier("player-bio")
                 }
                 if !detail.issues.isEmpty {
                     Section {
@@ -127,7 +138,10 @@ struct PlayerDetailView: View {
                     model.playerTools.isChangingWatchList || model.playerTools.unconfirmedWatch != nil)
             }
         }
-        .task(id: "\(model.workspace?.storageScope ?? "none")|\(playerID)|\(model.rosterRevision)|\(model.isUsingCachedSession)") { await load(refresh: detailModel.detail != nil) }
+        .task(id: "\(model.workspace?.storageScope ?? "none")|\(playerID)|\(model.rosterRevision)|\(model.isUsingCachedSession)") { await load(refresh: false) }
+        .task(id: "biography|\(readKey)|\(showingBiography)") {
+            if showingBiography, detail != nil { await loadBiography() }
+        }
         .task(id: "availability|\(model.workspace?.storageScope ?? "none")|\(contextWeek)|\(model.isUsingCachedSession)") {
             await model.loadPlayerAvailability(week: contextWeek)
         }
@@ -176,6 +190,13 @@ struct PlayerDetailView: View {
         guard let scope = model.workspace?.storageScope, !model.isUsingCachedSession else { return }
         await season.load(scope: scope, playerID: playerID, force: force) {
             try await model.loadPlayerSeasonSummary(playerID: playerID)
+        }
+    }
+
+    private func loadBiography(force: Bool = false) async {
+        guard let scope = model.workspace?.storageScope, !model.isUsingCachedSession else { return }
+        await detailModel.loadBiography(scope: scope, playerID: playerID, force: force) {
+            try await model.loadPlayerBiography(playerID: playerID)
         }
     }
 
@@ -325,8 +346,13 @@ struct PlayerDetailView: View {
     private func load(refresh: Bool) async {
         guard let workspace = model.workspace else { detailModel.invalidate(); return }
         guard !model.isUsingCachedSession else { return }
-        await detailModel.load(scope: workspace.storageScope, playerID: playerID, force: refresh) {
-            try await model.loadPlayerDetail(playerID: playerID, refresh: refresh)
+        let rosterRevision = model.rosterRevision
+        let shouldRefresh = refresh || (loadedRosterRevision != nil && loadedRosterRevision != rosterRevision)
+        await detailModel.load(scope: workspace.storageScope, playerID: playerID, force: shouldRefresh) {
+            try await model.loadPlayerDetail(playerID: playerID, refresh: shouldRefresh)
+        }
+        if !Task.isCancelled, detailModel.errorMessage == nil, detail != nil {
+            loadedRosterRevision = rosterRevision
         }
     }
 }

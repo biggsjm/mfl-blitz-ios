@@ -2,15 +2,24 @@
 
 Audited September 7, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Candidate in verification — 0.5.4 (29), player cards and matchup navigation
+## Candidate in verification — 0.5.4 (30), player cards and loading
 
 The [player-card design](player-detail-ux.md) consolidates identity, season points/average and roster/health status; current-week information shares one card; a visible four-week-at-a-time log shows Week / Points / NFL opponent, and biography is collapsed. Josh explicitly approved current-NFL-team schedule context for historical opponents with the caveat behind a small information button. MFL's API does not provide raw NFL statistics. Drop is now a labeled secondary action with explicit removal-not-bench confirmation; own-team status is not another team link.
 
 Matchup detail adds secondary owner names and removes repetitive positional subtotals/acronyms. Baseline native tests reproduced the duplicate-matchup/Back-to-player bug on iOS 27 and 18.4. Typed live-matchup routes fix it, and a stack-scoped router keeps pushed team shortcuts functional. Two independent AI review perspectives inspected code and actual native screenshots; this is not a human usability study.
 
-Final candidate testing, phone installation and GitHub merge are pending. Earlier development runs caught a shortcut-grid navigation regression and an assertion treating native menu row sizing as a custom button size; the grid retains explicit typed-path buttons and menu tests exercise actual native selections. Failed/superseded runs are not final evidence. No live league writes were used for QA.
+Build 30 additionally removes optional biography from the normal primary read, avoids forced ownership refresh on ordinary reappearance, and shares game-info reads independently of the first screen's cancellation. Interrupted reads leave an actionable retry state rather than an idle spinner. All 188 app unit functions pass the first build-30 check (`mfl-build30-models.xcresult`), including seven additional loading/biography regressions. Final native testing, phone installation and exact-head GitHub merge are pending. Earlier development runs caught a shortcut-grid navigation regression and an assertion treating native menu row sizing as a custom button size; the grid retains explicit typed-path buttons and menu tests exercise actual native selections. Failed/superseded runs are not final evidence. No live league writes were used for QA.
 
-## Current installed private build — 0.5.3 (28), cached startup
+## Current installed private build — 0.5.4 (29), owner feedback
+
+Signed source `afe29ff97942d4a2257d9fa5708b68424cfe2953` installed and launched on Josh's iPhone September 7; CoreDevice confirms 0.5.4 / 29 (`mfl-build29-final-installed.json`, `mfl-build29-unlocked-launch.json`). Josh confirmed Scores → matchup → player → Back works. He then reported slow player loading and a lingering game-info spinner; these remain an owner recheck for build 30.
+
+- Final build-29 core source passes 93 tests / 12 suites (`mfl-build29-core-fresh.log`).
+- All 181 app unit functions and three focused native journeys pass on exact `afe29ff` in Dark Mode / iOS 18.4 (`mfl-build29-readable-dark18.xcresult`); the same three native journeys pass in Light Mode (`mfl-build29-readable-light18.xcresult`). Actual screenshots were inspected, including the improved popover contrast and large-text log headers.
+- Earlier integrated runs pass all 181 app unit functions plus 11 focused journeys on both iOS 27 and 18.4 (`mfl-build29-feature.xcresult`, `mfl-build29-feature18.xcresult`). The full iOS 27 regression passes all 181 app unit functions and 39 native journeys (`mfl-build29-full.xcresult`), before the final owner-spacing/accessibility-only adjustments. These are not build-30 verification.
+- GitHub runs `34133876643` and `34134511994` were superseded/cancelled; neither is counted as final merge evidence. No automated QA submits live league changes.
+
+## Previous installed private build — 0.5.3 (28), cached startup
 
 September 7, 2026. [Performance review](performance-startup.md) documents the implemented cached-launch path, scores/lineup-first request ordering, protected daily league metadata, shared player index, storage boundaries and remaining profiling work. The first successful load seeds the new display cache; existing build-27 installs do not already have it. Saved content is read-only until verification/fresh section reads complete; no offline write queue or new analytics/backend is introduced.
 
@@ -138,7 +147,7 @@ Default request spacing reduces pressure but does not guarantee freedom from MFL
 | Scores | Featured/all matchups, positional/FLEX detail, foreground refresh and final reconciliation | No background push; projections are not live win forecasts |
 | Lineup | League-aware bench/starter/FLEX replacements and rotations, saved drafts, review and starter readback | MFL stores starter IDs, not FLEX placements; saved tiebreakers cannot be read back |
 | My Team / team pages | Official own-team standing, six Schedule-first tools, then position-grouped roster sorted by actual season points | Missing totals stay absent; other teams retain assignment-based rosters and never show your inbox or owner controls |
-| Player Detail | Identity, ownership/status, weekly metrics, availability, progressive history, totals/average, points allowed, watch star and supplied biography | Missing source data stays absent; no external imagery/news or guessed facts |
+| Player Detail | Identity, ownership/status, one Week card, season totals/average, visible points/opponent log, watch star and lazy biography | Missing source data stays absent; historical NFL opponents use the explicitly disclosed current-team approximation; no external imagery/news/raw-stat provider |
 | Season schedule | Shared team/league timelines, configured bounds, current/future/final/unset states and route-local matchup scoring | Ambiguous doubleheaders never select an arbitrary scoring game; missing opponents are not guessed byes |
 | Adds / Drops and Injured Reserve | One available-player browser for FCFS or blind bids; owned-player drops; dedicated IR capacity/eligible moves, all with exact membership readback | Supported owner/rule gates only; broader classic/non-conditional, taxi, salary and duplicate-player formats use MFL |
 | Trades | Create/Resume, private drafts, Cancel/rollback, blank-save disabled, exact proposal/response review and separate counters | Counter leaves original open; acceptance can await MFL processing; no blind retries |

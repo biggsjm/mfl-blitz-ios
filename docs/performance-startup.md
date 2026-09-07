@@ -2,6 +2,10 @@
 
 September 7, 2026 · **0.5.3 (28)**. This is an engineering review and synthetic verification, not a device-wide Instruments trace or live game-week certification. Exact test, CI and phone delivery evidence lives in [current status](current-status.md).
 
+## Player-card loading follow-up — build 30
+
+The owner reported slow player loading and a lingering game-info spinner on build 29. The optional biography previously held the whole primary read; it now loads on disclosure, from its existing daily memory cache. Ordinary card reappearance no longer forces an ownership request, while explicit refresh and roster changes still do. The league model owns shared availability tasks across screen navigation; scope reset cancels them, interrupted attempts clear their suppression, and UI loading reflects the actual task state. Tests reproduce navigation cancellation and enforce cache/request budgets; phone timing remains an owner check, not an inferred benchmark.
+
 ## Outcome
 
 A returning manager sees the last successfully loaded scores, lineup, standings, Board summaries and own-team season roster while the app reconnects. A small “Updating league…” status replaces the blocking reconnect overlay when an eligible cache exists. Offline, content remains with “Offline · Last update shown,” Retry and Sign in. Section timestamps use coarse relative wording, not a running seconds counter.

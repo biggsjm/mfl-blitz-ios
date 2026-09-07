@@ -37,6 +37,7 @@ protocol LeagueRepository: Sendable {
     func loadTeams(refresh: Bool) async throws -> [TeamSummary]
     func loadTeamRoster(franchiseID: String, lineupWeek: Int?, refresh: Bool) async throws -> TeamRosterSnapshot
     func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot
+    func loadPlayerBiography(playerID: String) async throws -> PlayerBio?
     func loadSeasonSchedule() async throws -> SeasonScheduleSnapshot
     func loadPlayerAvailability(week: Int, refresh: Bool) async throws -> PlayerAvailabilitySnapshot
     func loadPlayerSeasonSummary(playerID: String) async throws -> PlayerSeasonSummary
@@ -80,6 +81,9 @@ extension LeagueRepository {
     }
     func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot {
         throw RepositoryError.server("Player details are unavailable in this session.")
+    }
+    func loadPlayerBiography(playerID: String) async throws -> PlayerBio? {
+        throw RepositoryError.server("Player biography is unavailable in this session.")
     }
     func loadSeasonSchedule() async throws -> SeasonScheduleSnapshot {
         throw RepositoryError.server("The season schedule is unavailable in this session.")

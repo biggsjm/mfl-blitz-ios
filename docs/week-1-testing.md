@@ -1,10 +1,12 @@
 # Week 1 owner test and Week 2 go/no-go
 
-Updated September 7, 2026 for **0.5.3 (28)**. It includes cached startup, the Lineup projection margin, six direct My Team destinations and the shared numeric standings pattern. See [current status](current-status.md) for actual delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use a validated, installed build for owner testing.
+Updated September 7, 2026 for **0.5.4 (30)**. It includes player cards/game logs and their loading follow-up, cached startup, the Lineup projection margin, six direct My Team destinations and the shared numeric standings pattern. See [current status](current-status.md) for actual delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use a validated, installed build for owner testing.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
 ## Already observed
+
+- Build **0.5.4 (29)** installed and launched September 7. Josh confirmed Scores → matchup → player → Back works, then reported slow player loading and a lingering game-info spinner. Build 30 addresses those paths; final delivery evidence is recorded in Current status. This observation is not live scoring/season-history certification.
 
 - Final **0.5.3 (28)** installed and launched September 7; read-only file metadata confirms the new display/league caches are populated on Josh's phone. Actual warm/offline launch timing remains an owner check; Instruments connection attempts produced no usable trace. Full exact-source local/GitHub regression passes and merge evidence are in [current status](current-status.md).
 
@@ -15,7 +17,7 @@ These checks remain open unless explicitly marked with an observation. They are 
 ## Before kickoff
 
 - [ ] Confirm version/build, league, franchise, season and Week N after sign-in/restore. Reconnect must finish or offer cancellation, not block indefinitely; each section loads independently.
-- [ ] Let build 28 successfully load Scores, Lineup, Standings, Board and My Team once. Close/reopen: saved content should appear while reconnecting, then update. In airplane mode reopen again: keep last-known content, no LIVE claims or editable cached lineup. Restore connectivity and tap Retry; confirm current week and starters with MFL before an intended change. Record phone time-to-content on Wi-Fi/cellular; first-ever loading and cache eviction legitimately need downloads.
+- [ ] Let build 28 or newer successfully load Scores, Lineup, Standings, Board and My Team once. Close/reopen: saved content should appear while reconnecting, then update. In airplane mode reopen again: keep last-known content, no LIVE claims or editable cached lineup. Restore connectivity and tap Retry; confirm current week and starters with MFL before an intended change. Record phone time-to-content on Wi-Fi/cellular; first-ever loading and cache eviction legitimately need downloads.
 - [ ] Make a lineup edit, switch tabs, refresh, close/reopen and confirm the draft survives without submission. On an intended submission, compare saved starters on MFL. Verify the tiebreaker on MFL separately: the API cannot read its saved state back.
 - [ ] Check a starter's projection beside candidates, including a genuinely missing value. Missing values remain a dash, not zero; projections are pregame, not a live forecast.
 - [ ] Check Week N controls on Scores/Lineup and Settings upper-left on Scores. Avoid changing an active draft's week unintentionally.
@@ -40,8 +42,9 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 - [ ] Make an unsent lineup edit, browse a different schedule week/player/team, then return. The edit and selected Lineup/Scores week must remain unchanged. Check Back and section/scroll restoration.
 - [ ] Open this week's schedule matchup and confirm player scoring matches Scores. Backgrounding stops polling; returning does not create duplicate refreshers.
 
-### Player cards and live-matchup navigation — build 29
+### Player cards and live-matchup navigation — builds 29–30
 
+- [ ] Open/reopen a player and switch away while game information is loading. It must finish for the next screen or show a retry state, not remain spinning. Biography loads only on expansion, without holding back the primary card.
 - [ ] Open a player from live scoring: one tap goes to Player Detail; one Back returns to the same matchup. Owner names sit below team names and position headers no longer repeat team acronyms/subtotals.
 - [ ] Check primary identity, current injury/roster status, season points and average. Own-team status has no link; other-team roster links and pushed team shortcuts still work.
 - [ ] Compare Week points/projection and paged game-log scores with MFL, including real zero and missing values. NFL opponents use the current team's schedule; inspect the information caveat for a traded player. MFL raw box-score stats are not available.
@@ -105,7 +108,7 @@ Do these only for moves you actually intend. Automated journeys use Preview, not
 
 - [ ] Compare an Out/Questionable player, opponent, local kickoff and bye against MFL. An absent report is not proof of health; NFL schedule is not a live score feed.
 - [ ] After Week 1 completes, compare one player's points/zero/missing week, season total and average. Earlier history loads only on request. Current empty preseason values should stay absent.
-- [ ] Compare opponent position points-allowed totals with MFL; these are not per-game averages or forecasts.
+- [ ] Compare Week / Points / NFL opponent in the visible log. The information button discloses use of the current NFL team's historical schedule; do not treat it as verified past team affiliation. The earlier points-allowed card is no longer shown.
 - [ ] Star/unstar a player and confirm MFL's watchlist, My Team Watchlist and the waiver filter agree after reload. Preserve unrelated saved players.
 - [ ] In an open first-come window, review an intended add (and necessary drop), cancel once, then submit only the intended move. Verify membership, lineup/waiver draft conflicts, free-agent pool and Activity.
 - [ ] Verify locked/unavailable players and unsupported/closed capabilities cannot be submitted as immediate adds.

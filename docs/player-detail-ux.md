@@ -1,6 +1,6 @@
 # Player and team detail
 
-Status: **Player-card and matchup refinement — candidate 0.5.4 (29)**, September 7, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work.
+Status: **Player-card and matchup refinement — candidate 0.5.4 (30)**, September 7, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work.
 
 ## Navigation and action boundaries
 
@@ -34,14 +34,14 @@ Other-team rosters retain their existing assignment-based view: a separate batch
 - An empty successful roster differs from an unavailable/failed response.
 - Refresh failure retains prior content with an error; another account/team's data cannot replace it.
 
-## Player Detail — 0.5.4 (29)
+## Player Detail — 0.5.4 (29–30)
 
 Two independent AI design-review perspectives (native iOS/indie design and product/messaging/safety, not a human study) reviewed the code and actual native screenshots. The owner requested a calmer hierarchy and explicit separation of Drop from Bench. Apple's [button hierarchy](https://developer.apple.com/design/human-interface-guidelines/buttons), [menus](https://developer.apple.com/design/human-interface-guidelines/menus), and [disclosure controls](https://developer.apple.com/design/human-interface-guidelines/disclosure-controls) informed the review.
 
 1. **Primary card:** name, position/NFL team, supplied current injury designation, season points and weekly average, then franchise logo/name plus Starting/Bench/IR status. Own-team status is noninteractive; other teams can still open their roster. Missing status/ownership is not inferred to mean Healthy or Free agent.
 2. **Week N:** one card combines fantasy points, projection, NFL opponent/kickoff and relevant injury detail. Existing snapshots and an exact matching history row supply scores; different-player/account/week data cannot fill it. Historical ownership is not claimed.
 3. **Game log:** visible without another discovery tap, newest completed weeks first, with Week / Points / NFL opp columns. Initially four targeted scoring reads; Earlier weeks loads another bounded page. A real zero remains zero; absent scores show a dash and failed reads say Unavailable.
-4. **Secondary information:** biography is a collapsed Player bio disclosure. Watch remains a direct toolbar star.
+4. **Secondary information:** biography is a collapsed Player bio disclosure and is requested only when expanded; it cannot hold the primary card behind an optional feed. Watch remains a direct toolbar star.
 
 ### Historical opponents and data limits
 
@@ -64,6 +64,12 @@ The team-tool router is scoped to the NavigationStack rather than only its root 
 ## Matchup detail
 
 Owner names appear directly below team names in smaller, secondary text, reusing league metadata with no new request. Position headers retain the slot/FLEX badge but omit acronyms and positional subtotals: overall team totals and individual player points are the useful comparisons. Bench remains collapsed and does not affect team totals; VoiceOver player labels retain team context.
+
+## Loading follow-up — build 30
+
+Josh confirmed matchup → player → Back on build 29, then reported slow player cards and a lingering Updating game info spinner. The primary read waited for an optional biography; returning to the card also forced ownership refreshes. Biography now loads independently on disclosure, ordinary appearance reuses the detail cache, and explicit refresh/roster changes still check ownership.
+
+Availability previously belonged to the first screen's cancellable task. Another screen could skip the in-flight read, then the original cancellation left no result while the 60-second attempt guard suppressed replacement. The league model now owns and shares that read, cancels it on scope reset, clears interrupted attempts, and exposes actual loading state. Idle/failure has a retry state, not a perpetual spinner. Existing source caches, rate-limit handling and fresh mutation preflight are preserved.
 
 ## Caching, privacy and state
 

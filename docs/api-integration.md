@@ -169,6 +169,8 @@ MFL expressly forbids browser JavaScript from outside its domains and does not p
 The API does not include raw NFL player statistics or third-party news because of licensing. It also has no documented webhook and no reliable third-party APNs contract. Rich news/play-by-play requires a separate licensed source; push scoring likely requires written MFL coordination plus a minimal backend.
 
 
+Build 30 makes `DETAILS=1` biography a disclosure-triggered read rather than a dependency of primary identity/ownership (except targeted identity fallback when the catalog cannot name a player). Ordinary card reappearance reuses the detail cache; explicit refresh and roster changes still refresh ownership. Availability reads are shared by the league model across screens, cancelled on scope reset, and interrupted attempts can be retried. UI spinners reflect actual in-flight state; cached/read-only data never grants mutation authority.
+
 ## Player tools and roster actions — 0.5.0 / 0.5.1
 
 Build 29 supersedes the earlier View scoring history gate: the primary summary independently loads two targeted cached YTD/AVG reads, while the visible game log loads at most four completed-week score reads per page. One shared public nflSchedule(W=ALL) response and the daily current catalog/bye table supply NFL opponents, explicitly disclosed as the current team's schedule, not historical player-team affiliation. Earlier pages are explicit; no raw NFL statistics or opponent-points-allowed read is needed for the default card. Main-section pull-to-refresh no longer invokes refreshAll; ordinary watchlist/roster review loads use caches, while mutation preflight and readback remain forced. Requests remain globally spaced, now at least 1.25 seconds in the live repository. HTTP 429 records Retry-After by request/response host, matching MFL's documented per-server limits; another host's cached/allowed data can still load. Requests never switch host to evade a cooldown and failed imports never retry. A public-feed cooldown does not automatically block a different league server.
@@ -199,4 +201,4 @@ Roster reviews load roster, limits and abilities through their normal caches; su
 
 Watchlist markers contain only player ID, desired state and time. Roster markers contain the requested move, scope and expected membership. Both survive relaunch; neither is stored in the public player cache. Explicit disconnect removes them. No private history/watchlist response disk cache was added.
 
-Wire evidence and remaining owner verification: [player-tools plan](player-tools-plan.md). Current 2026 completed-game history/points-allowed coverage still needs actual Week 1 observation; fixtures do not close that gate.
+Wire evidence and remaining owner verification: [player-tools plan](player-tools-plan.md). Current 2026 completed-game history and season-summary coverage still need actual Week 1 observation; fixtures do not close that gate.

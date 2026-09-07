@@ -202,6 +202,10 @@ final class PlayerToolsUITests: XCTestCase {
         bio.tap()
         XCTAssertTrue(app.staticTexts["Jersey"].waitForExistence(timeout: 3))
         capture(app, "Player Detail — secondary expandable bio")
+        bio.tap()
+        XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.staticTexts["Jersey"])], timeout: 3) == .completed)
+        bio.tap()
+        XCTAssertTrue(app.staticTexts["Jersey"].waitForExistence(timeout: 3), "Reopening biography retains loaded details")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         let watchlist = app.buttons["my-team-watchlist"]
         for _ in 0..<8 where !watchlist.isHittable { app.swipeDown() }
