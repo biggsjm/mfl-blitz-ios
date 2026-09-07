@@ -1,6 +1,71 @@
 import XCTest
 
 final class MFLBlitzUITests: XCTestCase {
+    @MainActor
+    func testLineupProjectionMarginUpdatesWithDraftAndStatusSitsBelowScore() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-current-lineup"]
+        app.launch(); enterPreview(in: app)
+        app.tabBars.buttons["Lineup"].firstMatch.tap()
+        let projection = app.descendants(matching: .any)["lineup-summary-projection"].firstMatch
+        let margin = app.descendants(matching: .any)["lineup-projected-margin"].firstMatch
+        let status = app.descendants(matching: .any)["lineup-summary-status"].firstMatch
+        let lock = app.descendants(matching: .any)["lineup-lock-message"].firstMatch
+        XCTAssertTrue(margin.waitForExistence(timeout: 5))
+        XCTAssertEqual(margin.label, "Projected 8.5 points ahead of GPT 5.0 now available")
+        XCTAssertEqual(status.label, "Current lineup")
+        XCTAssertGreaterThan(status.frame.minY, projection.frame.maxY)
+        XCTAssertLessThan(abs(status.frame.midY - lock.frame.midY), 2)
+        let initial = XCTAttachment(screenshot: app.screenshot())
+        initial.name = "Lineup — projection ahead and relocated status"; initial.lifetime = .keepAlways; add(initial)
+        app.buttons["lineup-replace-12620"].tap()
+        let kyler = app.buttons["lineup-replacement-14056"]
+        XCTAssertTrue(kyler.waitForExistence(timeout: 3)); kyler.tap()
+        XCTAssertTrue(app.buttons["Review & submit lineup"].waitForExistence(timeout: 3))
+        XCTAssertEqual(margin.label, "Projected 6.7 points ahead of GPT 5.0 now available")
+        XCTAssertEqual(status.label, "Unsaved changes")
+        let edited = XCTAttachment(screenshot: app.screenshot())
+        edited.name = "Lineup — edited projection margin"; edited.lifetime = .keepAlways; add(edited)
+        let jacobs = app.buttons["lineup-replace-14073"]
+        for _ in 0..<5 where !jacobs.isHittable { app.swipeUp() }
+        XCTAssertTrue(jacobs.isHittable); jacobs.tap()
+        let allgeier = app.buttons["lineup-replacement-15712"]
+        XCTAssertTrue(allgeier.waitForExistence(timeout: 3)); allgeier.tap()
+        XCTAssertTrue(app.buttons["Review & submit lineup"].waitForExistence(timeout: 3))
+        for _ in 0..<5 where !margin.isHittable { app.swipeDown() }
+        XCTAssertEqual(margin.label, "Projected 3.2 points behind GPT 5.0 now available")
+        let trailing = XCTAttachment(screenshot: app.screenshot())
+        trailing.name = "Lineup — negative projected margin"; trailing.lifetime = .keepAlways; add(trailing)
+        // No submit: synthetic draft changes alone update the comparison.
+    }
+
+    @MainActor
+    func testLineupProjectionCardAtLargestText() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-current-lineup", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch(); enterPreview(in: app)
+        app.tabBars.buttons["Lineup"].firstMatch.tap()
+        let projection = app.descendants(matching: .any)["lineup-summary-projection"].firstMatch
+        let margin = app.descendants(matching: .any)["lineup-projected-margin"].firstMatch
+        let status = app.descendants(matching: .any)["lineup-summary-status"].firstMatch
+        let lock = app.descendants(matching: .any)["lineup-lock-message"].firstMatch
+        XCTAssertTrue(margin.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(margin.frame.minY, projection.frame.maxY)
+        XCTAssertGreaterThan(status.frame.minY, lock.frame.maxY)
+        for element in [projection, margin, status, lock] {
+            XCTAssertGreaterThanOrEqual(element.frame.minX, 0)
+            XCTAssertLessThanOrEqual(element.frame.maxX, app.frame.maxX)
+        }
+        let distance = max(0, projection.frame.minY - app.navigationBars.firstMatch.frame.maxY - 40)
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+        let finish = start.withOffset(CGVector(dx: 0, dy: -min(distance, app.frame.height * 0.5)))
+        start.press(forDuration: 0.1, thenDragTo: finish, withVelocity: .slow, thenHoldForDuration: 0.2)
+        let metrics = XCTAttachment(screenshot: app.screenshot())
+        metrics.name = "Lineup — largest text projection and full opponent"; metrics.lifetime = .keepAlways; add(metrics)
+        app.swipeUp()
+        let large = XCTAttachment(screenshot: app.screenshot())
+        large.name = "Lineup — projection card at largest text"; large.lifetime = .keepAlways; add(large)
+    }
 
     @MainActor
     func testStandingsSummaryScopesAndConfirmedTies() {
@@ -331,6 +396,11 @@ final class MFLBlitzUITests: XCTestCase {
         let confirmation = XCTAttachment(screenshot: app.screenshot())
         confirmation.name = "Discard draft — centered confirmation"; confirmation.lifetime = .keepAlways; add(confirmation)
         app.alerts.buttons["Cancel"].tap()
+        // On iOS 18 the alert can still obscure the inbox after tap() returns.
+        // Await the actual interactive state; do not race the dismissal animation.
+        let returnedToInbox = expectation(for: NSPredicate(format: "exists == true AND hittable == true"), evaluatedWith: resume)
+        wait(for: [returnedToInbox], timeout: 5)
+        XCTAssertFalse(app.alerts["Discard trade draft?"].exists)
         XCTAssertTrue(resume.isHittable)
         app.buttons["trade-options"].tap()
         app.buttons["Discard draft"].tap()
@@ -847,8 +917,16 @@ final class MFLBlitzUITests: XCTestCase {
         body.tap(); body.typeText("Unsent reply draft")
         app.buttons["board-composer-close"].tap()
         app.alerts.buttons["Save draft"].tap()
+        let composerClosed = expectation(for: NSPredicate(format: "exists == false"),
+            evaluatedWith: app.buttons["board-composer-close"])
+        wait(for: [composerClosed], timeout: 5)
         XCTAssertEqual(reply.label, "Resume reply")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        // Do not target a transitioning or covered navigation bar after sheet dismissal.
+        let back = app.navigationBars["Week 1 is finally here"].buttons["Board"]
+        let backReady = expectation(for: NSPredicate(format: "exists == true AND hittable == true"), evaluatedWith: back)
+        wait(for: [backReady], timeout: 5)
+        back.tap()
+        XCTAssertTrue(app.navigationBars["Board"].waitForExistence(timeout: 3))
         let resume = app.buttons["board-draft-t1"]
         XCTAssertTrue(resume.waitForExistence(timeout: 3))
         resume.tap()

@@ -2,6 +2,13 @@
 
 Implemented private-build history through September 6, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.5.3 (27) — September 6, 2026 — lineup projection comparison
+
+- Move lineup status below the projection-card divider, beside kickoff locks; adapt the footer and numeric layout for larger text.
+- Add a signed green/orange projected margin against the selected week's opponent, recalculated from edited starters. Rounded ties read Even; VoiceOver states the full comparison.
+- Reuse existing same-week snapshots with no additional API requests. Incomplete projections, unknown/ambiguous matchups and failed score refreshes never imply a lead. This is not a live-score or win-probability forecast.
+- Add model/native regression coverage and the [projection contract](docs/lineup-projections.md). Existing review and submission protections are unchanged; [current status](docs/current-status.md) records delivery separately.
+
 ## 0.5.3 (22–26) — September 6, 2026 — direct My Team tools and standings
 
 - Replace Transactions and Manage roster with six direct shortcuts: Schedule, Adds / Drops, Trades, Watchlist, Injured Reserve and League Activity. Two columns become one at accessibility text sizes; every button has its own accessible label and route. Trades alone carries the trade-attention count.

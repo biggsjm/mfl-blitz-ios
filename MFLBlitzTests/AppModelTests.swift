@@ -5,6 +5,103 @@ import Testing
 
 @MainActor
 struct AppModelTests {
+    @Test("Lineup margin uses edited projections, not live scores or the saved team's total")
+    func lineupProjectionMargin() async throws {
+        let model = AppModel(repository: DemoLeagueRepository(), privateStore: MemoryPrivateStore())
+        await model.continueInDemo()
+        let initial = try #require(model.lineupProjectionComparison)
+        #expect(initial.margin == 8.5)
+        #expect(initial.marginText == "+8.5")
+        model.scores.matchups[0].away.score = 999
+        model.scores.matchups[0].away.projectedScore = -999
+        model.scores.matchups[0].home.score = 999
+        #expect(model.lineupProjectionComparison == initial)
+        let request = try #require(model.replacementRequest(for: "12620"))
+        #expect(model.replaceStarter(request, with: "14056"))
+        #expect(model.lineupProjectionComparison?.margin == 6.7)
+        #expect(model.hasLineupChanges)
+        #expect(model.lineup.lastSubmitted == SampleData.lineup.lastSubmitted)
+        let draft = model.lineup
+        model.scoreRefreshError = "Unavailable"
+        #expect(model.lineupProjectionComparison == nil)
+        model.scoreRefreshError = nil
+        #expect(model.lineupProjectionComparison?.margin == 6.7)
+        model.selectedWeek = 2
+        #expect(model.lineupProjectionComparison == nil)
+        #expect(model.lineup == draft)
+        model.selectedWeek = 1
+        model.scores.lastUpdated = .distantPast
+        #expect(model.lineupProjectionComparison == nil)
+        model.scores = SampleData.scores
+        model.workspace = nil
+        #expect(model.lineupProjectionComparison == nil)
+    }
+
+    @Test("Projection comparison follows exact home/away owner ID, never a featured fallback")
+    func lineupProjectionOpponent() throws {
+        var scores = SampleData.scores
+        let original = try #require(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: "0001"))
+        let away = scores.matchups[0].away
+        scores.matchups[0].away = scores.matchups[0].home
+        scores.matchups[0].home = away
+        scores.matchups[0].isUserMatchup = false
+        #expect(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: "0001") == original)
+        for owner in ["", "0000", "missing"] {
+            #expect(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: owner) == nil)
+        }
+        scores.week = 2
+        #expect(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: "0001") == nil)
+        scores = SampleData.scores
+        scores.matchups.append(scores.matchups[0])
+        #expect(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: "0001") == nil)
+        scores.matchups.removeAll()
+        #expect(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: "0001") == nil)
+        scores = SampleData.scores
+        scores.matchups[0].home = scores.matchups[0].away
+        #expect(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: "0001") == nil)
+    }
+
+    @Test("Missing, nonfinite or incomplete projections never manufacture a margin")
+    func lineupProjectionCompleteness() {
+        for projection: Double? in [nil, .nan, .infinity, -.infinity] {
+            var scores = SampleData.scores
+            scores.matchups[0].home.projectedScore = projection
+            #expect(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: "0001") == nil)
+            var lineup = SampleData.lineup
+            lineup.players[0].projectedPoints = projection
+            #expect(LineupProjectionComparison(lineup: lineup, scores: SampleData.scores, franchiseID: "0001") == nil)
+        }
+        var scores = SampleData.scores
+        scores.matchups[0].home.starters.removeLast()
+        #expect(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: "0001") == nil)
+        scores = SampleData.scores
+        scores.matchups[0].home.starters[0] = scores.matchups[0].home.starters[1]
+        #expect(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: "0001") == nil)
+        scores = SampleData.scores
+        scores.matchups[0].home.starters[0].lineupStatus = .unknown
+        #expect(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: "0001") == nil)
+        scores = SampleData.scores
+        scores.matchups[0].home.unclassifiedPlayers = [scores.matchups[0].home.starters[0]]
+        #expect(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: "0001") == nil)
+        var lineup = SampleData.lineup
+        lineup.players[0].isStarter = false
+        #expect(LineupProjectionComparison(lineup: lineup, scores: SampleData.scores, franchiseID: "0001") == nil)
+        lineup = SampleData.lineup
+        lineup.players[0] = lineup.players[1]
+        #expect(LineupProjectionComparison(lineup: lineup, scores: SampleData.scores, franchiseID: "0001") == nil)
+    }
+
+    @Test("Projected margin has explicit direction and avoids negative zero",
+          arguments: [(-42.0, "−42.0"), (15.0, "+15.0"), (0.04, "Even"), (-0.04, "Even"), (0.0, "Even")])
+    func lineupProjectionFormatting(difference: Double, expected: String) throws {
+        var scores = SampleData.scores
+        scores.matchups[0].home.projectedScore = try #require(SampleData.lineup.projectedTotal) - difference
+        let comparison = try #require(LineupProjectionComparison(lineup: SampleData.lineup, scores: scores, franchiseID: "0001"))
+        #expect(comparison.marginText == expected)
+        #expect(comparison.accessibilityLabel.contains("GPT 5.0 now available"))
+        #expect(comparison.accessibilityLabel.contains(comparison.margin == 0 ? "even" : difference > 0 ? "ahead" : "behind"))
+    }
+
     @Test("Preview mode opens Champion Hall")
     func previewMode() async {
         let model = AppModel(repository: DemoLeagueRepository())

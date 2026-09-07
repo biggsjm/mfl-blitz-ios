@@ -593,6 +593,13 @@ final class AppModel {
         saveLineupDraft()
     }
 
+    var lineupProjectionComparison: LineupProjectionComparison? {
+        guard let workspace, workspace.weekIsConfirmed,
+              lineup.week == selectedWeek, scoreRefreshError == nil,
+              scores.lastUpdated != .distantPast, starterValidationMessage == nil else { return nil }
+        return LineupProjectionComparison(lineup: lineup, scores: scores, franchiseID: workspace.franchiseID)
+    }
+
     var lineupValidationMessage: String? {
         if let starterValidationMessage { return starterValidationMessage }
         if lineup.tiebreakerPlayerIDs.count != lineup.requiredTiebreakerCount {
@@ -980,6 +987,12 @@ final class AppModel {
         selectedWeek = SampleData.workspace.week
         scores = SampleData.scores
         lineup = SampleData.lineup
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--preview-current-lineup") {
+            lineup.deadline = nil
+            lineup.lastSubmitted = nil
+        }
+        #endif
         lineup.serverStarterPlayerIDs = Set(lineup.starters.map(\.id))
         drafts.lineups[lineup.week] = LineupDraft(baseline: lineup.serverStarterPlayerIDs,
             starters: lineup.serverStarterPlayerIDs, tiebreakers: lineup.tiebreakerPlayerIDs,

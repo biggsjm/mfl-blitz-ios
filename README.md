@@ -8,7 +8,7 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
-**0.5.3 (26) — installed private build, September 6, 2026.** Schedule-first shortcuts replace the overlapping Transactions and Manage roster pages. Adds / Drops combines available players and owned-player drops; Injured Reserve has its own capacity and eligibility view. The shared [standings pattern](docs/standings-pattern.md) uses numeric places such as “6–2 · 1st in Warner,” with correctly scoped ranks and no fabricated preseason first place. Season points and compact contextual actions remain. This is not a public or TestFlight release. See [current status](docs/current-status.md) for exact verification, pending work and device evidence.
+**0.5.3 (27) — installed private build, September 6, 2026.** The designer-reviewed [Lineup card](docs/lineup-projections.md) shows a signed projected margin against that week's opponent, with lineup status beside kickoff locks. Schedule-first shortcuts replace overlapping Transactions and Manage roster pages. The shared [standings pattern](docs/standings-pattern.md) uses numeric places such as “6–2 · 1st in Warner,” with correctly scoped ranks and no fabricated preseason first place. Season points and compact contextual actions remain. This is not a public or TestFlight release. See [current status](docs/current-status.md) for exact verification, pending work and device evidence.
 
 Connect mode talks directly to MFL and permits user-reviewed lineup, supported conditional blind-bid, trade, and board actions with readback and no automatic write retries. MFL does not expose saved lineup tiebreakers for confirmation; accepted trades may still need league approval/processing. **Preview Champion Hall** uses sample data and sends nothing to MFL, including its fictional trade offers.
 
@@ -19,7 +19,7 @@ The build additionally includes official injury/kickoff/bye context, on-demand p
 The app includes:
 
 - a scores-first game-day dashboard with the user's matchup featured and tappable position-by-position live scoring for every matchup;
-- a tap- and swipe-accessible lineup editor with league-aware bench/starter/FLEX replacements and rotations, projections, validation, review, and saved-starter receipts;
+- a tap- and swipe-accessible lineup editor with league-aware bench/starter/FLEX replacements and rotations, [projected margin against that week's opponent](docs/lineup-projections.md), validation, review, and saved-starter receipts;
 - explicit Week N calendar controls on Scores and Lineup, Settings at the upper left of Scores, and an original crossing-play-route Lineup icon;
 - an ordered conditional-FAAB queue with search, useful sorting, bid/drop editing, budget checks, reordering, and explicit full-queue confirmation;
 - a native My Team tab with franchise logo/initials, contextual division/league standing, six direct [Schedule-first shortcuts](docs/my-team-shortcuts.md), and a position-grouped roster sorted by season-to-date fantasy points; trade attention badges remain visible;

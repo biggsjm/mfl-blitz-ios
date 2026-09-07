@@ -1,6 +1,6 @@
 # Execution plan and remaining work
 
-Updated September 6, 2026 for private build **0.5.3 (26)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records exact installation/test evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 6, 2026 for private build **0.5.3 (27)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records exact installation/test evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 
@@ -8,6 +8,8 @@ Updated September 6, 2026 for private build **0.5.3 (26)**. Checked items mean i
 - [x] Account/franchise mapping, validated host discovery, Keychain restore, expiry UI, bounded reconnect and independent tab loading.
 - [x] Foreground live scores, positional matchup drill-down/FLEX, pregame projections and official completed results.
 - [x] League-derived lineup limits, bench/starter/FLEX replacements and rotations, scoped drafts, modal review and starter-set verification.
+- [x] Compact [lineup projection comparison](lineup-projections.md): edited starters versus the same week's opponent, signed green/orange margin, status beside kickoff locks, no added API traffic and conservative missing-data behavior.
+- [ ] Follow up on Lineup player-row and Starting-header truncation at the largest accessibility text size; the redesigned summary card does not resolve the surrounding editor's layout.
 - [x] Conditional blind-bid queues, confirmed $0 league fallback, fresh preflight, round replacement/cancellation and partial-outcome recovery.
 - [x] Native trades and separate counteroffers, durable unconfirmed-action protection, prominent Create/Resume, draft cancel/rollback and correct first-tap response reviews.
 - [x] MFL standings/owner names, safe team artwork, native board threads/replies and exact-post verification.
