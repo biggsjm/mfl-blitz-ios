@@ -300,6 +300,13 @@ final class PlayerToolsUITests: XCTestCase {
         for _ in 0..<5 where !app.navigationBars["My Team"].exists {
             app.navigationBars.buttons.firstMatch.tap()
         }
+        // Returning from a roster player preserves the list's scroll position.
+        // Lazy List may remove the above-screen shortcut from the AX tree, so
+        // absence here means scroll toward the header, not farther down-roster.
+        let shortcut = app.buttons["my-team-\(id)"]
+        for _ in 0..<12 where !shortcut.exists || shortcut.frame.minY < app.navigationBars.firstMatch.frame.maxY {
+            app.swipeDown()
+        }
         tapAction(revealAction("my-team-\(id)", in: app), in: app)
         XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 5))
     }

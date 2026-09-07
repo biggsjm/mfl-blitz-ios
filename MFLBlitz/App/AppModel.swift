@@ -986,7 +986,7 @@ final class AppModel {
             submittedTiebreakers: lineup.tiebreakerPlayerIDs)
         waivers = SampleData.waivers
         drafts.waiverBaseline = waivers.claims
-        standings = SampleData.standings
+        standings = SampleData.previewStandings
         boardThreads = SampleData.board
         nextDemoMessageID = 0
         lineupRevision &+= 1

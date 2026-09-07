@@ -6,6 +6,62 @@ import UIKit
 
 @MainActor
 struct MyTeamNavigationTests {
+    @Test("The shared header uses division place, not overall place")
+    func divisionPlacement() {
+        var owner = SampleData.standings.first { $0.id == "0001" }!
+        owner.wins = 6; owner.losses = 2
+        owner.overallPlace = .init(position: 5); owner.divisionPlace = .init(position: 1)
+        #expect(owner.summary(leagueName: "Champion Hall") == "6–2 · 1st in Warner")
+        owner.ties = 1; owner.divisionPlace = .init(position: 2)
+        #expect(owner.summary(leagueName: "Champion Hall") == "6–2–1 · 2nd in Warner")
+        owner.divisionPlace = .init(position: 1, isTied: true)
+        #expect(owner.summary(leagueName: "Champion Hall") == "6–2–1 · T-1st in Warner")
+    }
+
+    @Test("No division uses the actual league place and league name")
+    func leaguePlacement() {
+        var owner = SampleData.standings.first { $0.id == "0001" }!
+        owner.divisionID = nil; owner.wins = 6; owner.losses = 2
+        owner.overallPlace = .init(position: 3)
+        #expect(owner.summary(leagueName: "Champion Hall") == "6–2 · 3rd in Champion Hall")
+    }
+
+    @Test("Division and league tables use their own ranks")
+    func divisionIdentity() {
+        var rows = Array(SampleData.standings.prefix(2))
+        rows[0].overallPlace = .init(position: 1); rows[0].divisionPlace = .init(position: 2)
+        rows[1].overallPlace = .init(position: 2); rows[1].divisionPlace = .init(position: 1)
+        #expect(StandingRow.sorted(rows, withinDivision: false).first?.id == rows[0].id)
+        #expect(StandingRow.sorted(rows, withinDivision: true).first?.id == rows[1].id)
+        rows[0].divisionID = nil; rows[1].divisionID = nil
+        #expect(StandingRow.sorted(rows, withinDivision: true).first?.id == rows[0].id)
+    }
+
+    @Test("Missing or ambiguous standings do not invent a place")
+    func invalidPlacement() {
+        var owner = SampleData.standings.first { $0.id == "0001" }!
+        #expect(owner.summary(leagueName: "Champion Hall") == "0–0 · Warner")
+        owner.recordIsKnown = false
+        #expect(owner.summary(leagueName: "Champion Hall") == "Warner")
+        owner.divisionID = nil
+        #expect(owner.summary(leagueName: "Champion Hall") == "Champion Hall")
+        owner.overallPlace = .init(position: 3)
+        #expect(owner.summary(leagueName: "") == "")
+    }
+
+    @Test("Numeric places use correct ordinal suffixes, including teens")
+    func ordinalSuffixes() {
+        for (number, word) in [(1, "1st"), (2, "2nd"), (3, "3rd"), (8, "8th"),
+            (9, "9th"), (11, "11th"), (12, "12th"), (13, "13th"),
+            (20, "20th"), (21, "21st"), (32, "32nd"), (40, "40th"),
+            (99, "99th"), (100, "100th"), (101, "101st"),
+            (111, "111th"), (112, "112th"), (113, "113th"), (120, "120th"), (1_000, "1000th")] {
+            #expect(StandingRow.ordinalText(number) == word)
+        }
+        #expect(StandingRow.ordinalText(0) == nil)
+        #expect(StandingRow.ordinalText(-1) == nil)
+    }
+
     @Test("My Team exposes six unique direct destinations with Schedule first")
     func directDestinations() {
         let routes = TeamToolsRoute.Destination.allCases

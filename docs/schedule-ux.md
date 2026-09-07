@@ -1,6 +1,8 @@
 # Season schedule and My Team
 
-Status: **Initial implementation — 0.4.0 (17), My Team navigation refined in 0.5.3 (22)**, September 6, 2026. [Current status](current-status.md) records verification; [roadmap](roadmap.md) records remaining work.
+Status: **Initial implementation — 0.4.0 (17), My Team navigation refined in 0.5.3 (26)**, September 6, 2026. [Current status](current-status.md) records verification; [roadmap](roadmap.md) records remaining work.
+
+The shared full-schedule cache also supplies completed pairwise H2H results when the [standings resolver](standings-pattern.md) needs them. No extra per-franchise schedule calls or changes to timeline navigation, selected weeks or drafts are introduced.
 
 ## Information architecture
 

@@ -1,4 +1,5 @@
 import Foundation
+import MFLCore
 
 enum SampleData {
     static let now = Date()
@@ -151,6 +152,44 @@ enum SampleData {
         standing("0009", 11, "Pray For Mojo", "PFM", "Bruce", 0, 0, 0, 0, 0, "—", false, 9),
         standing("0012", 12, "Bitchbettahavemymoney.com", "BBM", "Bruce", 0, 0, 0, 0, 0, "—", false, 12)
     ]
+
+    /// An explicit synthetic two-week scenario; normal Preview stays preseason.
+    static var previewStandings: [StandingRow] {
+        #if DEBUG
+        guard ProcessInfo.processInfo.arguments.contains("--preview-ranked-standings") else { return standings }
+        let noDivisions = ProcessInfo.processInfo.arguments.contains("--preview-no-divisions")
+        var rows = standings.enumerated().map { index, original in
+            var row = original
+            row.wins = index < 3 ? 2 : index < 9 ? 1 : 0
+            row.losses = 2 - row.wins
+            row.pointsFor = Double(300 - index * 10)
+            if index == 6 { row.pointsFor = 250 }
+            if index == 3 { row.losses = 0; row.ties = 1 }
+            if noDivisions { row.divisionID = nil }
+            row.standingsRule = "PCT,PTS"
+            row.overallRankIssue = nil; row.divisionRankIssue = nil
+            return row
+        }
+        let source: [MFLStanding] = rows.compactMap { row in
+            let payload = ["id": row.id, "h2hw": String(row.wins), "h2hl": String(row.losses),
+                           "h2ht": String(row.ties), "pf": String(row.pointsFor)]
+            guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return nil }
+            return try? JSONDecoder().decode(MFLStanding.self, from: data)
+        }
+        let overall = MFLStandingsRanking.resolve(source, criteria: "PCT,PTS", hasResults: true)
+        for index in rows.indices {
+            rows[index].overallPlace = overall.places[rows[index].id]
+            if let division = rows[index].divisionID {
+                let ids = Set(rows.filter { $0.divisionID == division }.map(\.id))
+                rows[index].divisionPlace = MFLStandingsRanking.resolve(source.filter { ids.contains($0.id) },
+                    criteria: "PCT,PTS", hasResults: true).places[rows[index].id]
+            }
+        }
+        return rows
+        #else
+        return standings
+        #endif
+    }
 
     static let board: [BoardThread] = [
         BoardThread(
@@ -317,7 +356,7 @@ enum SampleData {
         _ isUser: Bool,
         _ accentSeed: Int
     ) -> StandingRow {
-        StandingRow(id: id, rank: rank, name: name, abbreviation: abbreviation, division: division, wins: wins, losses: losses, ties: ties, pointsFor: pointsFor, pointsAgainst: pointsAgainst, streak: streak, isUser: isUser, accentSeed: accentSeed, ownerName: "Demo Owner \(accentSeed)")
+        StandingRow(id: id, name: name, abbreviation: abbreviation, division: division, wins: wins, losses: losses, ties: ties, pointsFor: pointsFor, pointsAgainst: pointsAgainst, streak: streak, isUser: isUser, accentSeed: accentSeed, ownerName: "Demo Owner \(accentSeed)", divisionID: division, standingsRule: "PCT,H2H,PTS,DIVPCT", overallRankIssue: .awaitingResults, divisionRankIssue: .awaitingResults)
     }
 }
 
@@ -371,7 +410,7 @@ actor DemoLeagueRepository: LeagueRepository {
         return value
     }
     func submitWaivers(_ claims: [WaiverClaim], replacing baseline: [WaiverClaim]) async throws { try await shortDelay() }
-    func loadStandings() async throws -> [StandingRow] { try await shortDelay(); return SampleData.standings }
+    func loadStandings() async throws -> [StandingRow] { try await shortDelay(); return SampleData.previewStandings }
     func loadBoard() async throws -> [BoardThread] { try await shortDelay(); return SampleData.board }
     func loadThread(id: String) async throws -> BoardThread {
         try await shortDelay()

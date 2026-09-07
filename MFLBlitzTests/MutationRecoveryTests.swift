@@ -28,10 +28,15 @@ actor MutationFixtureTransport: MFLHTTPTransport {
     var activityRows: [[String: String]] = []
     var minimumBid: String? = "1"
     var flexScoring = false
+    var divisionsEnabled = false
+    var duplicateDivisionNames = false
+    var incompleteStandings = false
     var requestCounts: [String: Int] = [:]
     func setActivity(_ rows: [[String: String]]) { activityRows = rows }
     func setMinimumBid(_ value: String?) { minimumBid = value }
     func enableFlexScoring() { flexScoring = true }
+    func enableDivisions(sameNames: Bool = false) { divisionsEnabled = true; duplicateDivisionNames = sameNames }
+    func omitStanding() { incompleteStandings = true }
 
     func seedTrade(outgoing: Bool = false, expired: Bool = false, unknownAsset: Bool = false) {
         tradeOffers = [["trade_id": "900", "offeringteam": outgoing ? "0001" : "0002", "offeredto": outgoing ? "0002" : "0001",
@@ -105,11 +110,12 @@ actor MutationFixtureTransport: MFLHTTPTransport {
         case "league":
             var fields: [String: Any] = ["id": "41333", "name": "Fixture League", "baseURL": "https://www45.myfantasyleague.com",
                 "startWeek": "1", "precision": "2", "bbidConditional": "Yes", "currentWaiverType": "BBID_FCFS",
-                "maxWaiverRounds": "8", "bbidIncrement": "1", "bbidSeasonLimit": "100",
+                "maxWaiverRounds": "8", "bbidIncrement": "1", "bbidSeasonLimit": "100", "standingsSort": "PCT,PTS",
+                "divisions": ["division": divisionsEnabled ? [["id": "00", "name": duplicateDivisionNames ? "Warner" : "Faulk"], ["id": "01", "name": "Warner"]] : []],
                 "franchises": ["franchise": [["id": "0001", "name": "Fixture One", "bbidAvailableBalance": "100",
-                    "owner_name": "  Avery &amp; Morgan  ",
+                    "owner_name": "  Avery &amp; Morgan  ", "division": divisionsEnabled ? "01" : "",
                     "icon": "https://images.example.com/2015/team-one.png", "logo": "https://images.example.com/team-one.jpg"],
-                    ["id": "0002", "name": "Fixture Two", "ownerName": "  ", "icon": "http://images.example.com/insecure.gif"]]]]
+                    ["id": "0002", "name": "Fixture Two", "ownerName": "  ", "division": divisionsEnabled ? "00" : "", "icon": "http://images.example.com/insecure.gif"]]]]
             fields["bbidMinimum"] = minimumBid
             if flexScoring {
                 fields["starters"] = ["count": "3", "position": [
@@ -117,7 +123,9 @@ actor MutationFixtureTransport: MFLHTTPTransport {
             }
             return try response(["league": fields])
         case "leagueStandings":
-            return try response(["leagueStandings": ["franchise": [["id": "0002", "h2hw": "1"], ["id": "0001", "h2hw": "0"]]]])
+            var rows = [["id": "0002", "h2hw": "1", "h2hl": "0", "h2ht": "0", "pf": "100"], ["id": "0001", "h2hw": "0", "h2hl": "1", "h2ht": "0", "pf": "90"]]
+            if incompleteStandings { rows.removeFirst() }
+            return try response(["leagueStandings": ["franchise": rows]])
         case "freeAgents":
             return try response(["freeAgents": ["leagueUnit": ["unit": "LEAGUE", "player": [["id": "101"], ["id": "102"]]]]])
         case "players":
@@ -171,6 +179,31 @@ struct MutationRecoveryTests {
         #expect(rows.first(where: { $0.id == "0001" })?.ownerName == "Avery & Morgan")
         #expect(rows.first(where: { $0.id == "0002" })?.ownerName == nil)
         #expect(rows.map(\.id) == ["0002", "0001"])
+        #expect(rows.last?.divisionID == nil)
+        #expect(rows.last?.summary(leagueName: "Fixture League") == "0–1 · 2nd in Fixture League")
+
+        let dividedTransport = MutationFixtureTransport()
+        await dividedTransport.enableDivisions()
+        let dividedRepository = try await connected(dividedTransport)
+        let dividedRows = try await dividedRepository.loadStandings()
+        #expect(dividedRows.last?.overallPlace?.position == 2)
+        #expect(dividedRows.last?.divisionID == "01")
+        #expect(dividedRows.last?.summary(leagueName: "Fixture League") == "0–1 · 1st in Warner")
+        let counts = await dividedTransport.requestCounts
+        _ = try await dividedRepository.loadStandings()
+        #expect(await dividedTransport.requestCounts == counts)
+
+        let sameNames = MutationFixtureTransport()
+        await sameNames.enableDivisions(sameNames: true)
+        let sameNameRepository = try await connected(sameNames)
+        let sameNameRows = try await sameNameRepository.loadStandings()
+        #expect(sameNameRows.allSatisfy { $0.division == "Warner" && $0.divisionPlace?.position == 1 })
+        #expect(Set(sameNameRows.compactMap(\.divisionID)).count == 2)
+
+        let incomplete = MutationFixtureTransport()
+        await incomplete.omitStanding()
+        let incompleteRepository = try await connected(incomplete)
+        #expect(try await incompleteRepository.loadStandings().allSatisfy { $0.overallPlace == nil && $0.divisionPlace == nil })
     }
 
     @Test("A confirmed zero-dollar minimum supports a complete synthetic waiver save and readback")

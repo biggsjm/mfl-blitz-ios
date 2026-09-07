@@ -82,7 +82,10 @@ struct TeamDetailView<ScheduleContent: View>: View {
     }
 
     private var header: some View {
-        HStack(spacing: 14) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 14))
+        return layout {
             TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 52, artworkURLs: team.artworkURLs)
             VStack(alignment: .leading, spacing: 4) {
                 Text(team.name).font(.title3.bold()).fixedSize(horizontal: false, vertical: true)
@@ -90,23 +93,27 @@ struct TeamDetailView<ScheduleContent: View>: View {
                     Text(owner).font(.subheadline).foregroundStyle(.secondary)
                 }
                 if let standing {
-                    Text(standing.ties > 0
-                         ? "\(standing.wins)–\(standing.losses)–\(standing.ties) · \(standing.division)"
-                         : "\(standing.wins)–\(standing.losses) · \(standing.division)")
-                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                    if isOwnTeam {
-                        Text("League standing · \(standing.rank) of \(model.standings.count)")
-                            .font(.subheadline.weight(.medium)).monospacedDigit()
-                            .accessibilityIdentifier("my-team-standing")
+                    let summary = standing.summary(leagueName: model.workspace?.leagueName ?? "")
+                    if let scope = model.browseScope {
+                        NavigationLink(value: StandingsRoute(scope: scope, franchiseID: franchiseID,
+                            divisionID: standing.hasDivision ? standing.divisionID : nil)) {
+                            Text(summary).font(.subheadline).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("team-standing-\(franchiseID)")
+                        .accessibilityHint(standing.hasDivision ? "Opens division standings" : "Opens league standings")
+                    } else {
+                        Text(summary).font(.subheadline).foregroundStyle(.secondary)
                     }
                 } else if isOwnTeam {
                     Text("Standing unavailable").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Spacer(minLength: 0)
+            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
         }
         .frame(maxWidth: BlitzMetrics.maxReadableWidth, alignment: .leading)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("team-header-\(franchiseID)")
     }
 

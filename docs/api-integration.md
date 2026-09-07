@@ -1,8 +1,12 @@
 # MFL 2026 API integration
 
-Implementation audit: September 6, 2026, **0.5.3 (22)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
+Implementation audit: September 6, 2026, **0.5.3 (26)**. Versioned observations below are historical evidence, not promises about future feed contents. See [current status](current-status.md) and [remaining work](roadmap.md).
 
 Primary sources: [general API guidance](https://api.myfantasyleague.com/2026/api_info), [request reference](https://api.myfantasyleague.com/2026/api_info?STATE=details), and [sample code](https://api.myfantasyleague.com/2026/api_info?STATE=example).
+
+Standings correction: an authenticated read through the app's own session verified franchise-ID-ordered, all-zero preseason rows without explicit ranks. Array position is no longer used as rank. The shared resolver compares the league's configured PCT/H2H/PTS/DIVPCT sequence separately for divisions and overall; pairwise H2H requires complete schedule/record reconciliation. Missing, unsupported or cyclic data stays unranked. Manual/custom orders not exposed by the used API fields are not mirrored; MFL's report remains authoritative. See the [implemented pattern and verification limits](standings-pattern.md). No authenticated response or diagnostic credentials are stored in this repository.
+
+Ranking reuses cached league and standings exports. A tied earlier criterion requiring H2H can consult season status and one shared full-season schedule read (15-minute cache); there is no per-team fan-out, new polling or private response persistence. Synthetic tests cover ranking, malformed inputs, same-name division IDs, incomplete membership and repeated-read cache reuse. Actual completed-week report comparison remains an owner release gate.
 
 ## Authentication and routing
 

@@ -118,6 +118,12 @@ struct ScheduleRoute: Hashable, Sendable {
     let scope: LeagueBrowseScope
 }
 
+struct StandingsRoute: Hashable, Sendable {
+    let scope: LeagueBrowseScope
+    let franchiseID: String
+    let divisionID: String?
+}
+
 struct MatchupRoute: Hashable, Sendable {
     let scope: LeagueBrowseScope
     let week: Int
@@ -140,6 +146,12 @@ private struct LeagueBrowseDestinations: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .navigationDestination(for: StandingsRoute.self) { route in
+                if route.scope == model.browseScope {
+                    StandingsView(initialScope: route.divisionID == nil ? .overall : .division,
+                                  focusedFranchiseID: route.franchiseID).id(route)
+                } else { unavailableSession }
+            }
             .navigationDestination(for: TeamToolsRoute.self) { route in
                 TeamToolDestination(route: route)
             }

@@ -74,6 +74,7 @@ public struct MFLLeague: Decodable, Equatable, Sendable, Identifiable {
     public let tiebreakerType: String?
     public let tiebreakerCount: Int?
     public let headToHead: Bool?
+    public let standingsSort: String?
     public let partialLineupsAllowed: Bool?
     public let bestLineup: Bool?
     public let lineupLockout: Bool?
@@ -110,6 +111,7 @@ public struct MFLLeague: Decodable, Equatable, Sendable, Identifiable {
         case tiebreaker
         case tiebreakerCount
         case h2h
+        case standingsSort
         case partialLineupAllowed
         case bestLineup
         case lockout
@@ -150,6 +152,7 @@ public struct MFLLeague: Decodable, Equatable, Sendable, Identifiable {
         tiebreakerType = try container.mflStringIfPresent(forKey: .tiebreaker)
         tiebreakerCount = try container.mflIntIfPresent(forKey: .tiebreakerCount)
         headToHead = try container.mflBoolIfPresent(forKey: .h2h)
+        standingsSort = try container.mflStringIfPresent(forKey: .standingsSort)
         partialLineupsAllowed = try container.mflBoolIfPresent(forKey: .partialLineupAllowed)
         bestLineup = try container.mflBoolIfPresent(forKey: .bestLineup)
         lineupLockout = try container.mflBoolIfPresent(forKey: .lockout)

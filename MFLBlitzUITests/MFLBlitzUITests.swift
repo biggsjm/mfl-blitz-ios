@@ -3,6 +3,56 @@ import XCTest
 final class MFLBlitzUITests: XCTestCase {
 
     @MainActor
+    func testStandingsSummaryScopesAndConfirmedTies() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-ranked-standings"]
+        app.launch(); enterPreview(in: app)
+        app.tabBars.buttons["My Team"].firstMatch.tap()
+        let summary = app.buttons["team-standing-0001"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+        XCTAssertEqual(summary.label, "1–1 · 1st in Warner")
+        let home = XCTAttachment(screenshot: app.screenshot())
+        home.name = "My Team — compact numeric standing"; home.lifetime = .keepAlways; add(home)
+        summary.tap()
+        XCTAssertTrue(app.navigationBars["Standings"].waitForExistence(timeout: 5))
+        let owner = app.descendants(matching: .any)["standing-0001"].firstMatch
+        XCTAssertTrue(owner.waitForExistence(timeout: 5))
+        XCTAssertTrue(owner.label.contains("Division rank 1"))
+        let tied = app.descendants(matching: .any)["standing-0008"].firstMatch
+        XCTAssertTrue(tied.label.contains("Tied at Division rank 2"))
+        let division = XCTAttachment(screenshot: app.screenshot())
+        division.name = "Standings — division ranks and confirmed tie"; division.lifetime = .keepAlways; add(division)
+        app.segmentedControls["standings-scope"].buttons["Overall"].tap()
+        XCTAssertTrue(owner.label.contains("League rank 5"))
+        owner.tap()
+        XCTAssertTrue(app.buttons["team-standing-0001"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["team-standing-0001"].label, "1–1 · 1st in Warner")
+    }
+
+    @MainActor
+    func testStandingsWithoutDivisionsUsesLeagueNameAtLargestText() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-ranked-standings", "--preview-no-divisions",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch(); enterPreview(in: app)
+        app.tabBars.buttons["My Team"].firstMatch.tap()
+        let summary = app.buttons["team-standing-0001"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+        XCTAssertEqual(summary.label, "1–1 · 5th in Champion Hall")
+        XCTAssertTrue(summary.isHittable)
+        let image = XCTAttachment(screenshot: app.screenshot())
+        image.name = "My Team — largest text league standing"; image.lifetime = .keepAlways; add(image)
+        summary.tap()
+        XCTAssertTrue(app.navigationBars["Standings"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.segmentedControls["standings-scope"].exists)
+        let owner = app.descendants(matching: .any)["standing-0001"].firstMatch
+        XCTAssertTrue(owner.waitForExistence(timeout: 5))
+        XCTAssertTrue(owner.label.contains("League rank 5"))
+        let standings = XCTAttachment(screenshot: app.screenshot())
+        standings.name = "Standings — largest text readable row"; standings.lifetime = .keepAlways; add(standings)
+    }
+
+    @MainActor
     private func enterPreview(in app: XCUIApplication) {
         let preview = app.buttons["Preview Champion Hall"]
         XCTAssertTrue(preview.waitForExistence(timeout: 5))
@@ -97,8 +147,9 @@ final class MFLBlitzUITests: XCTestCase {
             XCTAssertLessThan(shortcuts[row * 2].frame.maxX, shortcuts[row * 2 + 1].frame.minX)
             if row > 0 { XCTAssertGreaterThan(shortcuts[row * 2].frame.minY, shortcuts[(row - 1) * 2].frame.maxY) }
         }
-        let header = app.descendants(matching: .any)["team-header-0001"].firstMatch
-        XCTAssertTrue(header.label.contains("League standing"))
+        let header = app.buttons["team-standing-0001"]
+        XCTAssertEqual(header.label, "0–0 · Warner")
+        XCTAssertFalse(header.label.contains("League standing"))
         XCTAssertFalse(app.staticTexts["Current roster · Week 1 assignments"].exists)
         let home = XCTAttachment(screenshot: app.screenshot())
         home.name = "My Team — six direct shortcuts and official standing"; home.lifetime = .keepAlways; add(home)
@@ -875,16 +926,16 @@ final class MFLBlitzUITests: XCTestCase {
         let owners = XCTAttachment(screenshot: app.screenshot())
         owners.name = "Standings with owner names"; owners.lifetime = .keepAlways; add(owners)
         app.segmentedControls.buttons["Overall"].tap()
-        let overallOwner = app.descendants(matching: .any).matching(identifier: "standing-0011").firstMatch
+        let overallOwner = app.descendants(matching: .any).matching(identifier: "standing-0004").firstMatch
         XCTAssertTrue(overallOwner.waitForExistence(timeout: 3))
-        XCTAssertTrue(overallOwner.label.contains("Owner: Demo Owner 11"))
+        XCTAssertTrue(overallOwner.label.contains("Owner: Demo Owner 4"))
 
         let orderInfo = app.buttons["standings-order-info"]
         XCTAssertTrue(orderInfo.waitForExistence(timeout: 3))
-        XCTAssertFalse(app.staticTexts["Official league order"].exists)
+        XCTAssertFalse(app.staticTexts["Standings order"].exists)
         orderInfo.tap()
 
-        XCTAssertTrue(app.staticTexts["Official league order"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Standings order"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["standings-order-rule"].exists)
 
         let screenshot = XCTAttachment(screenshot: app.screenshot())
@@ -893,7 +944,7 @@ final class MFLBlitzUITests: XCTestCase {
         add(screenshot)
 
         app.buttons["Done"].tap()
-        XCTAssertFalse(app.staticTexts["Official league order"].waitForExistence(timeout: 1))
+        XCTAssertFalse(app.staticTexts["Standings order"].waitForExistence(timeout: 1))
     }
 
     @MainActor

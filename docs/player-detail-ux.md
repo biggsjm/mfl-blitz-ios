@@ -1,19 +1,21 @@
 # Player and team detail
 
-Status: **Extended player tools and My Team refinement — private build 0.5.3 (22)**, September 6, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work.
+Status: **Extended player tools and My Team refinement — private build 0.5.3 (26)**, September 6, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work.
 
 ## Navigation and action boundaries
 
 Tabs are **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. Its native tab icon is a 26-point franchise thumbnail, with initials fallback and a visible label. Lineup remains the dedicated editor.
 
-My Team is one scrolling page: team identity, official standing, six [Schedule-first shortcuts](my-team-shortcuts.md), then a position-grouped season-points roster. Direct tools are Schedule, Adds / Drops, Trades, Watchlist, Injured Reserve and League Activity. Adds / Drops reuses waiver search and adds owned-player drops; separate IR shows capacity and eligible moves. The trade badge appears on My Team and Trades. Other teams never display owner controls.
+My Team is one scrolling page: team identity, contextual standing, six [Schedule-first shortcuts](my-team-shortcuts.md), then a position-grouped season-points roster. Direct tools are Schedule, Adds / Drops, Trades, Watchlist, Injured Reserve and League Activity. Adds / Drops reuses waiver search and adds owned-player drops; separate IR shows capacity and eligible moves. The trade badge appears on My Team and Trades. Other teams never display owner controls.
+
+Both team headers share the [numeric standings summary](standings-pattern.md): record plus division place/name, or league place/name without divisions. No duplicate division line; no place before results or when unsupported/ambiguous. The summary links to that team's matching standings context. Maximum text sizes use a stacked header.
 
 | Surface | Implemented player/team entry | Action preserved |
 | --- | --- | --- |
 | My Team / other team roster | Canonical player row → Player Detail | Read-only; no second lineup editor |
 | Lineup starters/bench | Identity → Player Detail | Separate Start/Replace arrows and swipe actions |
 | Matchup detail | Populated player cell → Player Detail; team identity → team roster | Scoring stays primary |
-| Standings | Team row → team roster | Official order and owner names |
+| Standings | Team row → team roster | Scope-aware rank, owner names and conservative unknown states |
 | Schedule matchup | Team identity → that team's Schedule | Route-local week, not lineup selection |
 
 Waiver candidates link by canonical identity; trade terms and asset pickers provide separate information controls. Their modal navigation stacks register the same scoped destinations. In those pickers, selecting assets must stay the primary action; picks, FAAB and unknown tokens must never become player links. Activity and board prose are not parsed to guess IDs. A contextual Propose trade shortcut must not overwrite an existing draft.

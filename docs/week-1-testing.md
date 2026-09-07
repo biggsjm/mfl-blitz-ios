@@ -1,6 +1,6 @@
 # Week 1 owner test and Week 2 go/no-go
 
-Updated September 6, 2026 for **0.5.3 (22)**. The candidate replaces overlapping My Team tools with six direct destinations. See [current status](current-status.md) for actual delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use a validated build for owner testing.
+Updated September 6, 2026 for **0.5.3 (26)**. It includes six direct My Team destinations and the shared numeric standings pattern. See [current status](current-status.md) for actual delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use a validated, installed build for owner testing.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
@@ -16,7 +16,7 @@ These checks remain open unless explicitly marked with an observation. They are 
 - [ ] Make a lineup edit, switch tabs, refresh, close/reopen and confirm the draft survives without submission. On an intended submission, compare saved starters on MFL. Verify the tiebreaker on MFL separately: the API cannot read its saved state back.
 - [ ] Check a starter's projection beside candidates, including a genuinely missing value. Missing values remain a dash, not zero; projections are pregame, not a live forecast.
 - [ ] Check Week N controls on Scores/Lineup and Settings upper-left on Scores. Avoid changing an active draft's week unintentionally.
-- [ ] Confirm owner names and official standings order in Divisions and Overall. Info opens an anchored popover; missing owner names are not guessed. Check artwork fallback and long names.
+- [ ] Confirm owner names and the [standings pattern](standings-pattern.md): before results, `0–0 · Warner` without a made-up first place. Later, compare division rank in Divisions and league-wide rank in Overall against MFL. Matching records alone do not mean a tie. Unknown/custom/cyclic cases must not invent rank. Info opens an anchored popover; missing owners are not guessed. Check artwork fallback and long names.
 
 ### Starter and FLEX replacement
 
@@ -29,7 +29,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 ### My Team, players and schedule
 
-- [ ] My Team shows the correct franchise/logo/owner and official standing. Schedule, Adds / Drops, Trades, Watchlist, Injured Reserve and League Activity open distinct pages in that order without changing lineup/trade drafts; the badge stays trade-specific. Other teams do not display your tools.
+- [ ] My Team and other-team headers use the same record/place pattern: e.g. `6–2 · 1st in Warner`, or the actual league name without divisions. Tap to open that team's matching standings context; the scope selector should remain accessible. Schedule, Adds / Drops, Trades, Watchlist, Injured Reserve and League Activity open distinct pages in that order without changing lineup/trade drafts; the badge stays trade-specific. Other teams do not display your tools.
 - [ ] Compare My Team's position-grouped roster and season-to-date points with MFL. Players sort highest to lowest within each position; real zero/negative totals remain distinct from missing “—” values. Pull to refresh after processing; no Starting/Bench assignment callout should reappear.
 - [ ] Compare the current roster and labeled starting/bench assignments with MFL. Generic roster status must not be guessed as Bench. Open players and check ownership, available matching-week points/projections and optional biography.
 - [ ] Compare your remaining opponents and the league timeline against MFL, including playoff boundaries. Future games must not show fake scores; missing opponents are not assumed byes.
@@ -38,7 +38,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 ### Waivers and Activity
 
-- [ ] Search stays below Waivers / Trades / Activity and survives section changes. Loading is centered; a failed read is not an empty pool/history. Retry respects MFL's cooldown.
+- [ ] Search stays below Available / My roster in Adds / Drops, preserving a separate query for each side. Trades and League Activity open directly from My Team. Loading is centered; a failed read is not an empty pool/history. Retry respects MFL's cooldown.
 - [ ] Build two conditional rounds, edit amount/drop, reorder alternatives and review the complete queue. When you intend to submit, compare every saved round on MFL. Remove/clear/cancel only requests you intend to remove.
 - [ ] Check the $0 minimum for league 41333/2026. It is an owner-confirmed fallback only when MFL omits the rule; explicit MFL data wins. Make a real $0 bid only for a claim you actually want.
 - [ ] Compare the displayed explicit future blind-bid event with MFL. Missing dates are not guessed. Supported first-come adds use the native roster-move review; unsupported formats/windows retain the MFL link.
@@ -46,7 +46,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 ### Trades and drafts
 
-- [ ] Create trade is obvious below the selector and stays visible while scrolling. A confirmed empty inbox says No active trades; loading/errors/unresolved actions never falsely look empty. A saved draft changes the action to Resume trade.
+- [ ] Create trade is obvious on the direct Trades page and stays visible while scrolling. A confirmed empty inbox says No active trades; loading/errors/unresolved actions never falsely look empty. A saved draft changes the action to Resume trade.
 - [ ] Open a blank composer: Cancel is available and Save & close disabled. Whitespace or only changing expiry does not enable it; choosing a partner/assets or entering a message does. Saving an incomplete draft must not send an offer.
 - [ ] Save partner/assets, reopen, change them, then Cancel → Discard changes. Resume must show the original partner and all original assets. Canceling a new counteroffer must not leave an unwanted draft.
 - [ ] Review exact players, picks, FAAB, message and expiry. On the **first** tap of Decline or Withdraw, check the matching review title/button, then Cancel. Accept must only open from Accept; merely opening a review performs no action.
@@ -71,6 +71,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 - [ ] Compare awarded players, roster changes and remaining budget with MFL after waiver processing; no guessed outcome before processing.
 - [ ] Compare official final totals and later scoring corrections after MFL marks Week 1 complete.
+- [ ] Compare completed-week division/overall places and pairwise H2H tiebreakers with MFL's signed-in standings report. Record any manual/custom commissioner order, median-win adjustment or unresolved comparison; fixtures are not live-rank certification.
 - [ ] Reopen at Week 2: the default follows MFL current week, while explicitly selected historical weeks remain selected. Lineup offers MFL's lineup week when different. Week-specific drafts and tiebreakers stay correctly scoped.
 - [ ] With actual users, check small-screen/iPad layout, light/dark appearance, long names, large text, VoiceOver and non-gesture actions. Automated synthetic personas are not a comprehension/accessibility study.
 

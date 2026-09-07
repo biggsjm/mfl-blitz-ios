@@ -2,10 +2,14 @@
 
 Implemented private-build history through September 6, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
-## 0.5.3 (22–23) — September 6, 2026 — direct My Team tools
+## 0.5.3 (22–26) — September 6, 2026 — direct My Team tools and standings
 
 - Replace Transactions and Manage roster with six direct shortcuts: Schedule, Adds / Drops, Trades, Watchlist, Injured Reserve and League Activity. Two columns become one at accessibility text sizes; every button has its own accessible label and route. Trades alone carries the trade-attention count.
 - Build 23 makes every navigation glyph accent green, including Injured Reserve. Contextual medical-bag actions stay neutral; the shortcut is navigation, not a player move.
+- Builds 24–25 were interim placement/diagnostic iterations. Build 26 implements the approved [standings pattern](docs/standings-pattern.md): one record/place line, numeric ordinals, division name or actual league-name fallback, and matching-context standings navigation. Preseason does not claim first place; unresolved ranks remain blank.
+- Replace the incorrect API-array-index rank with supported league-configured PCT/H2H/PTS/DIVPCT comparisons. Compute division and overall places separately; true exhausted ties use competition ranks. Missing data, unreconciled H2H or cycles fail conservatively. MFL's report remains the authority for custom/manual orders.
+- Keep the standings selector visible while scrolling; adapt headers and table rows at accessibility text sizes. Same-name divisions stay distinct by ID. Reuse cached league/standings/schedule reads, with no per-team network fan-out.
+- Fix the native IR navigation test to return toward My Team's header after inspecting a player, instead of searching farther down a lazily loaded list. Eligibility and actual-control assertions remain intact; no test is skipped.
 - Adds / Drops reuses the available-player browser and saved waiver queue, with a My roster view for standalone drops. Person-plus offers Add now and Place waiver bid when both methods are supported. Search stays below the picker and preserves a separate query for each side.
 - Injured Reserve shows capacity, current IR players with activation and eligible active-roster players with neutral medical bags. Drop uses a red person-minus. Existing review, final confirmation, fresh preflight and exact membership readback remain mandatory.
 - Scoped roster-tool state rejects mismatched/late results and disables actions after failed refresh without discarding known roster display data. No new backend, private response persistence, automatic writes or polling is introduced.
