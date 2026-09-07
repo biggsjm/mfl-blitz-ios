@@ -8,6 +8,8 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
+**0.6.0 (36) — matchup game-info update:** player scoring rows add NFL opponent and localized kickoff in place of “Yet to play,” with Live/Final/Bye states and one time-zone caption. Existing weekly schedule caches are shared with Lineup and Player Detail; optional game info never blocks the scores. See [current status](docs/current-status.md) for verification and delivery.
+
 **0.6.0 (35) — installed private build, merged in [PR #10](https://github.com/biggsjm/mfl-blitz-ios/pull/10):** adds Trading Block inside Trades, a League Calendar inside Schedule, opt-in deadline reminders, selected-event Apple Calendar handoff, and a current-matchup Live Activity. Owner feedback adds a Lineup-style block editor with roster promotion/demotion, pinned review/submit, explicit last-player removal and Settings relocated to My Team. Optional feeds reuse protected last-loaded content and stay outside startup. Live Activities update while Blitz is foregrounded and mark stale scores; no continuous-background push service is included. See the [implementation contract](docs/league-extras-implementation.md), [approved plan and remaining limits](docs/trading-block-calendar-plan.md), and [delivery evidence](docs/current-status.md).
 
 **0.5.4 (32) — previous private build, merged in [PR #9](https://github.com/biggsjm/mfl-blitz-ios/pull/9):** fixes cancelled Scores requests appearing as failures and removes raw network diagnostics from transport-error messages. Existing scores remain visible; genuine errors and uncertain-write safeguards are retained. See [current status](docs/current-status.md) for exact checks and GitHub delivery status.

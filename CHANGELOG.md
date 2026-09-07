@@ -2,6 +2,12 @@
 
 Implemented private-build history through September 7, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.6.0 (36) — September 7, 2026 — matchup opponent and kickoff
+
+- Replace the matchup player-state line with NFL opponent and device-local weekday/kickoff, or Live/Final/explicit Bye week. Explain the time zone once beneath Starting lineups; keep names and points primary.
+- Share the existing scope/week-checked availability cache across starter, bench and other-player rows, Lineup and Player Detail. Scores and navigation do not wait for optional schedule data; no per-player spinner or request is added.
+- Cover missing/wrong-week data, bye/live conflicts, future kickoff with a zero clock, locale/DST formatting, cached reads, delayed schedules, largest text and matchup → player → Back.
+
 ## 0.6.0 (35) — September 7, 2026 — last-player block removal
 
 - Allow demoting the last published player, saving/resuming the empty draft, then Review removal → Remove listing. Blank new drafts remain disabled.
