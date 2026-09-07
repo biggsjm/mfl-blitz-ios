@@ -14,6 +14,7 @@ struct ModelDecodingTests {
         #expect(response.league.name == "Saturday Legends")
         #expect(response.league.serverHost?.name == "www42.myfantasyleague.com")
         #expect(response.league.endWeek == 18)
+        #expect(response.league.standingsSort == "PCT,H2H,PTS,DIVPCT,")
         #expect(response.league.franchises.count == 2)
         #expect(response.league.franchises[0].blindBidAvailableBalance == Decimal(string: "74.50"))
         #expect(response.league.divisions.map(\.name) == ["North"])

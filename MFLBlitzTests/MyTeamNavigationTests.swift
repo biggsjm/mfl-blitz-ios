@@ -6,6 +6,155 @@ import UIKit
 
 @MainActor
 struct MyTeamNavigationTests {
+    @Test("The shared header uses division place, not overall place")
+    func divisionPlacement() {
+        var owner = SampleData.standings.first { $0.id == "0001" }!
+        owner.wins = 6; owner.losses = 2
+        owner.overallPlace = .init(position: 5); owner.divisionPlace = .init(position: 1)
+        #expect(owner.summary(leagueName: "Champion Hall") == "6–2 · 1st in Warner")
+        owner.ties = 1; owner.divisionPlace = .init(position: 2)
+        #expect(owner.summary(leagueName: "Champion Hall") == "6–2–1 · 2nd in Warner")
+        owner.divisionPlace = .init(position: 1, isTied: true)
+        #expect(owner.summary(leagueName: "Champion Hall") == "6–2–1 · T-1st in Warner")
+    }
+
+    @Test("No division uses the actual league place and league name")
+    func leaguePlacement() {
+        var owner = SampleData.standings.first { $0.id == "0001" }!
+        owner.divisionID = nil; owner.wins = 6; owner.losses = 2
+        owner.overallPlace = .init(position: 3)
+        #expect(owner.summary(leagueName: "Champion Hall") == "6–2 · 3rd in Champion Hall")
+    }
+
+    @Test("Division and league tables use their own ranks")
+    func divisionIdentity() {
+        var rows = Array(SampleData.standings.prefix(2))
+        rows[0].overallPlace = .init(position: 1); rows[0].divisionPlace = .init(position: 2)
+        rows[1].overallPlace = .init(position: 2); rows[1].divisionPlace = .init(position: 1)
+        #expect(StandingRow.sorted(rows, withinDivision: false).first?.id == rows[0].id)
+        #expect(StandingRow.sorted(rows, withinDivision: true).first?.id == rows[1].id)
+        rows[0].divisionID = nil; rows[1].divisionID = nil
+        #expect(StandingRow.sorted(rows, withinDivision: true).first?.id == rows[0].id)
+    }
+
+    @Test("Missing or ambiguous standings do not invent a place")
+    func invalidPlacement() {
+        var owner = SampleData.standings.first { $0.id == "0001" }!
+        #expect(owner.summary(leagueName: "Champion Hall") == "0–0 · Warner")
+        owner.recordIsKnown = false
+        #expect(owner.summary(leagueName: "Champion Hall") == "Warner")
+        owner.divisionID = nil
+        #expect(owner.summary(leagueName: "Champion Hall") == "Champion Hall")
+        owner.overallPlace = .init(position: 3)
+        #expect(owner.summary(leagueName: "") == "")
+    }
+
+    @Test("Numeric places use correct ordinal suffixes, including teens")
+    func ordinalSuffixes() {
+        for (number, word) in [(1, "1st"), (2, "2nd"), (3, "3rd"), (8, "8th"),
+            (9, "9th"), (11, "11th"), (12, "12th"), (13, "13th"),
+            (20, "20th"), (21, "21st"), (32, "32nd"), (40, "40th"),
+            (99, "99th"), (100, "100th"), (101, "101st"),
+            (111, "111th"), (112, "112th"), (113, "113th"), (120, "120th"), (1_000, "1000th")] {
+            #expect(StandingRow.ordinalText(number) == word)
+        }
+        #expect(StandingRow.ordinalText(0) == nil)
+        #expect(StandingRow.ordinalText(-1) == nil)
+    }
+
+    @Test("My Team exposes six unique direct destinations with Schedule first")
+    func directDestinations() {
+        let routes = TeamToolsRoute.Destination.allCases
+        #expect(routes == [.schedule, .addsDrops, .trades, .watchlist, .injuredReserve, .activity])
+        #expect(routes.map(\.title) == ["Schedule", "Adds / Drops", "Trades", "Watchlist", "Injured Reserve", "League Activity"])
+        #expect(Set(routes.map(\.accessibilityID)).count == 6)
+        #expect(routes.allSatisfy { !$0.symbol.isEmpty })
+    }
+
+    @Test("Roster tools require a matching successful capability read")
+    func rosterToolCapabilities() async throws {
+        let tools = RosterToolsModel()
+        let context = try await DemoLeagueRepository().loadRosterActionContext()
+        #expect(!tools.canPerform(.add, scope: context.scope))
+        await tools.load(scope: context.scope) { context }
+        #expect(tools.canPerform(.add, scope: context.scope))
+        #expect(!tools.canPerform(.add, scope: nil))
+        #expect(!tools.canPerform(.add, scope: "other-owner"))
+        var disabled = context
+        disabled.allowed = [.drop]
+        await tools.load(scope: context.scope) { disabled }
+        #expect(!tools.canPerform(.add, scope: context.scope))
+        #expect(tools.canPerform(.drop, scope: context.scope))
+    }
+
+    @Test("Failed refresh keeps roster readable but disables mutations")
+    func rosterToolRefreshFailure() async throws {
+        let tools = RosterToolsModel()
+        let context = try await DemoLeagueRepository().loadRosterActionContext()
+        await tools.load(scope: context.scope) { context }
+        await tools.load(scope: context.scope) {
+            #expect(tools.isLoading)
+            #expect(!tools.canPerform(.drop, scope: context.scope))
+            throw URLError(.notConnectedToInternet)
+        }
+        #expect(tools.context == context)
+        #expect(tools.error != nil && !tools.isLoading)
+        #expect(!tools.canPerform(.drop, scope: context.scope))
+        await tools.load(scope: context.scope) { context }
+        #expect(tools.error == nil && tools.canPerform(.drop, scope: context.scope))
+    }
+
+    @Test("Changing owner clears selected actions and rejects mismatched payloads")
+    func rosterToolOwnerChange() async throws {
+        let tools = RosterToolsModel()
+        let context = try await DemoLeagueRepository().loadRosterActionContext()
+        await tools.load(scope: context.scope) { context }
+        tools.selected = RosterActionRequest(kind: .drop, playerID: "12620")
+        await tools.load(scope: "other-owner") {
+            #expect(tools.context == nil && tools.selected == nil)
+            return context
+        }
+        #expect(tools.context == nil && tools.error != nil)
+        #expect(!tools.canPerform(.drop, scope: "other-owner"))
+    }
+
+    @Test("Late roster reads cannot overwrite a newer owner")
+    func rosterToolLateRead() async throws {
+        let tools = RosterToolsModel()
+        let original = try await DemoLeagueRepository().loadRosterActionContext()
+        var next = original
+        next.scope = "other-owner"; next.ownerID = "0002"
+        var gate: CheckedContinuation<RosterActionContext, Never>?
+        let oldRead = Task { await tools.load(scope: original.scope) {
+            await withCheckedContinuation { gate = $0 }
+        } }
+        while gate == nil { await Task.yield() }
+        await tools.load(scope: next.scope) { next }
+        gate?.resume(returning: original)
+        await oldRead.value
+        #expect(tools.context == next)
+        #expect(tools.canPerform(.drop, scope: next.scope))
+        #expect(!tools.canPerform(.drop, scope: original.scope))
+    }
+
+    @Test("A newer same-owner roster revision supersedes an in-flight read")
+    func rosterToolSameOwnerRevision() async throws {
+        let tools = RosterToolsModel()
+        let original = try await DemoLeagueRepository().loadRosterActionContext()
+        var updated = original
+        updated.membership["12620"] = "INJURED_RESERVE"
+        var gate: CheckedContinuation<RosterActionContext, Never>?
+        let oldRead = Task { await tools.load(scope: original.scope) {
+            await withCheckedContinuation { gate = $0 }
+        } }
+        while gate == nil { await Task.yield() }
+        await tools.load(scope: updated.scope) { updated }
+        gate?.resume(returning: original)
+        await oldRead.value
+        #expect(tools.context == updated)
+        #expect(!tools.isLoading)
+    }
+
     @Test("The native team tab uses a small original-rendering logo or readable fallback")
     func tabArtwork() {
         let fallback = TeamTabArtwork.image(abbreviation: "UB")

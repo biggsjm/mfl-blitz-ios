@@ -1,6 +1,6 @@
 # Player tools and roster actions
 
-Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in 0.5.0 (19), with owner-feedback fixes in 0.5.1 (20) and **0.5.2 (21)**. Build 21 adds compact player actions, strict visible Add gating and the My Team standing/season-roster refinement. Implementation and automated verification are separate from live-owner certification. [Current status](current-status.md) records exact device/test evidence; [roadmap](roadmap.md) retains release gates and remaining work.
+Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in 0.5.0 (19), with owner-feedback fixes in 0.5.1 (20) and 0.5.2 (21), followed by **0.5.3 (22–26)** direct-tool navigation and the [shared standings pattern](standings-pattern.md). Build 21 adds compact player actions, strict visible Add gating and the My Team season-roster refinement. Implementation and automated verification are separate from live-owner certification. [Current status](current-status.md) records exact device/test evidence; [roadmap](roadmap.md) retains release gates and remaining work.
 
 ## Scope and sequence
 
@@ -11,8 +11,8 @@ Keep Scores / Lineup / My Team / Standings / Board. No new main tab or global pl
 | 1 | Injury, kickoff, opponent and bye information | Player rows, Lineup/replacements, Player Detail | `injuries`, `nflSchedule`, `nflByeWeeks` |
 | 2 | Better player research | Player Detail and contextual player links | `playerScores` by week / `YTD` / `AVG`, `pointsAllowed`; existing projections |
 | 3 | Synced watchlist | Star on Player Detail; My Team Watchlist and waiver filtering | export/import `myWatchList` |
-| 4 | First-come add/drop | Transactions → Waivers/free agents, with explicit add/drop review | import `fcfsWaiver`; fresh `abilities`, `league`, `rosters`, `freeAgents`, `playerRosterStatus` |
-| 5 | IR management | Own-team roster and player actions | import `ir`; fresh capabilities, rules and roster/status readback |
+| 4 | First-come add/drop | My Team → Adds / Drops, with explicit add/drop review | import `fcfsWaiver`; fresh `abilities`, `league`, `rosters`, `freeAgents`, `playerRosterStatus` |
+| 5 | IR management | My Team → Injured Reserve and contextual player actions | import `ir`; fresh capabilities, rules and roster/status readback |
 
 Champion Hall's September 6 public configuration reports `BBID_FCFS`, conditional bidding, three IR spots, no taxi squad, and up to five keepers. Read rules/capabilities dynamically; never generalize this profile to other leagues or bypass MFL eligibility/deadline enforcement.
 
@@ -52,9 +52,11 @@ Champion Hall's September 6 public configuration reports `BBID_FCFS`, conditiona
 
 Follow-up 0.5.2 (21): symbol-only Add/Drop, eligible-only Player Detail IR, strict player-specific Add gating, and My Team's standing/navigation cards/position roster with season-to-date ordering are implemented; [current status](current-status.md) tracks tests/device delivery. This does not add automatic bids or bypass a locked player's next waiver run.
 
+Follow-up 0.5.3 (22): replace the Transactions/Manage roster umbrellas with six [direct My Team tools](my-team-shortcuts.md), Schedule first. Adds / Drops unifies acquisition and owned-player drops; Injured Reserve gets capacity and eligible moves. Existing drafts, scopes, caches, fresh preflight and exact readback remain mandatory. Features 6–9 below and live-owner checks remain unfinished.
+
 - [x] Offer Move to IR / Activate only on the signed-in owner's applicable players, using current roster membership rather than displayed starter slot.
 - [x] Show available IR/active-roster capacity and review the move. Check current capabilities, limits and baseline; MFL enforces league-specific injury eligibility.
-- [x] Keep Move to IR unavailable without a current matching Out/IR report; loading, missing, stale and failed reports do not qualify. Build 21 omits it from Player Detail when ineligible; Manage roster and review keep their disabled gates.
+- [x] Keep Move to IR unavailable without a current matching Out/IR report; loading, missing, stale and failed reports do not qualify. Player Detail omits ineligible IR; build 22's dedicated IR list includes only qualifying players, and review keeps its disabled gates.
 - [x] Support explicit activation with a required reviewed drop when necessary; never silently drop a player to make space.
 - [x] Reuse the durable roster-action and verification machinery. Confirm the target player's new roster status and any intended drop before declaring success.
 - [x] Keep taxi, salary and commissioner-on-behalf writes outside this increment.

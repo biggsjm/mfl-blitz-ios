@@ -1,16 +1,17 @@
 # Execution plan and remaining work
 
-Updated September 6, 2026 for private build **0.5.2 (21)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records exact installation/test evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 6, 2026 for private build **0.5.3 (26)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records exact installation/test evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 
-- [x] Native Scores / Lineup / My Team / Standings / Board and safe interactive preview; Transactions remains a prominent destination inside My Team.
+- [x] Native Scores / Lineup / My Team / Standings / Board and safe interactive preview; My Team has six direct tools with Schedule first.
 - [x] Account/franchise mapping, validated host discovery, Keychain restore, expiry UI, bounded reconnect and independent tab loading.
 - [x] Foreground live scores, positional matchup drill-down/FLEX, pregame projections and official completed results.
 - [x] League-derived lineup limits, bench/starter/FLEX replacements and rotations, scoped drafts, modal review and starter-set verification.
 - [x] Conditional blind-bid queues, confirmed $0 league fallback, fresh preflight, round replacement/cancellation and partial-outcome recovery.
 - [x] Native trades and separate counteroffers, durable unconfirmed-action protection, prominent Create/Resume, draft cancel/rollback and correct first-tap response reviews.
-- [x] Official standings/owner names, safe team artwork, native board threads/replies and exact-post verification.
+- [x] MFL standings/owner names, safe team artwork, native board threads/replies and exact-post verification.
+- [x] Approved [compact standings pattern](standings-pattern.md): numeric ordinals, division/overall ranks, shared linked team headers, real ties and conservative preseason/missing states. Authenticated read verified array order is not rank; supported configured criteria replace that assumption.
 - [x] Board Close/save/discard flow, visible Drafts and Resume reply, blank-draft filtering and storage-failure protection (0.4.1).
 - [x] Daily public player disk cache, stable league memory cache, decoded reuse, request sharing/spacing/cooldowns and no blind write retries.
 - [x] Original icons, explicit Week N controls, adaptive layouts and accessibility foundations.
@@ -24,6 +25,7 @@ Josh wants to test personally in Week 1 and invite the league in Week 2 if it go
 | Remaining gate | Owner / action | Done when |
 | --- | --- | --- |
 | Live scoring and rollover | Josh, with developer triage | Week 1 totals, player points/FLEX, clocks, final corrections, offline recovery and Week 2 selection match MFL; record build/time/result in the [checklist](week-1-testing.md) |
+| Live standings | Josh + developer | Completed-week division/overall places, H2H and true ties match the signed-in MFL report; identify any commissioner custom order not mirrored by the API |
 | Real write verification | Josh + consenting league/test owner | Intended lineup, $0/conditional queue and processing, trade proposal/each response, board thread/reply, watchlist changes, FCFS add/drop and eligible IR moves match MFL; ambiguous outcomes cause no duplicate writes. Exercise unwanted/destructive cases only in a disposable league |
 | Regression and usability | Developer + owner | Full core/app/UI suites green on candidate; small-screen/iPad, light/dark, large text, VoiceOver, Voice Control/Switch Control, contrast and deadline flows reviewed; release blockers resolved |
 | MFL client identity | Repository owner / developer | Registration confirmed and exact approved User-Agent configured; current `MFL Blitz/0.1 (com.biggsjm.MFLBlitz)` must not be assumed registered |
@@ -38,18 +40,18 @@ My Team is a separately verified product increment. It does not substitute for r
 ## P1 — My Team, schedule and player detail
 
 - [x] Replace oversized Player Detail action rows with compact accessible buttons; preserve strict acquisition flags so locked free agents cannot open Add review (0.5.2 follow-up). Test/device delivery is tracked in [current status](current-status.md), independently of live-owner acceptance.
-- [x] My Team: current official league standing, matching Transactions/Schedule/Watchlist cards instead of tabs, and position-grouped roster sorted by actual season-to-date points. One batched YTD read replaces assignment fetching; missing totals stay blank. Live season-total comparison remains an owner check.
+- [x] My Team: contextual division/league standing, Schedule / Adds & Drops / Trades / Watchlist / Injured Reserve / League Activity shortcuts, then a position-grouped roster sorted by actual season-to-date points. No overlapping Transactions / Manage roster pages. One batched YTD read replaces assignment fetching; missing totals stay blank. See [direct-tool contract](my-team-shortcuts.md).
 
 **Current installed increment: [Player tools 1–5](player-tools-plan.md).** Josh approved injury/kickoff/bye context, richer league-scored player research, an MFL-synced watchlist, native first-come add/drop and IR management on September 6. The linked plan defines acceptance checks and keeps trading blocks, calendars, polls and playoff brackets queued after those five. All five are implemented in build 20; test/CI/device evidence and live-owner checks are recorded separately.
 
-**Initial slice implemented in 0.4.0 (17).** Tabs: **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. No Players tab and no new global search destination; reuse the existing available-player search in Transactions → Waivers.
+**Initial slice implemented in 0.4.0 (17).** Tabs: **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. No Players tab and no new global search destination; reuse the existing available-player search in My Team → Adds / Drops.
 
-1. [x] Implement canonical-ID routes and the shared read-only team shell. My Team exposes matching Transactions/Schedule/Watchlist cards above its roster in the 0.5.2 follow-up; dedicated Lineup retains editing/submission. Other-team pages never present the owner's inbox as their own. Carry the existing trade-specific badge onto My Team and its Transactions entry.
+1. [x] Implement canonical-ID routes and the shared read-only team shell. My Team exposes the six Schedule-first shortcuts above its roster; dedicated Lineup retains editing/submission. Other-team pages never present owner tools. Preserve the trade-specific badge on My Team and Trades.
 2. [x] Add team roster and truthful initial player detail: identity, authoritative ownership/status, available projection/current points and optional supplied bio/contracts. Keep identity taps separate from lineup/waiver/asset-selection actions. See [player-detail plan](player-detail-ux.md).
 3. [x] Validate the official schedule request/schema; add a shared season/league cache and team/league timelines. Use configured week bounds, distinguishing byes, TBD, missing data and multiple matchups. See [schedule plan](schedule-ux.md).
 4. [x] Progressive targeted player history (four completed weeks/page), season totals/average and position points-allowed context. Missing scores are not zero. Live completed-week comparison remains a Week 1 gate.
 5. [x] Waiver identity links, separate trade research controls and modal routing are implemented alongside existing routes. Browsing must not change `AppModel.selectedWeek`, active lineup edits or saved trade drafts. Preserve explicit trade editor/review identities.
-6. [ ] Complete supported-device/accessibility validation. Native iPhone simulator journeys cover the My Team logo, team/league routes and large-text Transactions access; minimum-supported-OS, iPad and full manual assistive-technology review remain.
+6. [ ] Complete supported-device/accessibility validation. Native iPhone simulator journeys cover the My Team logo, team/league routes and large-text direct-tool access; minimum-supported-OS, iPad and full manual assistive-technology review remain.
 
 Implementation boundaries: team/player work owns roster/player surfaces; schedule work owns season data/timelines; native-app work owns shared routes/navigation and existing mutation flows. All slices were coordinated before integration. Schedule browsing uses destination-local scores and preserves active lineup and trade drafts.
 
@@ -60,7 +62,7 @@ Implementation boundaries: team/player work owns roster/player surfaces; schedul
 8. [ ] Board polls and voting.
 9. [ ] Playoff brackets beside schedules.
 
-These are retained in the [approved plan](player-tools-plan.md) and are not implemented in 0.5.2.
+These are retained in the [approved plan](player-tools-plan.md) and are not implemented in 0.5.3.
 
 ## P2 — Broader coverage and polish
 

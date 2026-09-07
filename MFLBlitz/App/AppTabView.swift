@@ -25,15 +25,15 @@ struct AppTabView: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            NavigationStack { ScoresView().leagueBrowseDestinations() }
+            LeagueBrowseStack { ScoresView() }
                 .tabItem { Label("Scores", systemImage: "sportscourt.fill") }
                 .tag(Tab.scores)
 
-            NavigationStack { LineupView().leagueBrowseDestinations() }
+            LeagueBrowseStack { LineupView() }
                 .tabItem { Label("Lineup", image: "LineupPlay") }
                 .tag(Tab.lineup)
 
-            NavigationStack { MyTeamRootView().leagueBrowseDestinations() }
+            LeagueBrowseStack { MyTeamRootView() }
                 .tabItem {
                     Label {
                         Text("My Team")
@@ -48,7 +48,7 @@ struct AppTabView: View {
                 .tag(Tab.myTeam)
                 .badge(model.transactions.needsAttentionCount)
 
-            NavigationStack { StandingsView().leagueBrowseDestinations() }
+            LeagueBrowseStack { StandingsView() }
                 .tabItem { Label("Standings", systemImage: "list.number") }
                 .tag(Tab.standings)
 
@@ -105,7 +105,7 @@ struct AppTabView: View {
 
 private struct MyTeamRootView: View {
     @Environment(AppModel.self) private var model
-    @State private var showingInitialTransactions = false
+    @State private var showingInitialActivity = false
     @State private var handledInitialDestination = false
 
     var body: some View {
@@ -116,14 +116,14 @@ private struct MyTeamRootView: View {
                 ContentUnavailableView("Connect your team", systemImage: "shield.lefthalf.filled")
             }
         }
-        .navigationDestination(isPresented: $showingInitialTransactions) {
-            TransactionsView().environment(model.transactions)
+        .navigationDestination(isPresented: $showingInitialActivity) {
+            TransactionActivityView().environment(model.transactions)
         }
         .task {
             guard !handledInitialDestination else { return }
             handledInitialDestination = true
             #if DEBUG
-            showingInitialTransactions = ProcessInfo.processInfo.arguments.contains("--show-transaction-activity")
+            showingInitialActivity = ProcessInfo.processInfo.arguments.contains("--show-transaction-activity")
             #endif
         }
     }

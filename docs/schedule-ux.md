@@ -1,12 +1,14 @@
 # Season schedule and My Team
 
-Status: **Initial implementation — 0.4.0 (17), My Team navigation refined in 0.5.2 (21)**, September 6, 2026. [Current status](current-status.md) records verification; [roadmap](roadmap.md) records remaining work.
+Status: **Initial implementation — 0.4.0 (17), My Team navigation refined in 0.5.3 (26)**, September 6, 2026. [Current status](current-status.md) records verification; [roadmap](roadmap.md) records remaining work.
+
+The shared full-schedule cache also supplies completed pairwise H2H results when the [standings resolver](standings-pattern.md) needs them. No extra per-franchise schedule calls or changes to timeline navigation, selected weeks or drafts are introduced.
 
 ## Information architecture
 
 Use **Scores / Lineup / My Team / Standings / Board**. My Team replaces Transactions in the center, retaining the native tab bar, franchise-logo/initials icon, visible label and trade attention badge. Lineup stays one tap away.
 
-In the 0.5.2 follow-up, My Team contains artwork/name/owner/current record and official league standing, matching **Transactions / Schedule / Watchlist** navigation cards, and a roster grouped by position and sorted by season points. Schedule and Watchlist open separate native destinations. Other-team pages retain **Roster / Schedule**. The roster opens Player Detail; all lineup editing remains in Lineup.
+My Team contains identity, current record and official standing, six [direct shortcuts](my-team-shortcuts.md) with **Schedule first**, and a roster grouped by position and sorted by actual season points. Schedule is a separate pushed destination. Other-team pages retain **Roster / Schedule**. The roster opens Player Detail; lineup editing remains in Lineup.
 
 | Need | Entry | Destination |
 | --- | --- | --- |

@@ -805,16 +805,48 @@ actor LiveMFLRepository: LeagueRepository {
     }
 
     func loadStandings() async throws -> [StandingRow] {
-        let (client, league, workspace) = try requireSession()
+        let (client, _, workspace) = try requireSession()
         let standings = try await client.standings()
+        let league = try await client.league()
+        guard Set(league.franchises.map(\.id)).count == league.franchises.count,
+              Set(league.divisions.map(\.id)).count == league.divisions.count else {
+            throw RepositoryError.server("MFL returned ambiguous standings teams or divisions.")
+        }
         let franchiseByID = Dictionary(uniqueKeysWithValues: league.franchises.map { ($0.id, $0) })
         let divisionByID = Dictionary(uniqueKeysWithValues: league.divisions.map { ($0.id, $0.name) })
+        let startWeek = league.startWeek ?? 1
+        let hasResults = MFLStandingsRanking.hasReportedResults(standings.franchises,
+            headToHead: league.headToHead, completedWeek: seasonStatus?.completedWeek, startWeek: startWeek)
+        let completeMembership = Set(standings.franchises.map(\.id)) == Set(league.franchises.map(\.id)) &&
+            standings.franchises.count == league.franchises.count
+        var schedule: MFLSchedule?
+        var completedWeek: Int?
+        let preliminary = MFLStandingsRanking.resolve(standings.franchises, criteria: league.standingsSort, hasResults: hasResults)
+        if preliminary.issue == .headToHeadUnavailable {
+            let status = try? await playerToolsSeasonStatus(client: client)
+            if let status, status.year == workspace.season, status.completedWeek >= startWeek {
+                completedWeek = min(status.completedWeek, league.lastRegularSeasonWeek ?? status.completedWeek)
+                schedule = try? await client.schedule()
+            }
+        }
+        let overall = MFLStandingsRanking.resolve(standings.franchises,
+            criteria: completeMembership ? league.standingsSort : nil, hasResults: hasResults,
+            schedule: schedule, startWeek: startWeek, completedWeek: completedWeek)
+        var divisions: [String: MFLStandingsRanking] = [:]
+        for division in league.divisions {
+            let members = standings.franchises.filter { franchiseByID[$0.id]?.divisionID == division.id }
+            divisions[division.id] = MFLStandingsRanking.resolve(members,
+                criteria: completeMembership ? league.standingsSort : nil, hasResults: hasResults,
+                schedule: schedule, startWeek: startWeek, completedWeek: completedWeek)
+        }
+        guard client === self.client else { throw CancellationError() }
 
         let rows = standings.franchises.enumerated().map { index, item in
             let franchise = franchiseByID[item.id]
+            let divisionID = franchise?.divisionID.flatMap { divisionByID[$0] == nil ? nil : $0 }
+            let divisionRank = divisionID.flatMap { divisions[$0] }
             return StandingRow(
                 id: item.id,
-                rank: index + 1,
                 name: cleanText(franchise?.name ?? "Franchise \(item.id)"),
                 abbreviation: franchise?.abbreviation ?? String(format: "%02d", index + 1),
                 division: franchise?.divisionID.flatMap { divisionByID[$0] } ?? "League",
@@ -827,7 +859,12 @@ actor LiveMFLRepository: LeagueRepository {
                 isUser: item.id == workspace.franchiseID,
                 accentSeed: Int(item.id) ?? index,
                 artworkURLs: TeamArtworkURLPolicy.candidates(icon: franchise?.iconURL, logo: franchise?.logoURL),
-                ownerName: franchise?.ownerName.map(cleanText).flatMap { $0.isEmpty ? nil : $0 }
+                ownerName: franchise?.ownerName.map(cleanText).flatMap { $0.isEmpty ? nil : $0 },
+                divisionID: divisionID,
+                overallPlace: overall.places[item.id], divisionPlace: divisionRank?.places[item.id],
+                recordIsKnown: [item.wins, item.losses, item.ties].allSatisfy { ($0 ?? -1) >= 0 },
+                standingsRule: league.standingsSort,
+                overallRankIssue: overall.issue, divisionRankIssue: divisionRank?.issue
             )
         }
         #if DEBUG

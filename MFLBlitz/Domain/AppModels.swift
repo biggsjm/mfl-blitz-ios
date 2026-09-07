@@ -1,4 +1,5 @@
 import Foundation
+import MFLCore
 
 struct LoginCredentials: Sendable {
     var username = ""
@@ -365,7 +366,6 @@ struct WaiverClaim: Identifiable, Codable, Equatable, Sendable {
 
 struct StandingRow: Identifiable, Equatable, Sendable {
     let id: String
-    var rank: Int
     var name: String
     var abbreviation: String
     var division: String
@@ -379,6 +379,53 @@ struct StandingRow: Identifiable, Equatable, Sendable {
     var accentSeed: Int
     var artworkURLs: [URL] = []
     var ownerName: String? = nil
+    var divisionID: String? = nil
+    var overallPlace: MFLStandingPlace? = nil
+    var divisionPlace: MFLStandingPlace? = nil
+    var recordIsKnown = true
+    var standingsRule: String? = nil
+    var overallRankIssue: MFLStandingsRanking.Issue? = nil
+    var divisionRankIssue: MFLStandingsRanking.Issue? = nil
+
+    var hasDivision: Bool {
+        divisionID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
+            !division.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var recordText: String? {
+        guard recordIsKnown else { return nil }
+        return ties > 0 ? "\(wins)–\(losses)–\(ties)" : "\(wins)–\(losses)"
+    }
+
+    func summary(leagueName: String) -> String {
+        let group = (hasDivision ? division : leagueName).trimmingCharacters(in: .whitespacesAndNewlines)
+        let place = hasDivision ? divisionPlace : overallPlace
+        let context = group.isEmpty ? "" : place.flatMap { Self.placeText($0) }.map { "\($0) in \(group)" } ?? group
+        return [recordText, context.isEmpty ? nil : context].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    static func placeText(_ place: MFLStandingPlace) -> String? {
+        ordinalText(place.position).map { (place.isTied ? "T-" : "") + $0 }
+    }
+
+    static func sorted(_ rows: [StandingRow], withinDivision: Bool) -> [StandingRow] {
+        rows.sorted {
+            let a = withinDivision && $0.hasDivision ? $0.divisionPlace : $0.overallPlace
+            let b = withinDivision && $1.hasDivision ? $1.divisionPlace : $1.overallPlace
+            if a?.position != b?.position { return (a?.position ?? Int.max) < (b?.position ?? Int.max) }
+            // Unranked order is presentation only; never turn it into a place.
+            let order = $0.name.localizedStandardCompare($1.name)
+            return order == .orderedSame ? $0.id < $1.id : order == .orderedAscending
+        }
+    }
+
+    static func ordinalText(_ number: Int) -> String? {
+        guard number > 0 else { return nil }
+        let suffix: String
+        if (11...13).contains(number % 100) { suffix = "th" }
+        else { suffix = [1: "st", 2: "nd", 3: "rd"][number % 10] ?? "th" }
+        return "\(number)\(suffix)"
+    }
 }
 
 struct BoardThread: Identifiable, Equatable, Sendable {

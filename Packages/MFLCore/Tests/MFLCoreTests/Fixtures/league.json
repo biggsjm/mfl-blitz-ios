@@ -21,6 +21,7 @@
     "tiebreaker": "nonstarter",
     "tiebreakerCount": "1",
     "h2h": "YES",
+    "standingsSort": "PCT,H2H,PTS,DIVPCT,",
     "partialLineupAllowed": "NO",
     "bestLineup": "No",
     "lockout": "No",

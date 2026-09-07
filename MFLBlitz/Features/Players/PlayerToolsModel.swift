@@ -16,6 +16,13 @@ final class PlayerToolsModel {
     private var generation = 0
 
     func irIneligibilityReason(playerID: String, week: Int, now: Date = Date()) -> String? {
+        if let issue = irAvailabilityIssue(week: week, now: now) { return issue }
+        return availability[week]?.injuries[playerID]?.qualifiesForNativeIR == true ? nil : "Requires Out or IR"
+    }
+
+    /// Distinguish an unconfirmed report from a confirmed lack of eligible
+    /// players; an unavailable feed must never imply that everyone is healthy.
+    func irAvailabilityIssue(week: Int, now: Date = Date()) -> String? {
         guard !loadingWeeks.contains(week) else { return "Checking IR eligibility…" }
         guard availabilityErrors[week] == nil else { return "IR eligibility unavailable" }
         guard let snapshot = availability[week], snapshot.scope == scope, snapshot.week == week else {
@@ -25,7 +32,7 @@ final class PlayerToolsModel {
         guard age >= 0, age < 900, !snapshot.issues.contains("Injury report unavailable.") else {
             return "Refresh to check IR eligibility"
         }
-        return snapshot.injuries[playerID]?.qualifiesForNativeIR == true ? nil : "Requires Out or IR"
+        return nil
     }
 
     func reset(scope: String?) {

@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 
 struct RosterActionSheet: View {
     @Environment(AppModel.self) private var model
@@ -129,113 +130,201 @@ struct PendingRosterChangeSection: View {
     }
 }
 
-struct RosterManagementView: View {
-    @Environment(AppModel.self) private var model
-    @State private var context: RosterActionContext?
-    @State private var error: String?
-    @State private var loading = false
-    @State private var selected: RosterActionRequest?
-    @State private var showFreeAgents = false
-    @State private var search = ""
+@MainActor @Observable
+final class RosterToolsModel {
+    private(set) var context: RosterActionContext?
+    private(set) var error: String?
+    private(set) var isLoading = false
+    private var scope: String?
+    private var revision = 0
+    var selected: RosterActionRequest?
 
-    var body: some View {
-        List {
-            if model.isDemo { DemoBanner() }
-            PendingRosterChangeSection()
-            Section {
-                Picker("Players", selection: $showFreeAgents) {
-                    Text("My roster").tag(false)
-                    Text("Free agents").tag(true)
-                }.pickerStyle(.segmented)
-            }.listRowBackground(Color.clear).listRowInsets(.init())
-            if let context, context.scope == model.workspace?.storageScope {
-                Section {
-                    Text("Active \(context.activeCount)/\(context.activeLimit) · IR \(context.irCount)/\(context.irLimit)")
-                        .font(.subheadline.monospacedDigit())
-                    if context.allowed.isEmpty { Text(context.unavailableReason ?? "Check availability on MFL.").font(.footnote).foregroundStyle(.secondary) }
-                }
-                if showFreeAgents {
-                    Section("Available players") {
-                        ForEach(model.waivers.candidates.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }) { candidate in
-                            HStack {
-                                let identity = PlayerIdentity(id: candidate.id, name: candidate.name, position: candidate.position, nflTeam: candidate.nflTeam)
-                                playerLink(identity)
-                                Button { selected = .init(kind: .add, playerID: candidate.id) } label: { Image(systemName: "plus.circle.fill").frame(width: 44, height: 44) }
-                                    .buttonStyle(.borderless).accessibilityLabel("Add \(candidate.name)")
-                                    .disabled(!context.allowed.contains(.add) || model.isBusy)
-                            }
-                        }
-                        if model.waivers.candidates.isEmpty { Text(model.isLoadingWaivers ? "Loading players…" : "Refresh waivers to load available players.").foregroundStyle(.secondary) }
-                    }
-                } else {
-                    ForEach(["ROSTER", "INJURED_RESERVE"], id: \.self) { status in
-                        Section(status == "ROSTER" ? "Active roster" : "Injured reserve") {
-                            ForEach(context.players.filter { context.membership[$0.id] == status && (search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)) }) { player in
-                                HStack {
-                                    playerLink(player)
-                                    Menu {
-                                        Button(status == "ROSTER" ? "Move to IR" : "Activate") {
-                                            selected = .init(kind: status == "ROSTER" ? .reserve : .activate, playerID: player.id)
-                                        }.disabled(!context.allowed.contains(status == "ROSTER" ? .reserve : .activate)
-                                            || (status == "ROSTER" && model.playerTools.irIneligibilityReason(playerID: player.id, week: model.currentWeek) != nil))
-                                            .accessibilityHint(status == "ROSTER" ? (model.playerTools.irIneligibilityReason(playerID: player.id, week: model.currentWeek) ?? "Review a move to injured reserve") : "Review activation")
-                                        Button("Drop player", role: .destructive) { selected = .init(kind: .drop, playerID: player.id) }
-                                            .disabled(!context.allowed.contains(.drop))
-                                    } label: { Image(systemName: "arrow.up.arrow.down.circle").frame(width: 44, height: 44) }
-                                    .buttonStyle(.borderless)
-                                    .disabled(model.isBusy).accessibilityLabel("Manage \(player.name)")
-                                    .accessibilityIdentifier("roster-manage-\(player.id)")
-                                }
-                            }
-                        }
-                    }
-                }
+    func canPerform(_ kind: RosterActionKind, scope: String?) -> Bool {
+        guard let scope, let context, context.scope == scope,
+              !isLoading, error == nil, context.pending == nil else { return false }
+        return context.allowed.contains(kind)
+    }
+
+    func load(scope: String, using loader: () async throws -> RosterActionContext) async {
+        // A new roster revision must supersede a cancelled view task even for
+        // the same owner. Repository reads already share cached requests.
+        if self.scope != scope { context = nil; selected = nil }
+        self.scope = scope
+        revision += 1
+        let request = revision
+        isLoading = true; error = nil
+        defer { if revision == request { isLoading = false } }
+        do {
+            let result = try await loader()
+            try Task.checkCancellation()
+            guard revision == request else { return }
+            guard result.scope == scope else {
+                context = nil
+                self.error = "Roster availability could not be confirmed."
+                return
             }
-            if loading { ProgressView("Checking roster…").frame(maxWidth: .infinity) }
-            if let error { Section { Text(error); Button("Retry") { Task { await load() } } } }
-            if let workspace = model.workspace { Section { Link("Roster tools on MFL", destination: workspace.leagueURL) } }
-        }
-        .navigationTitle("Roster moves").navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $search, prompt: "Find a player")
-        .task(id: "\(model.workspace?.storageScope ?? "")|\(model.rosterRevision)") { await load() }
-        .task(id: showFreeAgents) {
-            if showFreeAgents, model.waivers.candidates.isEmpty { await model.refreshWaivers() }
-        }
-        .task(id: "availability|\(model.workspace?.storageScope ?? "")|\(model.currentWeek)") {
-            await model.loadPlayerAvailability(week: model.currentWeek)
-        }
-        .refreshable {
-            await load()
-            await model.loadPlayerAvailability(week: model.currentWeek, refresh: true)
-            if showFreeAgents { await model.refreshWaivers() }
-        }
-        .sheet(item: $selected) { request in
-            RosterActionSheet(player: identity(request.playerID), request: request)
+            context = result
+        } catch {
+            guard revision == request, !(error is CancellationError), !Task.isCancelled else { return }
+            self.error = error.localizedDescription
         }
     }
-    @ViewBuilder private func playerLink(_ player: PlayerIdentity) -> some View {
-        if let scope = model.browseScope {
-            NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: model.currentWeek)) {
-                VStack(alignment: .leading, spacing: 4) {
-                    PlayerIdentityView(player: player)
-                    PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.nflTeam ?? "", week: model.currentWeek)
-                }
-            }.buttonStyle(.plain).accessibilityIdentifier("roster-move-player-\(player.id)")
-        }
-    }
-    private func identity(_ id: String) -> PlayerIdentity {
+
+    func identity(_ id: String, candidates: [WaiverCandidate] = []) -> PlayerIdentity {
         if let player = context?.players.first(where: { $0.id == id }) { return player }
-        if let player = model.waivers.candidates.first(where: { $0.id == id }) {
+        if let player = candidates.first(where: { $0.id == id }) {
             return PlayerIdentity(id: id, name: player.name, position: player.position, nflTeam: player.nflTeam)
         }
         return PlayerIdentity(id: id, name: "Player \(id)")
     }
+}
+
+struct InjuredReserveView: View {
+    @Environment(AppModel.self) private var model
+    @State private var tools = RosterToolsModel()
+
+    var body: some View {
+        RosterActionListView(mode: .injuredReserve, tools: tools)
+            .task(id: "\(model.workspace?.storageScope ?? "")|\(model.rosterRevision)") { await load() }
+            .task(id: "availability|\(model.workspace?.storageScope ?? "")|\(model.currentWeek)") {
+                await model.loadPlayerAvailability(week: model.currentWeek)
+            }
+            .refreshable {
+                await load()
+                await model.loadPlayerAvailability(week: model.currentWeek, refresh: true)
+            }
+            .sheet(item: $tools.selected) { request in
+                RosterActionSheet(player: tools.identity(request.playerID), request: request)
+            }
+    }
+
     private func load() async {
-        guard !loading else { return }
-        loading = true; error = nil
-        defer { loading = false }
+        guard let scope = model.workspace?.storageScope else { return }
         await model.loadPendingRosterChange()
-        do { context = try await model.loadRosterActionContext() }
-        catch { if !(error is CancellationError) { self.error = error.localizedDescription } }
+        await tools.load(scope: scope) { try await model.loadRosterActionContext() }
+    }
+}
+
+/// Two purpose-specific lists share presentation and the existing reviewed
+/// mutation machinery, without exposing a catch-all "Manage roster" screen.
+struct RosterActionListView: View {
+    enum Mode { case drops, injuredReserve }
+    @Environment(AppModel.self) private var model
+    let mode: Mode
+    @Bindable var tools: RosterToolsModel
+    var searchText = ""
+
+    var body: some View {
+        List {
+            if model.isDemo { DemoBanner().listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
+            PendingRosterChangeSection()
+            if let context = tools.context, context.scope == model.workspace?.storageScope {
+                if mode == .drops {
+                    Section {
+                        Text("Active \(context.activeCount)/\(context.activeLimit) · IR \(context.irCount)/\(context.irLimit)")
+                            .font(.subheadline.monospacedDigit())
+                    }
+                    if !context.allowed.contains(.drop) {
+                        Section { Text(context.unavailableReason ?? "Drops are unavailable. Check MFL.").font(.footnote) }
+                    }
+                    Section("My roster") {
+                        ForEach(players(context)) { player in
+                            playerRow(player, kind: .drop, membership: context.membership[player.id])
+                        }
+                        if players(context).isEmpty { Text("No players match.").foregroundStyle(.secondary) }
+                    }
+                } else {
+                    Section {
+                        LabeledContent("IR spots", value: "\(context.irCount) of \(context.irLimit)")
+                        LabeledContent("Active roster", value: "\(context.activeCount) of \(context.activeLimit)")
+                    }.monospacedDigit()
+                    if context.irLimit <= 0 {
+                        Section { Text("This league does not have IR spots.").foregroundStyle(.secondary) }
+                    } else {
+                        Section("On injured reserve") {
+                            let reserved = players(context).filter { context.membership[$0.id] == "INJURED_RESERVE" }
+                            ForEach(reserved) { playerRow($0, kind: .activate, membership: "INJURED_RESERVE") }
+                            if reserved.isEmpty { Text("No players on IR").foregroundStyle(.secondary) }
+                        }
+                        if !context.allowed.contains(.reserve) && !context.allowed.contains(.activate) {
+                            Section { Text(context.unavailableReason ?? "IR moves are unavailable. Check MFL.").font(.footnote) }
+                        }
+                        Section {
+                            let eligible = players(context).filter {
+                                context.membership[$0.id] == "ROSTER" &&
+                                    model.playerTools.irIneligibilityReason(playerID: $0.id, week: model.currentWeek) == nil
+                            }
+                            ForEach(eligible) { playerRow($0, kind: .reserve, membership: "ROSTER") }
+                            if eligible.isEmpty {
+                                Text(model.playerTools.irAvailabilityIssue(week: model.currentWeek)
+                                     ?? "No eligible players available").foregroundStyle(.secondary)
+                            }
+                        } header: { Text("Eligible to move") } footer: {
+                            Text(context.irCount >= context.irLimit
+                                 ? "IR is full. Activate a player to make room."
+                                 : "Players need a current Out or IR designation. Refresh to check eligibility.")
+                        }
+                    }
+                }
+            }
+            if tools.isLoading { ProgressView("Checking roster…").frame(maxWidth: .infinity) }
+            if let error = tools.error {
+                Section {
+                    Text(error)
+                    Button("Retry roster") { Task { await reload() } }.disabled(tools.isLoading)
+                }
+            }
+            if let workspace = model.workspace {
+                Section { Link(mode == .drops ? "Adds / drops on MFL" : "Injured reserve on MFL", destination: workspace.leagueURL) }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    private func players(_ context: RosterActionContext) -> [PlayerIdentity] {
+        context.players.filter {
+            searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText)
+                || ($0.position?.localizedCaseInsensitiveContains(searchText) ?? false)
+        }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    private func playerRow(_ player: PlayerIdentity, kind: RosterActionKind, membership: String?) -> some View {
+        HStack(spacing: 12) {
+            if let scope = model.browseScope {
+                NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: model.currentWeek)) {
+                    PlayerIdentityView(player: player, subtitle: membership == "INJURED_RESERVE" ? "IR" : nil)
+                }
+                .buttonStyle(.plain).accessibilityIdentifier("roster-move-player-\(player.id)")
+            }
+            Spacer(minLength: 0)
+            Button(role: kind == .drop ? .destructive : nil) {
+                tools.selected = RosterActionRequest(kind: kind, playerID: player.id)
+            } label: {
+                Image(systemName: kind == .drop ? "person.badge.minus" : kind == .reserve ? "cross.case" : "arrow.up.circle")
+                    .font(.system(size: 20, weight: .semibold))
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.borderless).tint(kind == .drop ? .red : .primary)
+            .accessibilityLabel("\(kind.title), \(player.name)")
+            .accessibilityIdentifier("roster-\(kind.rawValue)-\(player.id)")
+            .disabled(!canPerform(kind, playerID: player.id))
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func canPerform(_ kind: RosterActionKind, playerID: String) -> Bool {
+        guard tools.canPerform(kind, scope: model.workspace?.storageScope),
+              !model.isBusy, !model.transactions.isBusy, model.pendingRosterChange == nil else { return false }
+        if kind == .reserve {
+            guard let context = tools.context, context.irCount < context.irLimit else { return false }
+            return model.playerTools.irIneligibilityReason(playerID: playerID, week: model.currentWeek) == nil
+        }
+        return true
+    }
+
+    private func reload() async {
+        guard let scope = model.workspace?.storageScope else { return }
+        await tools.load(scope: scope) { try await model.loadRosterActionContext() }
     }
 }

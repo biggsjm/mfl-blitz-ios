@@ -2,7 +2,39 @@
 
 Audited September 6, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Current installed private build
+## Current candidate — 0.5.3 (26)
+
+The approved [standings pattern](standings-pattern.md) is implemented: shared `6–2 · 1st in Warner` headers, actual league-name fallback, correctly scoped division/overall places, confirmed ties and no manufactured preseason place. Tapping the header opens the matching standings context. The selector stays visible; maximum Dynamic Type gets stacked headers and rows. Existing direct tools and mutation protections remain unchanged.
+
+A read-only authenticated request through the app's own session verified that Champion Hall's standings rows were in franchise-ID order with all-zero preseason results and no explicit rank. The earlier array-index implementation was wrong. Build 26 instead compares configured PCT/H2H/PTS/DIVPCT criteria, with separate division scopes, exact record percentages, confirmed pairwise H2H, conservative missing/cyclic states and cached reads. MFL's report remains authoritative for manual/custom orders not exposed in the API; completed-week comparison remains an owner gate. Temporary diagnostic code is removed from the final source; no credentials or authenticated payloads are committed.
+
+Verification so far:
+
+- **Core:** all **87 tests / 12 suites** passed (`mfl-standings-core-final3.log`), including 12 ranking tests plus the existing API/cache/mutation coverage. An additional owner-requested regression explicitly checks that T2/T2/4 cannot be inferred with missing points or H2H data; its final result is recorded with delivery below.
+- **Focused native/model checks:** **31 app model functions and 5 native UI journeys** pass on iOS 18.4 in Dark Mode (`mfl-build26-standings-verified.xcresult`). Covers header navigation, division/overall ranks, ties, no divisions, largest text, info popover, existing draft navigation and return to IR after player inspection.
+- **Full local regression / final GitHub checks / signed build 26 installation:** pending at this candidate checkpoint. Exact receipts will be recorded before declaring delivery complete.
+
+Interim builds 24–25 were installed for presentation and read-only diagnosis, not released. Build 25 is the last installed iteration at this checkpoint. Earlier failed or partial runs are not final-source evidence: numeric formatting, a scroll-away selector and a large-text header were corrected before the focused passing run above.
+
+## Verified direct-tool baseline — 0.5.3 (23)
+
+The [direct My Team tools](my-team-shortcuts.md) are implemented: Schedule first, then Adds / Drops, Trades, Watchlist, Injured Reserve and League Activity. Transactions and Manage roster no longer overlap as umbrella pages. Position-grouped season points, cached reads, drafts and reviewed mutation protections remain. All six navigation glyphs use the green accent; contextual IR action glyphs stay neutral. The earlier standing-rank assumption is superseded by build 26 above.
+
+Signed **0.5.3 (23)** from `9a8ab0c9c2eebf949fca692adada1031bf1a035c` installed and launched successfully on Josh's iPhone September 6. Build 22 was installed/launched earlier the same evening; build 23 corrects only the IR shortcut tint and increments the build number. No live league mutation is part of QA; all write tests use explicit Preview. The next feature queue and Week 1/Week 2 release gates are unchanged.
+
+Verification:
+
+- **Core:** 75 tests / 11 suites pass in a fresh temporary SwiftPM directory (`mfl-build22-core.log`). No core source changes in this increment.
+- **Full local regression:** all 156 app unit functions and all 33 native UI journeys pass: **189 functions / 221 executions**, no failures, skips or reported runtime warnings (`mfl-build22-regression.xcresult`, iPhone 17 Pro / iOS 27, app/test baseline `82c14b9`). Includes the two-week synthetic journey, draft isolation, independent destinations, maximum Dynamic Type, acquisition reviews, locked Add and eligible IR/readback.
+- **Older-iOS Dark Mode:** all three targeted My Team/acquisition/IR journeys pass on iPhone 16 Pro / iOS 18.4, with no failures, skips or reported runtime warnings (`mfl-build22-dark18-final.xcresult`, `9858d58`). That test-only commit tolerates subpixel rounding of a 44-point target; app controls are unchanged.
+- **Build-23 follow-up:** both native My Team and eligible-player-action journeys pass in actual Dark Mode on iOS 18.4, no failures/skips/runtime warnings (`mfl-build23-shortcuts.xcresult`, final source `9a8ab0c`). Actual screenshots verify green IR navigation versus neutral contextual IR, along with preserved draft navigation.
+- **GitHub:** baseline compatibility [run 34074254837](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/34074254837) failed one native IR-navigation test after returning to a scrolled My Team list; core/build/app-model checks passed. The test now scrolls toward the header to reveal the lazy shortcut, without weakening eligibility assertions. Its focused iOS 18.4 rerun passes in build 26. Both checks must pass on the actual final [PR #5](https://github.com/biggsjm/mfl-blitz-ios/pull/5) head before merge.
+- **Device:** signed build 23 installed and launched successfully. This verifies delivery, not a complete live game week or real owner mutation.
+- **Documentation:** current product/navigation/API/cache contracts, direct-tool design, remaining feature plan and owner checklist reconciled. Local Markdown links and whitespace checks pass.
+
+Development findings corrected before final verification: explicit button accessibility for the shortcut grid, independent actions instead of multiple List-row links, a shared typed path for deeper schedule/player navigation, and separate unavailable-report versus no-eligible-player IR states. Earlier failed/interrupted runs and superseded CI runs are not passing evidence. Final documentation completion changes no tested app code.
+
+## Previous installed private build — 0.5.2 (21)
 
 **0.5.2 (21)** installed on Josh's iPhone September 6 from source `e1fcba5`. It adds symbol-only person-plus Add, red person-minus Drop and neutral medical-bag IR for eligible owned players, strict acquisition gating, and My Team's official standing/navigation-card/position-roster redesign with batched season-to-date scores. No live roster changes are part of QA. Installation is confirmed; iOS refused automatic launch because the phone was locked. Open the installed app after unlocking.
 
@@ -46,7 +78,7 @@ Default request spacing reduces pressure but does not guarantee freedom from MFL
 - **MFL Blitz 0.4.1 (18): My Team and Board drafts.** Implemented, tested and signed. The final compatibility rebuild was installed and launched successfully on Josh's iPhone on September 6 after the phone became available. Includes the concise schedule update label and Board Close/save/discard with visible draft recovery.
 - Previous installed baseline: **0.3.7 (16), [e779e4b](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b)**. The documentation baseline was merged in [PR #1](https://github.com/biggsjm/mfl-blitz-ios/pull/1).
 - **Private owner testing**, not an App Store/TestFlight release. Production MFL registration and Week 2 invitation readiness remain unconfirmed.
-- Tabs: **Scores / Lineup / My Team / Standings / Board**. Transactions is prominently available inside My Team, above Roster / Schedule. Settings remains upper-left on Scores; Scores and Lineup retain Week N controls.
+- Tabs remain **Scores / Lineup / My Team / Standings / Board**. Build 22 exposes six Schedule-first tools directly inside My Team. Settings remains upper-left on Scores; Scores and Lineup retain Week N controls.
 - Connected mode performs real reads and explicitly reviewed writes. Champion Hall preview uses synthetic data, offers, owners and schedules; its actions send nothing to MFL.
 
 ## Implemented workflows
@@ -55,10 +87,10 @@ Default request spacing reduces pressure but does not guarantee freedom from MFL
 | --- | --- | --- |
 | Scores | Featured/all matchups, positional/FLEX detail, foreground refresh and final reconciliation | No background push; projections are not live win forecasts |
 | Lineup | League-aware bench/starter/FLEX replacements and rotations, saved drafts, review and starter readback | MFL stores starter IDs, not FLEX placements; saved tiebreakers cannot be read back |
-| My Team / team pages | Official own-team standing, matching Transactions/Schedule/Watchlist cards and position-grouped roster sorted by actual season points; separate Manage roster | Missing totals stay absent; other teams retain assignment-based rosters and never show your inbox or owner controls |
+| My Team / team pages | Official own-team standing, six Schedule-first tools, then position-grouped roster sorted by actual season points | Missing totals stay absent; other teams retain assignment-based rosters and never show your inbox or owner controls |
 | Player Detail | Identity, ownership/status, weekly metrics, availability, progressive history, totals/average, points allowed, watch star and supplied biography | Missing source data stays absent; no external imagery/news or guessed facts |
 | Season schedule | Shared team/league timelines, configured bounds, current/future/final/unset states and route-local matchup scoring | Ambiguous doubleheaders never select an arbitrary scoring game; missing opponents are not guessed byes |
-| Waivers / roster moves | Available-player search/watch filtering, conditional blind bids and reviewed FCFS/IR actions with exact membership readback | Supported owner/rule gates only; broader classic/non-conditional, taxi, salary and duplicate-player formats use MFL |
+| Adds / Drops and Injured Reserve | One available-player browser for FCFS or blind bids; owned-player drops; dedicated IR capacity/eligible moves, all with exact membership readback | Supported owner/rule gates only; broader classic/non-conditional, taxi, salary and duplicate-player formats use MFL |
 | Trades | Create/Resume, private drafts, Cancel/rollback, blank-save disabled, exact proposal/response review and separate counters | Counter leaves original open; acceptance can await MFL processing; no blind retries |
 | Standings | Official overall/division order, owners, artwork, anchored info and team drill-through | Missing owners not guessed; current record is not a projected record |
 | Board | Native threads/posts/replies, visible Drafts, Resume reply, Close/save/discard and exact-post readback | Saving a draft sends no post; plain text, not rich HTML or proprietary chat |

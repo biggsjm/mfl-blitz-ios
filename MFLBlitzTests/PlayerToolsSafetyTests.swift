@@ -9,6 +9,7 @@ struct PlayerToolsSafetyTests {
         let model = PlayerToolsModel(), now = Date()
         model.reset(scope: "s")
         #expect(model.irIneligibilityReason(playerID: "201", week: 1) != nil)
+        #expect(model.irAvailabilityIssue(week: 1) != nil)
         for designation in ["Out", "IR", "Questionable", "Doubtful", "Suspended", "Unknown", ""] {
             var snapshot = PlayerAvailabilitySnapshot(scope: "s", week: 1)
             snapshot.fetchedAt = now
@@ -18,6 +19,7 @@ struct PlayerToolsSafetyTests {
                 return snapshot
             }
             #expect((model.irIneligibilityReason(playerID: "201", week: 1, now: now) == nil) == ["Out", "IR"].contains(designation))
+            #expect(model.irAvailabilityIssue(week: 1, now: now) == nil)
             #expect(model.irIneligibilityReason(playerID: "201", week: 2) != nil)
             #expect(model.irIneligibilityReason(playerID: "202", week: 1) != nil)
         }
@@ -27,6 +29,7 @@ struct PlayerToolsSafetyTests {
         await model.loadAvailability(week: 1, refresh: true) { eligible }
         #expect(model.irIneligibilityReason(playerID: "201", week: 1, now: now.addingTimeInterval(901)) != nil)
         await model.loadAvailability(week: 1, refresh: true) { throw RepositoryError.server("unavailable") }
+        #expect(model.irAvailabilityIssue(week: 1) == "IR eligibility unavailable")
         #expect(model.irIneligibilityReason(playerID: "201", week: 1) != nil)
         model.reset(scope: "another")
         #expect(model.irIneligibilityReason(playerID: "201", week: 1) != nil)

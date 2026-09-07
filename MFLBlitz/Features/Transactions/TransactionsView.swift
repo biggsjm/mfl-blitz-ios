@@ -1,54 +1,60 @@
 import SwiftUI
 import MFLCore
 
-struct TransactionsView: View {
-    @Environment(TransactionsModel.self) private var trades
-    @State private var section = initialSection
-    @State private var waiverSearch = ""
+struct AddsDropsView: View {
+    @Environment(AppModel.self) private var model
+    @State private var roster = RosterToolsModel()
+    @State private var section = SectionKind.available
+    @State private var availableSearch = ""
+    @State private var rosterSearch = ""
     @FocusState private var searchFocused: Bool
-    enum SectionKind: String, CaseIterable { case waivers = "Waivers", trades = "Trades", activity = "Activity" }
+    enum SectionKind: String, CaseIterable { case available = "Available", roster = "My roster" }
 
-    private static var initialSection: SectionKind {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--show-transaction-activity") { return .activity }
-        #endif
-        return .waivers
+    private var search: Binding<String> {
+        section == .available ? $availableSearch : $rosterSearch
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Transaction type", selection: $section) {
+            Picker("Players", selection: $section) {
                 ForEach(SectionKind.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 16).padding(.vertical, 8)
-            if section == .waivers {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("Search available players", text: $waiverSearch)
-                        .focused($searchFocused).submitLabel(.search).onSubmit { searchFocused = false }
-                        .accessibilityIdentifier("waiver-search")
-                    if !waiverSearch.isEmpty {
-                        Button("Clear search", systemImage: "xmark.circle.fill") { waiverSearch = "" }
-                            .labelStyle(.iconOnly).foregroundStyle(.secondary).frame(minWidth: 44, minHeight: 44)
-                    }
+            .accessibilityIdentifier("adds-drops-sections")
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField(section == .available ? "Search available players" : "Find a rostered player", text: search)
+                    .focused($searchFocused).submitLabel(.search).onSubmit { searchFocused = false }
+                    .accessibilityIdentifier(section == .available ? "waiver-search" : "roster-search")
+                if !search.wrappedValue.isEmpty {
+                    Button("Clear search", systemImage: "xmark.circle.fill") { search.wrappedValue = "" }
+                        .labelStyle(.iconOnly).foregroundStyle(.secondary).frame(minWidth: 44, minHeight: 44)
                 }
-                .padding(.horizontal, 12).frame(minHeight: 44)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
-                .padding(.horizontal, 16).padding(.bottom, 8)
             }
-            switch section {
-            case .waivers: WaiversView(searchText: $waiverSearch)
-            case .trades: TradesView()
-            case .activity: TransactionActivityView()
+            .padding(.horizontal, 12).frame(minHeight: 44)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+            .padding(.horizontal, 16).padding(.bottom, 8)
+            if section == .available {
+                WaiversView(searchText: $availableSearch, rosterTools: roster, refreshRoster: loadRoster)
+            } else {
+                RosterActionListView(mode: .drops, tools: roster, searchText: rosterSearch)
+                    .refreshable { await loadRoster() }
             }
         }
         .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("Transactions")
+        .navigationTitle("Adds / Drops").navigationBarTitleDisplayMode(.inline)
         .onChange(of: section) { searchFocused = false }
-        .alert("Transactions", isPresented: Binding(get: { trades.notice != nil }, set: { if !$0 { trades.notice = nil } })) {
-            Button("OK") { trades.notice = nil }
-        } message: { Text(trades.notice ?? "") }
+        .task(id: "\(model.workspace?.storageScope ?? "")|\(model.rosterRevision)") { await loadRoster() }
+        .sheet(item: $roster.selected) { request in
+            RosterActionSheet(player: roster.identity(request.playerID, candidates: model.waivers.candidates), request: request)
+        }
+    }
+
+    private func loadRoster() async {
+        guard let scope = model.workspace?.storageScope else { return }
+        await model.loadPendingRosterChange()
+        await roster.load(scope: scope) { try await model.loadRosterActionContext() }
     }
 }
 
@@ -90,6 +96,9 @@ struct TradesView: View {
         .refreshable { await trades.refresh() }
         .sheet(item: $composerSession) { session in TradeComposerView(session: session).id(session.id) }
         .sheet(item: $selectedOffer) { TradeDetailView(initial: $0) }
+        .alert("Trades", isPresented: Binding(get: { trades.notice != nil }, set: { if !$0 { trades.notice = nil } })) {
+            Button("OK") { trades.notice = nil }
+        } message: { Text(trades.notice ?? "") }
         .confirmationDialog("Clear the unconfirmed-action warning?", isPresented: $showingManualResolution, titleVisibility: .visible) {
             Button("I verified the outcome on MFL") { Task { await trades.resolveAfterManualCheck() } }
         } message: { Text("Only clear this after checking MFL’s pending offers, transaction history, and roster. This does not send, accept, decline, or undo a trade.") }
@@ -274,7 +283,7 @@ private struct TradeDetailView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        LeagueBrowseStack {
             List {
                 if let offer = current {
                     Section { TradeTeamLabel(team: trades.team(offer.otherTeam(for: trades.ownerID))) }
@@ -309,7 +318,6 @@ private struct TradeDetailView: View {
                 }
                 if let workspace = trades.workspace { Link("View trades on MFL", destination: workspace.reportURL("05")) }
             }
-            .leagueBrowseDestinations()
             .navigationTitle("Trade offer").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() }.disabled(trades.isBusy) } }
             .refreshable { await trades.refresh() }
@@ -329,7 +337,7 @@ private struct TradeResponseReviewView: View {
     @State private var comments = ""
 
     var body: some View {
-        NavigationStack {
+        LeagueBrowseStack {
             List {
                 Section { TradeTeamLabel(team: trades.team(offer.otherTeam(for: trades.ownerID))) }
                 TradeTerms(sending: offer.sending(for: trades.ownerID), receiving: offer.getting(for: trades.ownerID))
@@ -355,7 +363,6 @@ private struct TradeResponseReviewView: View {
                 }
                 if let notice = trades.notice { Section { Text(notice).font(.subheadline) } }
             }
-            .leagueBrowseDestinations()
             .navigationTitle(response.title).navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(trades.isBusy) } }
         }.interactiveDismissDisabled(trades.isBusy)
@@ -368,7 +375,7 @@ extension MFLTradeResponse {
     }
 }
 
-private struct TransactionActivityView: View {
+struct TransactionActivityView: View {
     @Environment(TransactionsModel.self) private var trades
     @State private var tradesOnly = false
     private var filteredActivity: [TransactionActivity] { trades.activity.filter { !tradesOnly || $0.isTrade } }
@@ -410,6 +417,7 @@ private struct TransactionActivityView: View {
             }
             if let workspace = trades.workspace { Link("Full transaction history on MFL", destination: workspace.reportURL("03")) }
         }
+        .navigationTitle("League Activity").navigationBarTitleDisplayMode(.inline)
         .task { await trades.refreshActivity(ifNeeded: true) }
         .refreshable { await trades.refreshActivity() }
     }

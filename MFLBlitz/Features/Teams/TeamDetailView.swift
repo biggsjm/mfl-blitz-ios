@@ -2,6 +2,8 @@ import SwiftUI
 
 struct TeamDetailView<ScheduleContent: View>: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.openTeamTool) private var openTeamTool
     @State private var detailModel = TeamDetailModel()
     @State private var section: TeamDetailSection
     let franchiseID: String
@@ -80,7 +82,10 @@ struct TeamDetailView<ScheduleContent: View>: View {
     }
 
     private var header: some View {
-        HStack(spacing: 14) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 14))
+        return layout {
             TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 52, artworkURLs: team.artworkURLs)
             VStack(alignment: .leading, spacing: 4) {
                 Text(team.name).font(.title3.bold()).fixedSize(horizontal: false, vertical: true)
@@ -88,77 +93,82 @@ struct TeamDetailView<ScheduleContent: View>: View {
                     Text(owner).font(.subheadline).foregroundStyle(.secondary)
                 }
                 if let standing {
-                    Text(standing.ties > 0
-                         ? "\(standing.wins)–\(standing.losses)–\(standing.ties) · \(standing.division)"
-                         : "\(standing.wins)–\(standing.losses) · \(standing.division)")
-                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                    if isOwnTeam {
-                        Text("League standing · \(standing.rank) of \(model.standings.count)")
-                            .font(.subheadline.weight(.medium)).monospacedDigit()
-                            .accessibilityIdentifier("my-team-standing")
+                    let summary = standing.summary(leagueName: model.workspace?.leagueName ?? "")
+                    if let scope = model.browseScope {
+                        NavigationLink(value: StandingsRoute(scope: scope, franchiseID: franchiseID,
+                            divisionID: standing.hasDivision ? standing.divisionID : nil)) {
+                            Text(summary).font(.subheadline).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("team-standing-\(franchiseID)")
+                        .accessibilityHint(standing.hasDivision ? "Opens division standings" : "Opens league standings")
+                    } else {
+                        Text(summary).font(.subheadline).foregroundStyle(.secondary)
                     }
                 } else if isOwnTeam {
                     Text("Standing unavailable").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Spacer(minLength: 0)
+            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
         }
         .frame(maxWidth: BlitzMetrics.maxReadableWidth, alignment: .leading)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("team-header-\(franchiseID)")
     }
 
-    private func toolLink(_ title: String, subtitle: String, symbol: String,
-                          destination: TeamToolsRoute.Destination, identifier: String) -> some View {
-        NavigationLink(value: model.browseScope.map { TeamToolsRoute(scope: $0, destination: destination) }) {
-            HStack(spacing: 12) {
-                Image(systemName: symbol).font(.title3).foregroundStyle(Color.blitzNavy)
-                    .frame(width: 42, height: 42)
-                    .background(Color.blitzGreen, in: RoundedRectangle(cornerRadius: 12))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.headline).foregroundStyle(.primary)
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 4)
-                if destination == .transactions, model.transactions.needsAttentionCount > 0 {
-                    Text("\(model.transactions.needsAttentionCount)")
-                        .font(.caption.bold()).foregroundStyle(.white)
-                        .padding(.horizontal, 8).padding(.vertical, 5)
-                        .background(.red, in: Capsule())
-                        .accessibilityLabel("\(model.transactions.needsAttentionCount) trade items need attention")
+    private var toolShortcuts: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10),
+                                 count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), spacing: 10) {
+            ForEach(TeamToolsRoute.Destination.allCases) { destination in
+                if let scope = model.browseScope {
+                    Button {
+                        openTeamTool?(TeamToolsRoute(scope: scope, destination: destination))
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: destination.symbol)
+                                .font(.system(size: 20, weight: .medium))
+                                .frame(width: 26)
+                                .foregroundStyle(Color.blitzGreen)
+                            Text(destination.title).font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                            if destination == .trades, model.transactions.needsAttentionCount > 0 {
+                                Text("\(model.transactions.needsAttentionCount)")
+                                    .font(.caption2.bold()).foregroundStyle(.white)
+                                    .padding(6).background(.red, in: Circle())
+                            }
+                        }
+                        .padding(.horizontal, 12).padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                        .background(Color(uiColor: .secondarySystemGroupedBackground),
+                                    in: RoundedRectangle(cornerRadius: 16))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityLabel(destination.title)
+                    .accessibilityValue(destination == .trades && model.transactions.needsAttentionCount > 0
+                        ? "\(model.transactions.needsAttentionCount) trade items need attention" : "")
+                    .accessibilityIdentifier(destination.accessibilityID)
+                    .disabled(openTeamTool == nil)
                 }
             }
-            .padding(.vertical, 4)
-            .frame(maxWidth: BlitzMetrics.maxReadableWidth)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(identifier)
+        .accessibilityElement(children: .contain)
     }
 
     private var rosterContent: some View {
         List {
             if isOwnTeam {
                 Section { header }.listRowBackground(Color.clear)
-                Section {
-                    toolLink("Transactions", subtitle: "Waivers, trades & activity", symbol: "arrow.triangle.swap",
-                        destination: .transactions, identifier: "my-team-transactions")
-                }
-                Section {
-                    toolLink("Schedule", subtitle: "Matchups & results", symbol: "calendar",
-                        destination: .schedule, identifier: "my-team-schedule")
-                }
-                Section {
-                    toolLink("Watchlist", subtitle: "Players you’re following", symbol: "star",
-                        destination: .watchlist, identifier: "my-team-watchlist")
-                }
+                Section { toolShortcuts }
+                    .listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
                 if let message = detailModel.headerErrorMessage {
                     Section { Label(message, systemImage: "wifi.exclamationmark").font(.caption) }
                 }
                 PendingRosterChangeSection()
-                Section {
-                    NavigationLink("Manage roster", value: model.browseScope.map { TeamToolsRoute(scope: $0, destination: .rosterMoves) })
-                }
             }
             if model.isDemo { DemoBanner().listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
             if let message = detailModel.errorMessage {
