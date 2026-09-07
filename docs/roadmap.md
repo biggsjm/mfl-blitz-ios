@@ -1,12 +1,13 @@
 # Execution plan and remaining work
 
-Updated September 7, 2026 for **0.6.0 (33–35)** implementation; installed baseline and exact delivery evidence are in [current status](current-status.md). Checked items mean implemented, not universal live-league certification. [The changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 7, 2026 for **0.6.0 (33–36)** implementation; installed baseline and exact delivery evidence are in [current status](current-status.md). Checked items mean implemented, not universal live-league certification. [The changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 
 - [x] Native Scores / Lineup / My Team / Standings / Board and safe interactive preview; My Team has six direct tools with Schedule first.
 - [x] Account/franchise mapping, validated host discovery, Keychain restore, expiry UI, bounded reconnect and independent tab loading.
 - [x] Foreground live scores, positional matchup drill-down/FLEX, pregame projections and official completed results.
+- [x] Matchup rows show NFL opponent, local kickoff and MFL Live/Final/explicit Bye states; shared cached optional data does not block scores (build 36). Owner Week 1 opponent/time and state-transition checks remain open.
 - [x] League-derived lineup limits, bench/starter/FLEX replacements and rotations, scoped drafts, modal review and starter-set verification.
 - [x] Compact [lineup projection comparison](lineup-projections.md): edited starters versus the same week's opponent, signed green/orange margin, status beside kickoff locks, no added API traffic and conservative missing-data behavior.
 - [ ] Follow up on Lineup player-row and Starting-header truncation at the largest accessibility text size; the redesigned summary card does not resolve the surrounding editor's layout.

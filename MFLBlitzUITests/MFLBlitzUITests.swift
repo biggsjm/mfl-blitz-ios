@@ -1021,6 +1021,9 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Starting lineups"].exists)
         XCTAssertTrue(app.buttons["matchup-team-0001"].label.contains("Demo Owner"))
+        let liveQuarterback = app.buttons["matchup-player-0001-starter-0-away"]
+        wait(for: [expectation(for: NSPredicate(format: "label CONTAINS %@", "vs CHI · Live"),
+            evaluatedWith: liveQuarterback)], timeout: 5)
         let quarterbackComparison = app.staticTexts["position-QB"]
         XCTAssertTrue(quarterbackComparison.exists)
         for _ in 0 ..< 4 where !quarterbackComparison.isHittable {
@@ -1059,6 +1062,56 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["UB Flex Back"].exists)
         let flexScreenshot = XCTAttachment(screenshot: app.screenshot())
         flexScreenshot.name = "Live scoring FLEX comparison"; flexScreenshot.lifetime = .keepAlways; add(flexScreenshot)
+    }
+
+    @MainActor
+    func testMatchupScoresStayVisibleWhileGameInfoLoads() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--synthetic-slow-matchup-schedule"]
+        app.launch()
+        enterPreview(in: app)
+        let matchup = app.buttons["matchup-0003-0007"]
+        for _ in 0..<5 where !matchup.isHittable { app.swipeUp() }
+        XCTAssertTrue(matchup.isHittable)
+        matchup.tap()
+        XCTAssertTrue(app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 3))
+        let player = app.buttons["matchup-player-0003-starter-0-away"]
+        XCTAssertTrue(player.waitForExistence(timeout: 2))
+        XCTAssertTrue(player.label.contains("0.0 points"))
+        XCTAssertTrue(player.label.contains("Yet to play"), "Scores render before the deliberately held optional schedule")
+        XCTAssertFalse(app.progressIndicators.firstMatch.exists)
+        let updated = expectation(for: NSPredicate(format: "label CONTAINS %@", "vs CHI ·"), evaluatedWith: player)
+        wait(for: [updated], timeout: 25)
+        XCTAssertFalse(player.label.contains("Yet to play"))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Times in ")).firstMatch.exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Matchup — opponent and local kickoff without blocking scores"
+        screenshot.lifetime = .keepAlways; add(screenshot)
+    }
+
+    @MainActor
+    func testMatchupGameInfoAtLargestTextSize() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        enterPreview(in: app)
+        let matchup = app.buttons["matchup-0003-0007"]
+        for _ in 0..<15 where !matchup.isHittable { app.swipeUp() }
+        XCTAssertTrue(matchup.isHittable)
+        matchup.tap()
+        XCTAssertTrue(app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 3))
+        let player = app.buttons["matchup-player-0003-starter-0-away"]
+        for _ in 0..<10 where !player.isHittable { app.swipeUp() }
+        XCTAssertTrue(player.isHittable)
+        XCTAssertTrue(player.label.contains("vs CHI ·"))
+        player.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["player-detail-0003-starter-0"].firstMatch.waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 3))
+        app.swipeUp() // Bring the caption, not just the top of the large player cell, into the screenshot.
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Matchup — largest text opponent and kickoff"
+        screenshot.lifetime = .keepAlways; add(screenshot)
     }
 
     @MainActor

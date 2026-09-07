@@ -2,6 +2,8 @@ import SwiftUI
 
 struct MatchupDetailView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.locale) private var locale
+    @Environment(\.timeZone) private var timeZone
     let matchupID: String
     var snapshot: ScoresSnapshot? = nil
     var refreshError: String? = nil
@@ -31,7 +33,7 @@ struct MatchupDetailView: View {
 
                     sectionHeading(
                         title: "Starting lineups",
-                        subtitle: "Player points by league lineup slot"
+                        subtitle: MatchupGameInfo.timeZoneLabel(locale: locale, timeZone: timeZone)
                     )
 
                     if matchup.away.starters.isEmpty && matchup.home.starters.isEmpty {
@@ -176,6 +178,12 @@ struct MatchupDetailView: View {
         .refreshable {
             if let refreshAction { await refreshAction() }
             else { await model.refreshScores() }
+            await model.loadPlayerAvailability(week: displayScores.week)
+        }
+        .task(id: "\(model.workspace?.storageScope ?? "none")|\(displayScores.week)|\(model.isUsingCachedSession)") {
+            guard matchup != nil, !model.isUsingCachedSession else { return }
+            // Shared, cached weekly data is optional; never gate scores or player navigation on it.
+            await model.loadPlayerAvailability(week: displayScores.week)
         }
         .environment(\.browsedScoringWeek, displayScores.week)
         .accessibilityIdentifier("matchup-detail")
@@ -540,6 +548,8 @@ private enum MatchupSide { case away, home }
 private struct MatchupPlayerCell: View {
     @Environment(AppModel.self) private var model
     @Environment(\.browsedScoringWeek) private var inspectedWeek
+    @Environment(\.locale) private var locale
+    @Environment(\.timeZone) private var timeZone
     let player: MatchupPlayer?
     let teamName: String
     let side: MatchupSide
@@ -568,9 +578,12 @@ private struct MatchupPlayerCell: View {
                                 .accessibilityLabel("Score unavailable")
                         }
 
-                        Label(gameStateLabel(for: player), systemImage: gameStateIcon(for: player))
+                        let gameInfo = gameInfo(for: player)
+                        Label(gameInfo.label(locale: locale, timeZone: timeZone), systemImage: gameInfo.symbol)
                             .font(.caption2.weight(.medium))
-                            .foregroundStyle(gameStateColor(for: player))
+                            .foregroundStyle(gameInfo.isLive ? Color.red : Color.secondary)
+                            .multilineTextAlignment(side == .away ? .leading : .trailing)
+                            .fixedSize(horizontal: false, vertical: true)
 
                         Text("\(player.position) · \(player.nflTeam)")
                             .font(.caption2.weight(.medium))
@@ -613,33 +626,16 @@ private struct MatchupPlayerCell: View {
         } else { content() }
     }
 
-    private func gameStateLabel(for player: MatchupPlayer) -> String {
-        switch player.gameState {
-        case .pregame: "Yet to play"
-        case .live: "In progress"
-        case .final: "Final / no game"
-        case .unknown: "Status unavailable"
-        }
-    }
-
-    private func gameStateIcon(for player: MatchupPlayer) -> String {
-        switch player.gameState {
-        case .pregame: "clock"
-        case .live: "dot.radiowaves.left.and.right"
-        case .final: "checkmark.circle"
-        case .unknown: "questionmark.circle"
-        }
-    }
-
-    private func gameStateColor(for player: MatchupPlayer) -> Color {
-        player.gameState == .live ? .red : .secondary
+    private func gameInfo(for player: MatchupPlayer) -> MatchupGameInfo {
+        MatchupGameInfo(player: player, availability: inspectedWeek.flatMap { model.playerTools.availability[$0] },
+            scope: model.workspace?.storageScope, week: inspectedWeek)
     }
 
     private func accessibilityLabel(for player: MatchupPlayer) -> String {
         let points = player.livePoints.map {
             "\($0.pointsText(precision: scorePrecision)) points"
         } ?? "score unavailable"
-        var label = "\(teamName), \(player.name), \(player.position), \(player.nflTeam), \(points), \(gameStateLabel(for: player))"
+        var label = "\(teamName), \(player.name), \(player.position), \(player.nflTeam), \(points), \(gameInfo(for: player).label(locale: locale, timeZone: timeZone))"
         if let statLine = player.statLine, !statLine.isEmpty { label += ", \(statLine)" }
         return label
     }

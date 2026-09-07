@@ -65,6 +65,10 @@ The team-tool router is scoped to the NavigationStack rather than only its root 
 
 Owner names appear directly below team names in smaller, secondary text, reusing league metadata with no new request. Position headers retain the slot/FLEX badge but omit acronyms and positional subtotals: overall team totals and individual player points are the useful comparisons. Bench remains collapsed and does not affect team totals; VoiceOver player labels retain team context.
 
+Build 36 replaces each player's state line with compact NFL game context: `@ NYG · Sun 12:00 PM`, `vs NYG · Live`, `@ NYG · Final`, or an explicit `Bye week`. Name/points remain primary; game context uses wrapping secondary caption text, with a red Live indicator. Starting lineups explains the device time zone once (for example, `Times in CT`); locale-aware formatting honors 12/24-hour preferences and daylight saving. Accessibility sizes retain the existing stacked comparison layout and spoken player labels include game context.
+
+The displayed matchup week selects a scope-checked shared availability snapshot, including when opened from Schedule or a Live Activity. Cached game info appears immediately; a single optional model-owned load fills missing data without gating the scores, player links or adding a spinner. Live/Final comes from the MFL player clock, not fantasy points or elapsed kickoff. A zero clock with a future scheduled kickoff still shows the scheduled time. Missing schedule data is never called a bye; unknown kickoffs say Time TBD. The NFL team is the player's reported current team, with the same historical-team limitation as the game log.
+
 ## Loading follow-up — build 30
 
 Josh confirmed matchup → player → Back on build 29, then reported slow player cards and a lingering Updating game info spinner. The primary read waited for an optional biography; returning to the card also forced ownership refreshes. Biography now loads independently on disclosure, ordinary appearance reuses the detail cache, and explicit refresh/roster changes still check ownership.

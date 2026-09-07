@@ -39,12 +39,18 @@ extension DemoLeagueRepository {
     }
 
     func loadPlayerAvailability(week: Int, refresh: Bool) async throws -> PlayerAvailabilitySnapshot {
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--synthetic-slow-matchup-schedule") {
+            try await Task.sleep(for: .seconds(20))
+        }
+#endif
         var value = PlayerAvailabilitySnapshot(scope: SampleData.workspace.storageScope, week: week)
         let roster = SampleData.lineup.players
-        for player in roster {
-            value.games[player.nflTeam] = NFLGameContext(opponent: "CHI", isHome: true,
+        let matchupTeams = SampleData.scores.matchups.flatMap { ($0.away.players + $0.home.players).map(\.nflTeam) }
+        for team in Set(roster.map(\.nflTeam) + matchupTeams) {
+            value.games[team] = NFLGameContext(opponent: "CHI", isHome: true,
                 kickoff: Calendar.current.nextDate(after: Date(), matching: DateComponents(hour: 12), matchingPolicy: .nextTime))
-            value.byeWeeks[player.nflTeam] = 8
+            value.byeWeeks[team] = 8
         }
         if let player = roster.last { value.injuries[player.id] = PlayerHealth(status: "Questionable", details: "Knee") }
         // Explicitly synthetic eligibility for the preview IR journey.

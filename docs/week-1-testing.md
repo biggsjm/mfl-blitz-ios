@@ -70,6 +70,8 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 ### Player cards and live-matchup navigation — builds 29–31
 
+- [ ] Build 36: compare matchup-row NFL opponents and local kickoffs with MFL, including a bench player. Check the single time-zone caption and Live → Final transitions during Week 1. Missing data must not become a guessed bye or block scores; verify player → Back still returns once. Historical opponents retain the reported-current-team limitation.
+
 - [ ] On build 31, open a player from Scores, Lineup and My Team. The tapped identity should appear before league status finishes, with Week metrics available independently and no roster action enabled by that preview.
 - [ ] Open/reopen a player and switch away while game information is loading. It must finish for the next screen or show a retry state, not remain spinning. Biography loads only on expansion, without holding back the primary card.
 - [ ] Open a player from live scoring: one tap goes to Player Detail; one Back returns to the same matchup. Owner names sit below team names and position headers no longer repeat team acronyms/subtotals.

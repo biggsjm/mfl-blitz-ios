@@ -92,6 +92,8 @@ Version 0.3.1 parses activity by transaction type. `BBID_WAIVER` uses `addedIDs|
 
 ## Defensive client rules
 
+Matchup player game context (build 36) reuses the existing `PlayerToolsModel` weekly availability read and `nflSchedule` cache (6 hours), alongside cached injury/bye feeds. One screen-level load serves every row, not one request per player. Normal visits and pull-to-refresh use the cache rather than forcing schedule/injury requests. Results require the same scope and inspected week; optional failures retain existing scoring and safe status fallbacks. The existing live-scoring player clock supplies Live/Final states; a scheduled future kickoff is not final, and missing schedule entries do not imply a bye. No endpoint, credential scope, storage, permission or provider is added.
+
 1. Keep player and franchise IDs as strings, including leading zeroes.
 2. Decode numbers and booleans from MFL's string-valued JSON fields.
 3. Support both singleton objects and arrays where MFL varies container shape.

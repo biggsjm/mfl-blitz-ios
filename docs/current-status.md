@@ -2,7 +2,13 @@
 
 Audited September 7, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Current installed private build — 0.6.0 (35), remove the last trading-block player
+## Build 0.6.0 (36) — matchup game-info candidate
+
+Adds NFL opponent and device-local kickoff to matchup player rows, replacing “Yet to play” when the shared schedule is available. Live/Final uses the MFL player clock; only an explicit matching-week bye is called a bye. Starting lineups explains the time zone once. Scores and navigation remain visible while optional availability loads, without a per-player spinner or request. Scope/week checks, existing API caching and single-stack navigation are preserved.
+
+Verification, phone installation and GitHub delivery are in progress. The installed baseline remains build 35 below. Week 1 owner checks remain open, and TestFlight stays on hold until iOS 27 and macOS 27 leave beta and Josh approves distribution. No live league writes are part of this display-only change.
+
+## Previous installed private build — 0.6.0 (35), remove the last trading-block player
 
 Josh found that build 34 could not save an empty existing block. Build 35 separates that intentional removal from a blank new draft: demote the last player, **Review removal**, then **Remove listing**. The review states that the listing and Looking for note will clear while every player stays on the roster. Empty removal drafts survive save/resume, and Cancel preserves the staged edit. Settings remains at the upper-left of My Team.
 
