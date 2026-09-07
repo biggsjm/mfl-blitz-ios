@@ -12,6 +12,10 @@ Josh confirmed the build-30 spinner fix but still observed slow card opening. Th
 
 Build 31's exact source passes 189 app unit functions and all 40 native journeys locally and in GitHub CI. The held-ownership screenshots were verified in Light/Dark Mode and on iOS 27; the unchanged core source passes 93 tests. The signed app is installed, but the phone lock prevented automatic launch. [PR #8](https://github.com/biggsjm/mfl-blitz-ios/pull/8) is merged. These are implementation/test/delivery results, not a measured live-network speedup; owner recheck remains open.
 
+## Scores cancellation follow-up (build 32)
+
+An owner screenshot exposed URLSession cancellation being wrapped and shown as a raw error alert. Scores now handles typed cancellation without a new alert/stale banner, keeps previous data, and releases in-flight state so the next normal refresh can proceed. Interrupted full refreshes do not start the foreground cooldown. Genuine failures remain visible with concise copy; no raw transport URLs or UserInfo are retained in wrapping. Regression tests distinguish task cancellation, URLSession cancellation, genuine failures and explicit retry. This is lifecycle/error handling, not a network speedup or an automatic retry policy. See [current status](current-status.md) for delivery and verification.
+
 ## Outcome
 
 A returning manager sees the last successfully loaded scores, lineup, standings, Board summaries and own-team season roster while the app reconnects. A small “Updating league…” status replaces the blocking reconnect overlay when an eligible cache exists. Offline, content remains with “Offline · Last update shown,” Retry and Sign in. Section timestamps use coarse relative wording, not a running seconds counter.

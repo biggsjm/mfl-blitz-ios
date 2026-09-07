@@ -6,6 +6,8 @@ These checks remain open unless explicitly marked with an observation. They are 
 
 ## Already observed
 
+- Josh's September 7 11:45 AM screenshot shows a cancelled live-scoring request (`-999`) displayed as a raw alert. Build 32 addresses typed cancellation and error presentation; installation and verification are tracked in Current status. Recheck by refreshing Scores, switching tabs/backgrounding during a read, then returning and refreshing again. Existing scores should remain, with no cancellation alert; genuine offline failures should still report a concise warning.
+
 - Build **0.5.4 (31)** installed September 7 from the exact tested source. Full local/GitHub checks passed and PR #8 is merged. Automatic launch was denied by the phone lock; open MFL Blitz after unlocking and recheck player opening speed. Installation is not a real-network performance measurement.
 
 - Build **0.5.4 (30)** installed and launched September 7. Josh confirmed the game-log/game-info spinner is fixed but reported that the player card still takes a while. Build 31 addresses that remaining dependency. No real-phone latency benchmark is claimed.

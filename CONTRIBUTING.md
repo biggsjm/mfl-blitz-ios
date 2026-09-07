@@ -39,6 +39,8 @@ Player-route identity previews are display-only: reject a mismatched ID or activ
 
 ## Documentation and releases
 
+Scores cancellation regressions live in `ReliabilityTests` and core `RefreshCoordinationTests`. Cover Swift cancellation, URLSession `URLError.cancelled`/bridged NSError, cancelled caller tasks, manual and silent refresh, preserved existing warnings, immediate retry and foreground recovery. Cancellation classification must use types/domain/code, not error prose. Never expose full NSError diagnostics or authenticated URLs. Read-only cancellation handling must not discard uncertain mutation markers or replay a cancelled import. Verify Swift Testing filters actually execute tests; a zero-test invocation is not a pass.
+
 Startup/cache regressions live in `StartupCacheTests`, `ScoringAndCacheTests` and core `PersistentCacheTests`. Test display-before-auth, verified-auth-but-stale-lineup, offline/retry, expiry, account isolation, original age, write invalidation and initial request budgets. Never turn cached display into permissions or write preflight. File I/O/encoding belongs on cache actors, not SwiftUI body evaluation.
 
 `--synthetic-cached-startup` and optional `--synthetic-startup-offline` are DEBUG-only native test fixtures with a separate synthetic store and no live network/Keychain. Do not use these flags for phone delivery or represent their timings as real account/network measurements. See [performance evidence](docs/performance-startup.md).

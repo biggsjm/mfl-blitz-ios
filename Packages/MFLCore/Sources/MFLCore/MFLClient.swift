@@ -1003,12 +1003,12 @@ public actor MFLClient {
                 }
             }
             return response
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch let error as MFLCoreError {
-            throw error
         } catch {
-            throw MFLCoreError.transport(String(describing: error))
+            if MFLCoreError.isCancellation(error) { throw CancellationError() }
+            if let error = error as? MFLCoreError { throw error }
+            // NSError descriptions may include full URLs, query values and
+            // session diagnostics. Retain only the numeric code, never UserInfo.
+            throw MFLCoreError.transport("Network error \((error as NSError).code)")
         }
     }
 

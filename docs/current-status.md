@@ -2,6 +2,12 @@
 
 Audited September 7, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
+## Candidate in verification — 0.5.4 (32), cancelled Scores requests
+
+Josh's September 7 screenshot shows URLSession `NSURLErrorCancelled` (`-999`) from live scoring displayed as a raw error dump. The transport preserved Swift `CancellationError` but wrapped URLSession cancellation as `MFLCoreError.transport`; Scores then presented it as a failed refresh. Build 32 normalizes both typed forms, quietly retains existing Scores data/warnings on cancelled manual/polling/full reads, releases loading gates, and does not delay foreground recovery after an interrupted full refresh. Real transport failures use concise copy without raw URL/UserInfo; internal wrapping keeps only a numeric code. There is no blanket suppression of mutation errors or replay of cancelled writes.
+
+The new core tests reproduced the wrapping/diagnostic leak; the new app tests reproduced false alerts/stale warnings. One initial function-name-filtered app invocation selected zero tests and is not verification; the full Reliability suite then reproduced all four regression functions before the fix. Final build-32 local/native checks, phone delivery and GitHub verification are in progress. Build 31 remains the installed baseline until an explicit installation receipt is recorded here. No live league writes are used for QA.
+
 ## Current installed private build — 0.5.4 (31), immediate player identity
 
 Josh confirmed build 30 removes the lingering game-log/game-info spinner but reported remaining card latency. The primary view still waited for ownership before rendering its known identity. Build 31 carries display-only identity from each canonical player route, rejects player/scope mismatches, and renders it before ownership completes. Week metrics and research no longer depend on that response. No ownership claim or roster action is authorized by the preview; full-detail errors retain readable identity. No new API request, persistence, permission or provider is added.

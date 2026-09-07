@@ -335,7 +335,13 @@ final class AppModel {
               !isBusy || lineup.players.isEmpty || isRestoringSession else { return }
         fullRefreshInFlight = true
         fullRefreshSession = generation
-        defer { if fullRefreshSession == generation { fullRefreshInFlight = false; lastFullRefresh = Date() } }
+        var interrupted = false
+        defer {
+            if fullRefreshSession == generation {
+                fullRefreshInFlight = false
+                lastFullRefresh = interrupted || Task.isCancelled ? nil : Date()
+            }
+        }
         let refreshID = showSpinner ? beginRefreshing() : nil
         defer {
             if let refreshID { endRefreshing(refreshID) }
@@ -378,6 +384,21 @@ final class AppModel {
                     group.addTask { .waivers(await Self.capture { try await activeRepository.loadWaivers() }) }
                     group.addTask { .standings(await Self.capture { try await activeRepository.loadStandings() }) }
                     group.addTask { .board(await Self.capture { try await activeRepository.loadBoard() }) }
+                }
+                if let error = section.error, MFLCoreError.isCancellation(error) {
+                    // Keep existing data and warnings, but don't convert a
+                    // cancelled read into a new failure or defer the next retry.
+                    interrupted = true
+                    switch section {
+                    case .scores:
+                        if weekLoadGeneration == requestedWeekGeneration { isLoadingScores = false }
+                    case .lineup:
+                        if weekLoadGeneration == requestedWeekGeneration { isLoadingLineup = false }
+                    case .waivers: isLoadingWaivers = false
+                    case .board: isLoadingBoard = false
+                    case .standings: break
+                    }
+                    continue
                 }
                 switch section {
                 case .scores(let result):
@@ -499,13 +520,16 @@ final class AppModel {
 
         do {
             let refreshedScores = try await activeRepository.refreshScores(week: requestedWeek)
-            guard generation == sessionGeneration, selectedWeek == requestedWeek, requestedWeekGeneration == weekLoadGeneration else { return }
+            guard generation == sessionGeneration, selectedWeek == requestedWeek,
+                  requestedWeekGeneration == weekLoadGeneration, !Task.isCancelled else { return }
             scores = refreshedScores
             cachedScoresDate = nil
             scoreRefreshError = nil
             await saveDisplay(.scores(refreshedScores))
         } catch {
-            guard generation == sessionGeneration, selectedWeek == requestedWeek, requestedWeekGeneration == weekLoadGeneration else { return }
+            guard generation == sessionGeneration, selectedWeek == requestedWeek,
+                  requestedWeekGeneration == weekLoadGeneration, !Task.isCancelled,
+                  !MFLCoreError.isCancellation(error) else { return }
             handleSessionError(error)
             scoreRefreshError = "Scores may be out of date. Pull to retry."
             if !silent { notice = .error(error.localizedDescription) }

@@ -20,6 +20,14 @@ public enum MFLCoreError: Error, Equatable, Sendable {
     case api(String)
     case authenticationFailed(String)
     case decoding(String)
+
+    /// URLSession uses URLError/NSError rather than Swift's CancellationError.
+    /// Keep the classification typed; never inspect an error's diagnostic text.
+    public static func isCancellation(_ error: any Error) -> Bool {
+        if error is CancellationError { return true }
+        let error = error as NSError
+        return error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled
+    }
 }
 
 extension MFLCoreError: LocalizedError {
@@ -34,7 +42,7 @@ extension MFLCoreError: LocalizedError {
         case let .invalidRequest(message): message
         case .invalidResponse: "The server did not return a valid HTTP response."
         case .unexpectedRedirect: "MFL redirected a sensitive request, so it was stopped."
-        case let .transport(message): "The MFL request failed: \(message)"
+        case .transport: "Couldn’t complete the MFL request. Please try again."
         case let .httpStatus(code, message): message ?? "MFL returned HTTP \(code)."
         case let .rateLimited(retryAfter):
             if let retryAfter { "MFL rate-limited the request. Try again in \(Int(retryAfter.rounded(.up))) seconds." }
