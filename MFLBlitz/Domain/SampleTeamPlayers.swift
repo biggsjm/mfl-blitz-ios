@@ -11,8 +11,15 @@ extension DemoLeagueRepository {
         guard let team = SampleTeamPlayers.teams.first(where: { $0.id == franchiseID }) else {
             throw RepositoryError.server("That preview team is unavailable.")
         }
+        var players = previewRoster(franchiseID: franchiseID, week: lineupWeek)
+        if franchiseID == SampleData.workspace.franchiseID, lineupWeek == nil {
+            // Explicitly synthetic YTD values; never substitute projections.
+            for index in players.indices {
+                players[index].seasonPoints = index.isMultiple(of: 5) ? nil : Double((index * 17) % 83)
+            }
+        }
         return TeamRosterSnapshot(scope: SampleData.workspace.storageScope, team: team,
-            players: previewRoster(franchiseID: franchiseID, week: lineupWeek),
+            players: players,
             lineupWeek: lineupWeek, rosterVerifiedAt: refresh ? Date() : nil)
     }
 
@@ -55,9 +62,13 @@ extension DemoLeagueRepository {
             }
         }
         guard let identity else { throw RepositoryError.server("That preview player is unavailable.") }
+        // A deterministic locked free agent exercises the same browse gate as
+        // MFL without borrowing a real player's private acquisition status.
+        let locked = assignments.isEmpty && playerID == "w2"
         return PlayerDetailSnapshot(scope: SampleData.workspace.storageScope, identity: identity,
             ownership: PlayerOwnership(assignments: assignments, availabilityFranchiseID: SampleData.workspace.franchiseID,
-                isFreeAgent: assignments.isEmpty, cannotAdd: nil, acquisitionLocked: nil),
+                isFreeAgent: assignments.isEmpty, cannotAdd: nil, acquisitionLocked: locked,
+                canAddImmediately: assignments.isEmpty && !locked),
             ownershipVerifiedAt: refresh ? Date() : nil)
     }
 }

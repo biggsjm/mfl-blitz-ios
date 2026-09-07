@@ -2,6 +2,14 @@
 
 Implemented private-build history through September 6, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.5.2 (21) — September 6, 2026 — My Team and compact player actions
+
+- Player Detail uses compact person-plus Add, red person-minus Drop and neutral medical-bag IR buttons inside its ownership card. IR appears only for an eligible player on the owner's active roster; existing IR players retain Activate. Spoken action/player labels and explicit review/confirmation remain.
+- Add now preserves MFL's strict player-specific acquisition decision, including malformed/conflicting flags. Individually locked free agents cannot open immediate-add review. Supported first-come adds remain available in mixed blind-bid/FCFS leagues; the UI does not invent a lock reason or unlock date.
+- My Team shows official league standing and matching Transactions, Schedule and Watchlist navigation cards. Its header scrolls with the roster; other-team pages retain their Roster/Schedule picker.
+- The own-team roster groups players by position and sorts by actual season-to-date fantasy points. One batched, cached YTD read replaces lineup-assignment fetching. Missing values show “—” and sort last; no projections or placeholder totals are substituted.
+- Regression coverage includes strict Add gates, finite/missing/negative season totals, cache/request counts, independent native navigation, symbol accessibility, eligible-only IR and confirmation cancellation. [Current status](docs/current-status.md) records final verification and device delivery separately from live-owner acceptance.
+
 ## 0.5.1 (20) — September 6, 2026 — owner-feedback fixes
 
 - Move to IR is disabled in Player Detail, Manage roster and review unless the current scoped injury report lists Out/IR. Loading, failed, stale, other-week and unknown designations cannot enable it. Fresh preflight and MFL's final rules still apply.

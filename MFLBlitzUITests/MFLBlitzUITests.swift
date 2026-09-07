@@ -26,7 +26,7 @@ final class MFLBlitzUITests: XCTestCase {
         week.tap()
         app.buttons["Week 2"].tap()
         app.tabBars.buttons["My Team"].firstMatch.tap()
-        app.segmentedControls.buttons["Schedule"].tap()
+        app.buttons["my-team-schedule"].tap()
         let weekOne = app.descendants(matching: .any).matching(identifier: "schedule-week-1").firstMatch
         let matchup = weekOne.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "schedule-matchup-")).firstMatch
         XCTAssertTrue(matchup.waitForExistence(timeout: 5))
@@ -67,8 +67,16 @@ final class MFLBlitzUITests: XCTestCase {
         let transactions = app.buttons["my-team-transactions"]
         XCTAssertTrue(transactions.waitForExistence(timeout: 5))
         XCTAssertTrue(transactions.isHittable)
-        let picker = app.segmentedControls["team-section-picker"]
-        XCTAssertGreaterThan(picker.frame.minY, transactions.frame.maxY)
+        XCTAssertFalse(app.segmentedControls["team-section-picker"].exists)
+        let scheduleLink = app.buttons["my-team-schedule"]
+        let watchlistLink = app.buttons["my-team-watchlist"]
+        XCTAssertGreaterThan(scheduleLink.frame.minY, transactions.frame.maxY)
+        XCTAssertGreaterThan(watchlistLink.frame.minY, scheduleLink.frame.maxY)
+        let header = app.descendants(matching: .any)["team-header-0001"].firstMatch
+        XCTAssertTrue(header.label.contains("League standing"))
+        XCTAssertFalse(app.staticTexts["Current roster · Week 1 assignments"].exists)
+        let home = XCTAttachment(screenshot: app.screenshot())
+        home.name = "My Team — standing and matching destination cards"; home.lifetime = .keepAlways; add(home)
         let rosterPlayer = app.buttons["roster-player-12620"]
         for _ in 0..<5 where !rosterPlayer.isHittable { app.swipeUp() }
         XCTAssertTrue(rosterPlayer.isHittable)
@@ -80,7 +88,8 @@ final class MFLBlitzUITests: XCTestCase {
         let player = XCTAttachment(screenshot: app.screenshot())
         player.name = "Player detail — league ownership and matching-week projection"; player.lifetime = .keepAlways; add(player)
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        picker.buttons["Schedule"].tap()
+        for _ in 0..<8 where !scheduleLink.isHittable { app.swipeDown() }
+        scheduleLink.tap()
         let weekTwo = app.descendants(matching: .any).matching(identifier: "schedule-week-2").firstMatch
         let matchup = weekTwo.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "schedule-matchup-")).firstMatch
         for _ in 0..<6 where !matchup.isHittable { app.swipeUp() }

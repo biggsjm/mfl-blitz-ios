@@ -32,6 +32,7 @@ enum DetailReadIssue: String, Identifiable, Equatable, Sendable {
     case biography
     case ownership
     case lineupAssignments
+    case seasonPoints
 
     var id: Self { self }
 
@@ -41,6 +42,7 @@ enum DetailReadIssue: String, Identifiable, Equatable, Sendable {
         case .biography: "Player biography could not be loaded."
         case .ownership: "Current ownership could not be confirmed."
         case .lineupAssignments: "Starting and bench assignments could not be confirmed."
+        case .seasonPoints: "Season points could not be refreshed."
         }
     }
 }
@@ -109,8 +111,13 @@ struct RosterPlayerSummary: Identifiable, Equatable, Sendable {
     var salary: Decimal? = nil
     var contractYear: Int? = nil
     var contractStatus: String? = nil
+    var seasonPoints: Double? = nil
 
     var id: String { identity.id }
+    var positionGroup: String {
+        let value = identity.position?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? ""
+        return value.isEmpty ? "Other" : value
+    }
 
     var group: TeamRosterGroup {
         switch membership {
@@ -147,6 +154,26 @@ struct TeamRosterSnapshot: Equatable, Sendable {
             return $0.identity.name.localizedStandardCompare($1.identity.name) == .orderedAscending
         }
     }
+
+    var positionGroups: [String] {
+        let order = ["QB", "RB", "WR", "TE", "K", "PK", "DEF", "DT", "DE", "DL", "LB", "CB", "S", "DB"]
+        return Set(players.map(\.positionGroup)).sorted {
+            let left = order.firstIndex(of: $0) ?? order.count
+            let right = order.firstIndex(of: $1) ?? order.count
+            return left != right ? left < right : $0.localizedStandardCompare($1) == .orderedAscending
+        }
+    }
+
+    func players(at position: String) -> [RosterPlayerSummary] {
+        players.filter { $0.positionGroup == position }.sorted {
+            let left = $0.seasonPoints.flatMap { $0.isFinite ? $0 : nil }
+            let right = $1.seasonPoints.flatMap { $0.isFinite ? $0 : nil }
+            if let left, let right, left != right { return left > right }
+            if (left == nil) != (right == nil) { return left != nil }
+            let names = $0.identity.name.localizedStandardCompare($1.identity.name)
+            return names == .orderedSame ? $0.id < $1.id : names == .orderedAscending
+        }
+    }
 }
 
 struct PlayerOwnershipAssignment: Identifiable, Equatable, Sendable {
@@ -164,6 +191,25 @@ struct PlayerOwnership: Equatable, Sendable {
     var cannotAdd: Bool?
     /// This is an acquisition lock, never a lineup lock.
     var acquisitionLocked: Bool?
+    /// Preserve the decoder's strict decision, including missing vs malformed
+    /// restriction flags. This is not a substitute for fresh write preflight.
+    var canAddImmediately: Bool
+
+    func allowsImmediateAdd(for franchiseID: String) -> Bool {
+        availabilityFranchiseID == franchiseID && isFreeAgent == true
+            && assignments.isEmpty && cannotAdd != true && acquisitionLocked != true
+            && canAddImmediately
+    }
+
+    var acquisitionRestriction: String? {
+        guard isFreeAgent == true else { return nil }
+        // MFL's generic acquisition flags do not identify the reason or unlock
+        // time. Do not label every restriction as a waiver or kickoff lock.
+        if acquisitionLocked == true { return "Locked for adds" }
+        if cannotAdd == true { return "Adding unavailable" }
+        if !canAddImmediately { return "Add availability unconfirmed" }
+        return nil
+    }
 }
 
 struct PlayerBio: Equatable, Sendable {

@@ -8,6 +8,8 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
+**In verification: 0.5.2 (21)** — symbol-only Add/Drop, eligible-only IR, consistent immediate-add gating, and My Team's standing/navigation-card/position-roster redesign with actual season points. The installed baseline remains below until [current status](docs/current-status.md) records delivery.
+
 **0.5.1 (20) — installed private build, September 6, 2026.** Build 20 installed and launched on Josh's iPhone, adding player tools and addressing the owner's IR eligibility and rate-limit feedback. This is not a public or TestFlight release. See [current status](docs/current-status.md) for the verified code, test and device baseline.
 
 Connect mode talks directly to MFL and permits user-reviewed lineup, supported conditional blind-bid, trade, and board actions with readback and no automatic write retries. MFL does not expose saved lineup tiebreakers for confirmation; accepted trades may still need league approval/processing. **Preview Champion Hall** uses sample data and sends nothing to MFL, including its fictional trade offers.

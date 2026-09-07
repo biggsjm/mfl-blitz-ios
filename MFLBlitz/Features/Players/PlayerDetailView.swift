@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PlayerDetailView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var detailModel = PlayerDetailModel()
     @State private var research = PlayerResearchModel()
     @State private var rosterRequest: RosterActionRequest?
@@ -31,25 +32,6 @@ struct PlayerDetailView: View {
                         .accessibilityIdentifier("player-detail-\(playerID)")
                 }
                 ownershipSection(detail)
-                if let ownership = detail.ownership {
-                    Section {
-                        if let own = ownership.assignments.first(where: { $0.team.id == model.workspace?.franchiseID }) {
-                            if own.status == .injuredReserve {
-                                Button("Activate player") { rosterRequest = .init(kind: .activate, playerID: playerID) }
-                            } else if own.status == .rostered || own.status == .starter || own.status == .nonstarter {
-                                Button("Move to IR") { rosterRequest = .init(kind: .reserve, playerID: playerID) }
-                                    .disabled(irIneligibilityReason != nil || model.isBusy)
-                                    .accessibilityHint(irIneligibilityReason ?? "Review a move to injured reserve")
-                                if let reason = irIneligibilityReason {
-                                    Text(reason).font(.caption).foregroundStyle(.secondary)
-                                }
-                            }
-                            Button("Drop player", role: .destructive) { rosterRequest = .init(kind: .drop, playerID: playerID) }
-                        } else if ownership.isFreeAgent == true {
-                            Button("Add player") { rosterRequest = .init(kind: .add, playerID: playerID) }
-                        }
-                    }
-                }
                 WatchListStatusSection()
                 PlayerAvailabilitySection(player: detail.identity, week: contextWeek)
                 if let metrics {
@@ -205,10 +187,7 @@ struct PlayerDetailView: View {
                 if ownership.assignments.isEmpty, ownership.isFreeAgent != true {
                     Text("Ownership not provided").foregroundStyle(.secondary)
                 }
-                if ownership.cannotAdd == true || ownership.acquisitionLocked == true {
-                    Label("Adding is currently unavailable", systemImage: "lock")
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
+                rosterActions(ownership)
             } else {
                 Text("Ownership unavailable").foregroundStyle(.secondary)
             }
@@ -219,6 +198,76 @@ struct PlayerDetailView: View {
         } footer: {
             Text(model.workspace?.leagueName ?? "Ownership is specific to your league.")
         }
+    }
+
+    @ViewBuilder
+    private func rosterActions(_ ownership: PlayerOwnership) -> some View {
+        if let workspace = model.workspace {
+            if let own = ownership.assignments.first(where: { $0.team.id == workspace.franchiseID }) {
+                VStack(alignment: .leading, spacing: 8) {
+                    let layout = own.status == .injuredReserve && dynamicTypeSize >= .xxLarge
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+                        : AnyLayout(HStackLayout(spacing: 12))
+                    layout { ownedPlayerButtons(own.status) }
+                }
+                .accessibilityElement(children: .contain)
+                .listRowSeparator(.hidden, edges: .top)
+            } else if ownership.isFreeAgent == true {
+                VStack(alignment: .leading, spacing: 8) {
+                    rosterActionButton("Add player", symbol: "person.badge.plus", kind: .add)
+                        .disabled(!ownership.allowsImmediateAdd(for: workspace.franchiseID))
+                        .accessibilityHint(ownership.acquisitionRestriction ?? "Review adding this player")
+                    if let reason = ownership.acquisitionRestriction {
+                        Label(reason, systemImage: "lock")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityElement(children: .contain)
+                .listRowSeparator(.hidden, edges: .top)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func ownedPlayerButtons(_ status: PlayerLineupAssignment) -> some View {
+        if status == .injuredReserve {
+            rosterActionButton("Activate", symbol: "arrow.up.circle", kind: .activate)
+        } else if [.rostered, .starter, .nonstarter].contains(status), irIneligibilityReason == nil {
+            rosterActionButton("Move to IR", symbol: "cross.case", kind: .reserve)
+                .accessibilityHint("Review a move to injured reserve")
+        }
+        rosterActionButton("Drop", symbol: "person.badge.minus", kind: .drop)
+    }
+
+    private func rosterActionButton(_ title: String, symbol: String, kind: RosterActionKind) -> some View {
+        Button(role: kind == .drop ? .destructive : nil) {
+            rosterRequest = .init(kind: kind, playerID: playerID)
+        } label: {
+            if kind != .activate {
+                Image(systemName: symbol)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(kind == .drop ? Color.red : Color.primary)
+                    .frame(width: 32, height: 32)
+            } else {
+                Label(title, systemImage: symbol)
+                    .labelStyle(.titleAndIcon)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 28)
+            }
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(kind != .activate ? .circle : .capsule)
+        .controlSize(kind != .activate ? .regular : .large)
+        .frame(width: kind != .activate ? 48 : nil,
+               height: kind != .activate ? 48 : nil)
+        .frame(minHeight: BlitzMetrics.minimumTapTarget)
+        .tint(kind == .drop ? .red : .primary)
+        .accessibilityLabel("\(title)\(kind == .drop ? " player" : ""), \(detail?.identity.name ?? "player")")
+        .accessibilityIdentifier("player-action-\(kind.rawValue)-\(playerID)")
+        .disabled(detailModel.isLoading || detailModel.errorMessage != nil || model.isBusy ||
+            model.transactions.isBusy || model.pendingRosterChange != nil)
     }
 
     private func birthDateText(_ date: Date) -> String {

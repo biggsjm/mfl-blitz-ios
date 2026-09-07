@@ -6,7 +6,7 @@ Status: **Initial implementation — 0.4.0 (17)**, September 6, 2026. [Current s
 
 Use **Scores / Lineup / My Team / Standings / Board**. My Team replaces Transactions in the center, retaining the native tab bar, franchise-logo/initials icon, visible label and trade attention badge. Lineup stays one tap away.
 
-The team shell contains artwork/name/owner/current record, a prominent Transactions entry for the signed-in team only, then **Roster / Schedule**. The roster is read-only and opens Player Detail; all lineup editing remains in Lineup.
+In the 0.5.2 follow-up, My Team contains artwork/name/owner/current record and official league standing, matching **Transactions / Schedule / Watchlist** navigation cards, and a roster grouped by position and sorted by season points. Schedule and Watchlist open separate native destinations. Other-team pages retain **Roster / Schedule**. The roster opens Player Detail; all lineup editing remains in Lineup.
 
 | Need | Entry | Destination |
 | --- | --- | --- |
@@ -20,7 +20,7 @@ Transactions remains a pushed destination with Waivers / Trades / Activity and t
 
 ## Native layout
 
-A compact team header and segmented control stay above a single scrolling roster or schedule surface. Schedule owns its scroll container; the shell does not nest it inside another ScrollView. The tab uses a 26-point original-rendered UIImage with bounded, cookieless artwork loading outside the tab label. The system owns material, selection, safe areas and platform-specific placement.
+My Team's header and cards scroll with its roster, keeping content reachable at large text sizes. Its Schedule destination owns a separate scroll container, not a nested scroll view. Other-team pages retain their compact header and segmented control. The tab uses a 26-point original-rendered UIImage with bounded, cookieless artwork loading outside the tab label. The system owns material, selection, safe areas and platform-specific placement.
 
 This builds on Apple's [Tab API](https://developer.apple.com/documentation/swiftui/tab), [tab-bar guidance](https://developer.apple.com/design/human-interface-guidelines/tab-bars) and [native material guidance](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass). iOS 18 remains the deployment target; the iPhone center-tab arrangement is not an iPad layout guarantee.
 

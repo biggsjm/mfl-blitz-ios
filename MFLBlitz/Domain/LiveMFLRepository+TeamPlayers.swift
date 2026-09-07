@@ -40,12 +40,28 @@ extension LiveMFLRepository {
             }
             if roster.players.contains(where: { assignments[$0.id] == nil }) { issues.append(.lineupAssignments) }
         }
+        var seasonPoints: [String: Double] = [:]
+        if franchiseID == workspace.franchiseID, lineupWeek == nil, !roster.players.isEmpty {
+            // My Team shows positions/YTD, not submitted lineup assignments.
+            // One batched read replaces its former playerRosterStatus request.
+            let totals = try await TeamPlayerMapper.optionalRead {
+                try await client.playerScores(playerIDs: roster.players.map(\.id),
+                    period: .yearToDate, refreshPolicy: policy)
+            }
+            if let totals {
+                seasonPoints = totals.scoresByPlayerID.compactMapValues {
+                    let points = NSDecimalNumber(decimal: $0).doubleValue
+                    return points.isFinite ? points : nil
+                }
+            } else { issues.append(.seasonPoints) }
+        }
         try validateTeamPlayerSession(client: client, scope: workspace.storageScope)
         return TeamRosterSnapshot(scope: workspace.storageScope, team: team, players: roster.players.map { player in
             RosterPlayerSummary(identity: TeamPlayerMapper.identity(catalogByID[player.id], id: player.id),
                 membership: RosterMembership(rawValue: player.status.rawValue),
                 lineupAssignment: assignments[player.id], salary: player.salary,
-                contractYear: player.contractYear, contractStatus: TeamPlayerMapper.text(player.contractStatus))
+                contractYear: player.contractYear, contractStatus: TeamPlayerMapper.text(player.contractStatus),
+                seasonPoints: seasonPoints[player.id])
         }, lineupWeek: lineupWeek, issues: issues, rosterVerifiedAt: verifiedAt)
     }
 
@@ -190,7 +206,8 @@ enum TeamPlayerMapper {
             return PlayerOwnershipAssignment(team: team, status: .init(rawValue: assignment.status.rawValue))
         }
         return PlayerOwnership(assignments: assignments, availabilityFranchiseID: availabilityFranchiseID,
-            isFreeAgent: status.isFreeAgent, cannotAdd: status.cannotAdd, acquisitionLocked: status.isLocked)
+            isFreeAgent: status.isFreeAgent, cannotAdd: status.cannotAdd, acquisitionLocked: status.isLocked,
+            canAddImmediately: status.canAddImmediately)
     }
 
     static func optionalRead<Value: Sendable>(_ operation: @Sendable () async throws -> Value) async throws -> Value? {
