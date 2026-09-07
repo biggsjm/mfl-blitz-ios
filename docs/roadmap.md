@@ -1,6 +1,6 @@
 # Execution plan and remaining work
 
-Updated September 7, 2026 for private build **0.5.3 (28)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records exact installation/test evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 7, 2026 for candidate **0.5.4 (29)** (installed baseline recorded in Current status). Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records exact installation/test evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 
@@ -18,6 +18,8 @@ Updated September 7, 2026 for private build **0.5.3 (28)**. Checked items mean i
 - [x] Daily public player disk cache and shared decoded index, protected daily league metadata and display-only cached startup, prioritized initial reads, request sharing/spacing/cooldowns and no blind write retries. See [performance review](performance-startup.md).
 - [x] Original icons, explicit Week N controls, adaptive layouts and accessibility foundations.
 - [x] Performance regressions, four synthetic managers across two accelerated weeks and native UI journeys; private build installed on the owner's phone.
+- [x] Designer-reviewed player summary, unified Week card, automatic paged game log with disclosed current-team NFL opponents, collapsed biography and secondary explicit Drop actions.
+- [x] Matchup owner names, simplified position headers and single-stack matchup → player → Back routing; team tools work from pushed destinations.
 - [x] Initial My Team/shared team roster, Player Detail, team/league season schedules and canonical-ID navigation. Player tools 1–5 extend this in the installed build.
 
 ## P0 — Week 1 validation and Week 2 release gates

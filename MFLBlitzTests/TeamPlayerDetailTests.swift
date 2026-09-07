@@ -4,6 +4,39 @@ import Testing
 @testable import MFLBlitz
 
 struct TeamPlayerDetailTests {
+    @Test("Week cards reuse only unambiguous exact-week history in the same player/account scope")
+    func historicalWeekMetrics() {
+        let scope = "synthetic-history"
+        var page = PlayerResearchPage(scope: scope, playerID: "history-player", completedWeek: 8,
+            weeks: [.init(week: 6, points: 0)])
+        func metrics(_ history: PlayerResearchPage, scope requestedScope: String = "synthetic-history", week: Int = 6) -> PlayerWeekMetrics? {
+            .matching(playerID: "history-player", week: week, scores: SampleData.scores,
+                      lineup: SampleData.lineup, waivers: SampleData.waivers, history: history, scope: requestedScope)
+        }
+        #expect(metrics(page)?.points == 0)
+        #expect(metrics(page, scope: "another-owner") == nil)
+        #expect(metrics(page, week: 7) == nil)
+        page.weeks[0].unavailable = true
+        #expect(metrics(page) == nil)
+        page.weeks[0].unavailable = false
+        page.weeks[0].points = .infinity
+        #expect(metrics(page) == nil)
+        page.weeks = [.init(week: 6, points: 0), .init(week: 6, points: 12)]
+        #expect(metrics(page) == nil)
+        var scores = SampleData.scores
+        var one = scores.matchups[0].away.starters[0]
+        one.livePoints = 8
+        var two = one
+        two.livePoints = 12
+        scores.matchups[0].away.starters = [one]
+        scores.matchups[0].home.starters = [two]
+        let conflictingHistory = PlayerResearchPage(scope: scope, playerID: one.id, completedWeek: scores.week,
+            weeks: [.init(week: scores.week, points: 10)])
+        #expect(PlayerWeekMetrics.matching(playerID: one.id, week: scores.week, scores: scores,
+            lineup: SampleData.lineup, waivers: SampleData.waivers,
+            history: conflictingHistory, scope: scope)?.points == nil)
+    }
+
     @Test("My Team groups positions and sorts actual season points, with missing scores last")
     func positionPointOrdering() {
         func player(_ id: String, _ position: String?, _ score: Double?, _ name: String = "Player") -> RosterPlayerSummary {

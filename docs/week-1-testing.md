@@ -40,6 +40,13 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 - [ ] Make an unsent lineup edit, browse a different schedule week/player/team, then return. The edit and selected Lineup/Scores week must remain unchanged. Check Back and section/scroll restoration.
 - [ ] Open this week's schedule matchup and confirm player scoring matches Scores. Backgrounding stops polling; returning does not create duplicate refreshers.
 
+### Player cards and live-matchup navigation — build 29
+
+- [ ] Open a player from live scoring: one tap goes to Player Detail; one Back returns to the same matchup. Owner names sit below team names and position headers no longer repeat team acronyms/subtotals.
+- [ ] Check primary identity, current injury/roster status, season points and average. Own-team status has no link; other-team roster links and pushed team shortcuts still work.
+- [ ] Compare Week points/projection and paged game-log scores with MFL, including real zero and missing values. NFL opponents use the current team's schedule; inspect the information caveat for a traded player. MFL raw box-score stats are not available.
+- [ ] Open Player actions: Drop clearly means remove from the roster, not Bench. Test destructive confirmation/cancel only in Preview or a disposable league. IR is present only when eligible; the watch star remains separate. Biography expands only when requested.
+
 ### Waivers and Activity
 
 - [ ] Search stays below Available / My roster in Adds / Drops, preserving a separate query for each side. Trades and League Activity open directly from My Team. Loading is centered; a failed read is not an empty pool/history. Retry respects MFL's cooldown.

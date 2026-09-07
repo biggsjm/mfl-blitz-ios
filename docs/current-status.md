@@ -2,6 +2,14 @@
 
 Audited September 7, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
+## Candidate in verification — 0.5.4 (29), player cards and matchup navigation
+
+The [player-card design](player-detail-ux.md) consolidates identity, season points/average and roster/health status; current-week information shares one card; a visible four-week-at-a-time log shows Week / Points / NFL opponent, and biography is collapsed. Josh explicitly approved current-NFL-team schedule context for historical opponents with the caveat behind a small information button. MFL's API does not provide raw NFL statistics. Drop is now a labeled secondary action with explicit removal-not-bench confirmation; own-team status is not another team link.
+
+Matchup detail adds secondary owner names and removes repetitive positional subtotals/acronyms. Baseline native tests reproduced the duplicate-matchup/Back-to-player bug on iOS 27 and 18.4. Typed live-matchup routes fix it, and a stack-scoped router keeps pushed team shortcuts functional. Two independent AI review perspectives inspected code and actual native screenshots; this is not a human usability study.
+
+Final candidate testing, phone installation and GitHub merge are pending. Earlier development runs caught a shortcut-grid navigation regression and an assertion treating native menu row sizing as a custom button size; the grid retains explicit typed-path buttons and menu tests exercise actual native selections. Failed/superseded runs are not final evidence. No live league writes were used for QA.
+
 ## Current installed private build — 0.5.3 (28), cached startup
 
 September 7, 2026. [Performance review](performance-startup.md) documents the implemented cached-launch path, scores/lineup-first request ordering, protected daily league metadata, shared player index, storage boundaries and remaining profiling work. The first successful load seeds the new display cache; existing build-27 installs do not already have it. Saved content is read-only until verification/fresh section reads complete; no offline write queue or new analytics/backend is introduced.

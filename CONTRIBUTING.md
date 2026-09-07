@@ -29,6 +29,8 @@ Replace the destination with an installed simulator. Run jobs against the same s
 
 Player-tools regressions live in core `PlayerToolsTests`, app `PlayerToolsSafetyTests` and native `PlayerToolsUITests`. Roster DTOs may retain legacy read defaults, but write preflight requires explicit statuses. Do not broaden ability matching to descriptions/substrings; use exact owner-scoped IDs. Keep FCFS player locks distinct from lineup locks. Preserve the device-only markers before POST and never replay uncertain imports.
 
+Player-card regression coverage also checks typed live-matchup → player → single Back navigation, usable pushed team shortcuts, static own-team status, action-menu first selection/close/reopen, and game-log information/biography disclosure. Primary YTD/AVG reads must not wait for history. Reuse the shared cookie-free `nflSchedule(W=ALL)` cache; historical opponents are explicitly the current-team approximation approved by the owner, not verified historical NFL affiliation. Never add raw NFL stat scraping to fill this licensed-data gap.
+
 ## Documentation and releases
 
 Startup/cache regressions live in `StartupCacheTests`, `ScoringAndCacheTests` and core `PersistentCacheTests`. Test display-before-auth, verified-auth-but-stale-lineup, offline/retry, expiry, account isolation, original age, write invalidation and initial request budgets. Never turn cached display into permissions or write preflight. File I/O/encoding belongs on cache actors, not SwiftUI body evaluation.

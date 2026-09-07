@@ -2,6 +2,8 @@
 
 Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in 0.5.0 (19), with owner-feedback fixes in 0.5.1 (20) and 0.5.2 (21), followed by **0.5.3 (22–26)** direct-tool navigation and the [shared standings pattern](standings-pattern.md). Build 21 adds compact player actions, strict visible Add gating and the My Team season-roster refinement. Implementation and automated verification are separate from live-owner certification. [Current status](current-status.md) records exact device/test evidence; [roadmap](roadmap.md) retains release gates and remaining work.
 
+Build **0.5.4 (29)** refines the [player-card hierarchy and matchup routing](player-detail-ux.md), adds the visible Week / Points / NFL opponent log with a disclosed current-team schedule approximation, and moves Drop into secondary labeled actions. Current status separates this candidate from installed/tested delivery.
+
 ## Scope and sequence
 
 Keep Scores / Lineup / My Team / Standings / Board. No new main tab or global player directory. Preserve the existing selected week, lineup edits, trade drafts, waiver queue, and navigation state while browsing.
@@ -27,9 +29,9 @@ Champion Hall's September 6 public configuration reports `BBID_FCFS`, conditiona
 ## 2 — Player research
 
 - [x] Add league-scored fantasy totals/average and completed-week game history, with a simple recent-form view.
-- [x] Load targeted player scores only after View scoring history, initially four recent completed weeks, then explicit Load earlier weeks. Identity browsing makes no history requests. Never fan out 18 forced week requests or request future results.
+- [x] Build 29: primary YTD/AVG scoring loads independently; the visible game log loads four recent completed weeks, then explicit Earlier weeks. Reuse one cached full NFL season schedule for the current-team opponent approximation approved by Josh. Never fan out 18 forced week requests or request future results.
 - [x] Distinguish missing data from a real zero, partial history from complete history, and projections from results. Preserve exact season/week/player/league identity.
-- [x] Add opponent fantasy points allowed by position when the feed has verified data (position totals; not per-game averages); avoid suggesting small-sample matchup figures are predictions.
+- [x] Verified pointsAllowed decoder/client retained; build 29 removes its automatic request and secondary position-total card from default Player Detail. NFL opponent context now accompanies actual weekly player points.
 - [x] Extend identity links into waiver/trade surfaces without stealing add/bid/asset-selection taps or losing search, scroll or drafts.
 - [x] Do not reuse legacy placeholder season totals, trends, opponent or kickoff fields as research facts. No raw NFL stat/news provider is introduced.
 

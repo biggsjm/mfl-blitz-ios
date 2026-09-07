@@ -48,6 +48,53 @@ struct PlayerToolsTests {
         #expect(value.scoresByPlayerID == ["101": 0])
     }
 
+    @Test("Whole-season NFL schedule reuses weekly shapes and rejects duplicate or unidentified weeks")
+    func seasonScheduleShapes() throws {
+        let decode = { (text: String) in
+            try JSONDecoder().decode(MFLNFLSeasonScheduleResponse.self, from: Data(text.utf8)).fullNflSchedule
+        }
+        let value = try decode(#"{"fullNflSchedule":{"nflSchedule":[{"week":"1","matchup":{"kickoff":"1789345200","team":[{"id":"DAL","isHome":"0"},{"id":"NYG","isHome":"1"}]}},{"week":"2","matchup":[]}]}}"#)
+        #expect(value.weeks.count == 2)
+        #expect(value.byWeek[1]?.matchups.first?.teams.map(\.id) == ["DAL", "NYG"])
+        #expect(value.byWeek[1]?.matchups.first?.teams.map(\.isHome) == [false, true])
+        #expect(value.byWeek[1]?.matchups.first?.kickoff != nil)
+        #expect(value.byWeek[2]?.matchups.isEmpty == true && value.byWeek[3] == nil)
+        #expect(try decode(#"{"fullNflSchedule":{"nflSchedule":{"week":"1","matchup":[]}}}"#).weeks.count == 1)
+        #expect(try decode(#"{"fullNflSchedule":{"nflSchedule":[]}}"#).weeks.isEmpty)
+        for malformed in [
+            #"{"fullNflSchedule":{}}"#,
+            #"{"fullNflSchedule":{"nflSchedule":null}}"#,
+            #"{"fullNflSchedule":{"nflSchedule":[{"week":"1"},{"week":"1"}]}}"#,
+            #"{"fullNflSchedule":{"nflSchedule":{"matchup":[]}}}"#,
+            #"{"fullNflSchedule":{"nflSchedule":{"week":"ALL","matchup":[]}}}"#,
+            #"{"fullNflSchedule":{"nflSchedule":{"week":"0","matchup":[]}}}"#
+        ] { #expect(throws: (any Error).self) { try decode(malformed) } }
+    }
+
+    @Test("Whole-season schedule is shared, cookie-free and keyed separately from one-week schedules")
+    func seasonScheduleRequestCaching() async throws {
+        let transport = PlayerToolsTransport()
+        let client = try makeClient(transport)
+        async let first = client.nflSeasonSchedule()
+        async let joined = client.nflSeasonSchedule()
+        let (firstValue, joinedValue) = try await (first, joined)
+        #expect(firstValue == joinedValue)
+        _ = try await client.nflSeasonSchedule()
+        #expect(await transport.requests.count == 1)
+        _ = try await client.nflSchedule(week: 2)
+        _ = try await client.nflSchedule(week: 2)
+        let requests = await transport.requests
+        #expect(requests.count == 2)
+        let queries = requests.map { request in
+            Dictionary(uniqueKeysWithValues: URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!.map { ($0.name, $0.value!) })
+        }
+        #expect(queries.map { $0["W"] } == ["ALL", "2"])
+        #expect(queries.allSatisfy { $0["TYPE"] == "nflSchedule" && $0["L"] == nil })
+        #expect(requests.allSatisfy { $0.url?.host == "api.myfantasyleague.com" && $0.value(forHTTPHeaderField: "Cookie") == nil })
+        _ = try await client.nflSeasonSchedule(refreshPolicy: .reloadIgnoringCache)
+        #expect(await transport.requests.count == 3)
+    }
+
     @Test("Watchlist accepts a known empty list and singleton; malformed and duplicate IDs fail closed")
     func watchShapes() throws {
         let decode = { (text: String) in try JSONDecoder().decode(MFLWatchList.self, from: Data(text.utf8)) }
@@ -118,6 +165,9 @@ private actor PlayerToolsTransport: MFLHTTPTransport {
         let body = switch type {
         case "injuries": #"{"injuries":{"week":"1","injury":[]}}"#
         case "nflByeWeeks": #"{"nflByeWeeks":{"year":"2026","team":[]}}"#
+        case "nflSchedule": query.first { $0.name == "W" }?.value == "ALL"
+            ? #"{"fullNflSchedule":{"nflSchedule":[{"week":"1","matchup":[]},{"week":"2","matchup":[]}]}}"#
+            : #"{"nflSchedule":{"week":"2","matchup":[]}}"#
         case "playerScores": #"{"playerScores":{"week":"2","playerScore":{"id":"101","score":"0"}}}"#
         default: #"{"status":"OK"}"#
         }

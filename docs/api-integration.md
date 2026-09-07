@@ -171,7 +171,7 @@ The API does not include raw NFL player statistics or third-party news because o
 
 ## Player tools and roster actions — 0.5.0 / 0.5.1
 
-Owner-feedback follow-up: history reads start only after View scoring history. Main-section pull-to-refresh no longer invokes refreshAll; ordinary watchlist/roster review loads use caches, while mutation preflight and readback remain forced. Requests remain globally spaced, now at least 1.25 seconds in the live repository. HTTP 429 records Retry-After by request/response host, matching MFL's documented per-server limits; another host's cached/allowed data can still load. Requests never switch host to evade a cooldown and failed imports never retry. A public-feed cooldown does not automatically block a different league server.
+Build 29 supersedes the earlier View scoring history gate: the primary summary independently loads two targeted cached YTD/AVG reads, while the visible game log loads at most four completed-week score reads per page. One shared public nflSchedule(W=ALL) response and the daily current catalog/bye table supply NFL opponents, explicitly disclosed as the current team's schedule, not historical player-team affiliation. Earlier pages are explicit; no raw NFL statistics or opponent-points-allowed read is needed for the default card. Main-section pull-to-refresh no longer invokes refreshAll; ordinary watchlist/roster review loads use caches, while mutation preflight and readback remain forced. Requests remain globally spaced, now at least 1.25 seconds in the live repository. HTTP 429 records Retry-After by request/response host, matching MFL's documented per-server limits; another host's cached/allowed data can still load. Requests never switch host to evade a cooldown and failed imports never retry. A public-feed cooldown does not automatically block a different league server.
 
 IR controls use the current action week's matching injury snapshot, not the browsed historical week. Out/IR qualify for the conservative native scope verified for Champion Hall; Questionable, Doubtful, unknown/missing, loading, failed and stale data keep Move to IR unavailable. Player Detail hides it and the direct Injured Reserve list includes only qualifying players; review retains its disabled gates, followed by a fresh injury read before import. Broader league-specific IR formats still require certification; this is not a claim that the league export provides all IR eligibility rules.
 
@@ -182,7 +182,8 @@ IR controls use the current action week's matching injury snapshot, not the brow
 | Bye table | export `nflByeWeeks` | 24-hour memory, season checked; public/cookieless |
 | Player history | export `playerScores&PLAYERS&W` | 1-hour memory; targeted IDs, initially four completed weeks; earlier pages explicit |
 | Season fantasy metrics | `playerScores&W=YTD` / `AVG` | Independent optional reads; missing is not zero |
-| Opponent context | export `pointsAllowed` | 6-hour memory; verified `team.position.points` totals, not averages |
+| Game-log NFL opponents | export `nflSchedule&W=ALL` plus current catalog and bye table | Shared 6-hour public/cookieless schedule; current-team approximation disclosed in info popover. Missing/ambiguous data stays blank. |
+| Optional position context (not on default card) | export `pointsAllowed` | Decoder/client retained; default Player Detail no longer fetches this feed |
 | Watchlist | export/import `myWatchList` | 60-second memory; incremental ADD/REMOVE, forced readback |
 | Owner permissions | `abilities&DETAILS=1` | 30-second client cache reused for browsing/review, bypassed for mutation preflight |
 | Immediate add/drop | import `fcfsWaiver` | One ADD and optional DROP, or deliberate drop-only |

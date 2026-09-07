@@ -2,6 +2,15 @@
 
 Implemented private-build history through September 7, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.5.4 (29) — September 7, 2026 — player cards and matchup navigation
+
+- Add owner names below matchup team names and remove repetitive acronyms/positional subtotals.
+- Fix duplicate matchup navigation when opening a player; retain one-step Back and working team shortcuts from pushed team pages.
+- Combine player identity, current status/ownership and independently loaded season points/weekly average. Own-team status no longer links to a redundant My Team page.
+- Merge weekly availability and scoring; show a paged Week / Points / NFL opponent log, with the owner-approved current-team schedule caveat behind an information button. Biography becomes a secondary disclosure.
+- Move Drop into a labeled secondary action menu; explicitly distinguish releasing a player from benching them. Retain eligible-only IR, free-agent Add gates, review/preflight/readback and no automatic write retries.
+- Reuse cached scoring and a shared whole-season NFL schedule; no raw NFL stats provider, new storage or permissions. Actual test/installation/merge evidence is in [current status](docs/current-status.md).
+
 ## 0.5.3 (28) — September 7, 2026 — cached startup and performance
 
 - Display saved scores, lineup, standings, Board summaries and own-team roster during reconnection; retain them offline with compact status and Retry/Sign in. A first successful load is required to seed the cache.

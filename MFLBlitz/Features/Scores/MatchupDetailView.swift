@@ -373,11 +373,21 @@ private struct MatchupHeaderTeam: View {
             teamIdentityLink {
                 VStack(spacing: 7) {
                     TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 48, artworkURLs: team.artworkURLs)
-                    Text(team.name)
-                        .font(.subheadline.weight(.semibold))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .frame(minHeight: 38, alignment: .top)
+                    VStack(spacing: 3) {
+                        Text(team.name)
+                            .font(.subheadline.weight(.semibold))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                        if let ownerName {
+                            Text(ownerName)
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.68))
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("matchup-owner-\(team.id)")
+                        }
+                    }
+                    .frame(minHeight: 52, alignment: .top)
                 }
             }
             HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -403,9 +413,14 @@ private struct MatchupHeaderTeam: View {
         if let scope = model.browseScope {
             NavigationLink(value: TeamRoute(scope: scope, franchiseID: team.id)) { content() }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(team.name), roster and schedule")
+                .accessibilityLabel("\(team.name)\(ownerName.map { ", \($0)" } ?? ""), roster and schedule")
                 .accessibilityIdentifier("matchup-team-\(team.id)")
         } else { content() }
+    }
+
+    private var ownerName: String? {
+        TeamPlayerMapper.text(model.teams.first { $0.id == team.id }?.ownerName
+            ?? model.standings.first { $0.id == team.id }?.ownerName)
     }
 }
 
@@ -425,21 +440,11 @@ private struct PositionComparisonCard: View {
         SurfaceCard {
             VStack(spacing: 13) {
                 HStack(alignment: .center, spacing: 8) {
-                    PositionPoints(
-                        abbreviation: awayTeam.abbreviation,
-                        points: pointsTotal(for: awayPlayers),
-                        side: .away,
-                        scorePrecision: scorePrecision
-                    )
+                    Spacer()
                     PositionBadge(position: position, isAccessibilityHidden: false)
                         .accessibilityLabel("\(position) position comparison")
                         .accessibilityIdentifier("position-\(position)")
-                    PositionPoints(
-                        abbreviation: homeTeam.abbreviation,
-                        points: pointsTotal(for: homePlayers),
-                        side: .home,
-                        scorePrecision: scorePrecision
-                    )
+                    Spacer()
                 }
 
                 Divider()
@@ -498,48 +503,6 @@ private struct PositionComparisonCard: View {
         }
     }
 
-    private func pointsTotal(for players: [MatchupPlayer]) -> Double? {
-        let points = players.compactMap(\.livePoints)
-        guard points.count == players.count else { return nil }
-        return points.reduce(0, +)
-    }
-}
-
-private struct PositionPoints: View {
-    let abbreviation: String
-    let points: Double?
-    let side: MatchupSide
-    let scorePrecision: Int
-
-    private var alignment: HorizontalAlignment { side == .away ? .leading : .trailing }
-    private var frameAlignment: Alignment { side == .away ? .leading : .trailing }
-
-    var body: some View {
-        VStack(alignment: alignment, spacing: 1) {
-            if let points {
-                Text(points.pointsText(precision: scorePrecision))
-                    .font(.headline.bold().monospacedDigit())
-            } else {
-                Text("—")
-                    .font(.headline.bold())
-                    .accessibilityLabel("Points unavailable")
-            }
-            Text(abbreviation.uppercased())
-                .font(.caption2.bold())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, alignment: frameAlignment)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityLabel)
-    }
-
-    private var accessibilityLabel: String {
-        if let points {
-            return "\(abbreviation), \(points.pointsText(precision: scorePrecision)) points at this position"
-        }
-        return "\(abbreviation), points unavailable at this position"
-    }
 }
 
 private struct TeamPositionStack: View {

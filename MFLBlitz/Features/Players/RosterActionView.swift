@@ -81,12 +81,15 @@ struct RosterActionSheet: View {
     }
 
     private var destination: String {
-        switch request.kind { case .add, .activate: "Active roster"; case .reserve: "IR"; case .drop: "Free agents" }
+        switch request.kind { case .add, .activate: "Active roster"; case .reserve: "IR"; case .drop: "Off your roster" }
     }
     private var irIneligibilityReason: String? {
         request.kind == .reserve ? model.playerTools.irIneligibilityReason(playerID: player.id, week: model.currentWeek) : nil
     }
     private var confirmationSummary: String {
+        if request.kind == .drop {
+            return "Remove \(player.name) from your roster? This releases the player; it does not move them to your bench."
+        }
         var text = "\(player.name) → \(destination)."
         if let drop = request.dropID { text += " Drop \(context?.player(drop).name ?? drop)." }
         return text

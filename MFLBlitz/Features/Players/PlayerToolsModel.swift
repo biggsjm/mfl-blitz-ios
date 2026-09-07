@@ -100,6 +100,48 @@ final class PlayerToolsModel {
 }
 
 @MainActor @Observable
+final class PlayerSeasonSummaryModel {
+    private(set) var summary: PlayerSeasonSummary?
+    private(set) var isLoading = false
+    private(set) var errorMessage: String?
+    private var key: String?
+    private var revision = 0
+    private var lastLoadedAt: Date?
+
+    func load(scope: String, playerID: String, force: Bool = false,
+              using loader: @MainActor () async throws -> PlayerSeasonSummary) async {
+        let nextKey = "\(scope)|\(playerID)"
+        if !force, key == nextKey, summary != nil,
+           let lastLoadedAt, Date().timeIntervalSince(lastLoadedAt) < 60 { return }
+        revision += 1
+        let request = revision
+        if key != nextKey { summary = nil; lastLoadedAt = nil }
+        key = nextKey
+        isLoading = true; errorMessage = nil
+        defer { if request == revision { isLoading = false } }
+        do {
+            let result = try await loader()
+            try Task.checkCancellation()
+            guard request == revision else { return }
+            guard result.scope == scope, result.playerID == playerID else {
+                throw RepositoryError.server("Season scoring belongs to a different league or player.")
+            }
+            summary = result
+            lastLoadedAt = Date()
+        } catch {
+            guard request == revision, !(error is CancellationError), !Task.isCancelled else { return }
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func invalidate() {
+        revision += 1
+        key = nil; summary = nil; lastLoadedAt = nil
+        isLoading = false; errorMessage = nil
+    }
+}
+
+@MainActor @Observable
 final class PlayerResearchModel {
     private(set) var page: PlayerResearchPage?
     private(set) var isLoading = false

@@ -48,16 +48,46 @@ extension LiveMFLRepository {
         return result
     }
 
+    func loadPlayerSeasonSummary(playerID: String) async throws -> PlayerSeasonSummary {
+        let (client, _, workspace) = try requireSession()
+        // These two targeted reads retain the shared one-hour score cache.
+        // They do not wait for history, injuries, opponents or season metadata.
+        async let totalRead = TeamPlayerMapper.optionalRead {
+            try await client.playerScores(playerIDs: [playerID], period: .yearToDate)
+        }
+        async let averageRead = TeamPlayerMapper.optionalRead {
+            try await client.playerScores(playerIDs: [playerID], period: .average)
+        }
+        let (total, average) = try await (totalRead, averageRead)
+        try validatePlayerToolsSession(client, workspace.storageScope)
+        func finiteScore(_ response: MFLPlayerScores?) -> Double? {
+            guard let decimal = response?.scoresByPlayerID[playerID] else { return nil }
+            let value = NSDecimalNumber(decimal: decimal).doubleValue
+            return value.isFinite ? value : nil
+        }
+        var summary = PlayerSeasonSummary(scope: workspace.storageScope, playerID: playerID,
+            total: finiteScore(total), average: finiteScore(average))
+        if total == nil { summary.issues.append("Season points could not be refreshed.") }
+        if average == nil { summary.issues.append("Weekly average could not be refreshed.") }
+        return summary
+    }
+
     func loadPlayerResearch(playerID: String, beforeWeek: Int?, contextWeek: Int) async throws -> PlayerResearchPage {
         let (client, _, workspace) = try requireSession()
         let status = try await playerToolsSeasonStatus(client: client)
         let league = try await client.league()
+        try validatePlayerToolsSession(client, workspace.storageScope)
         let completed = min(status.completedWeek, league.endWeek ?? 18)
         let start = max(1, league.startWeek ?? 1)
         let last = min(completed, beforeWeek.map { $0 - 1 } ?? completed)
         var page = PlayerResearchPage(scope: workspace.storageScope, playerID: playerID,
             completedWeek: completed, weeks: [])
         guard last >= start else { return page }
+        // Shared public context, never one schedule request per player/week.
+        // All remain optional so a missing schedule cannot erase scoring.
+        async let catalogRead = TeamPlayerMapper.optionalRead { try await client.players() }
+        async let scheduleRead = TeamPlayerMapper.optionalRead { try await client.nflSeasonSchedule() }
+        async let byesRead = TeamPlayerMapper.optionalRead { try await client.nflByeWeeks() }
         // Each page is at most four targeted reads, not four complete league weeks.
         let first = max(start, last - 3)
         for week in stride(from: last, through: first, by: -1) {
@@ -70,31 +100,36 @@ extension LiveMFLRepository {
                 unavailable: response == nil))
         }
         page.nextBeforeWeek = first > start ? first : nil
-        if beforeWeek == nil {
-            let total = try await TeamPlayerMapper.optionalRead {
-                try await client.playerScores(playerIDs: [playerID], period: .yearToDate)
-            }
-            let average = try await TeamPlayerMapper.optionalRead {
-                try await client.playerScores(playerIDs: [playerID], period: .average)
-            }
-            page.total = total?.scoresByPlayerID[playerID].map { NSDecimalNumber(decimal: $0).doubleValue }
-            page.average = average?.scoresByPlayerID[playerID].map { NSDecimalNumber(decimal: $0).doubleValue }
-            if total == nil || average == nil { page.issues.append("Season totals could not be refreshed.") }
-            // An empty preseason pointsAllowed response is valid. Do not guess
-            // field meanings or manufacture a matchup rank from absent data.
-            let allowed = try await TeamPlayerMapper.optionalRead { try await client.pointsAllowed() }
-            let catalog = try await client.players()
-            if let player = catalog.playersByID[playerID],
-               let team = player.nflTeam, let position = player.position {
-                let availability = try await loadPlayerAvailability(week: contextWeek, refresh: false)
-                if let opponent = availability.games[team]?.opponent {
-                    page.opponentName = opponent
-                    page.opponentPointsAllowed = Self.pointsAllowed(allowed, opponent: opponent, position: position)
-                }
+        let (catalog, schedule, byes) = try await (catalogRead, scheduleRead, byesRead)
+        try validatePlayerToolsSession(client, workspace.storageScope)
+        if catalog == nil { page.issues.append("Player NFL team unavailable.") }
+        if schedule == nil { page.issues.append("Opponent schedule unavailable.") }
+        if byes == nil { page.issues.append("Bye information unavailable.") }
+        if let team = catalog?.playersByID[playerID]?.nflTeam {
+            page.scheduleTeam = team
+            for index in page.weeks.indices {
+                page.weeks[index].opponentLabel = Self.historyOpponentLabel(teamID: team,
+                    week: page.weeks[index].week, schedule: schedule, byes: byes)
             }
         }
-        try validatePlayerToolsSession(client, workspace.storageScope)
         return page
+    }
+
+    /// Product-approved approximation: current NFL team schedule, not a claim
+    /// about the player's former teams or whether the player participated.
+    static func historyOpponentLabel(teamID: String, week: Int,
+                                     schedule: MFLNFLSeasonSchedule?, byes: MFLByeWeeks?) -> String? {
+        guard let schedule else { return nil }
+        let games = schedule.byWeek[week]?.matchups.filter { $0.teams.contains { $0.id == teamID } } ?? []
+        if byes?.byTeamID[teamID] == week {
+            return games.isEmpty ? "Bye" : nil
+        }
+        guard games.count == 1, let game = games.first, game.teams.count == 2,
+              Set(game.teams.map(\.id)).count == 2,
+              let own = game.teams.first(where: { $0.id == teamID }),
+              let opponent = game.teams.first(where: { $0.id != teamID }) else { return nil }
+        if let ownHome = own.isHome, let opponentHome = opponent.isHome, ownHome == opponentHome { return nil }
+        return NFLGameContext(opponent: opponent.id, isHome: own.isHome, kickoff: game.kickoff).opponentLabel
     }
 
     /// Verified against the league's nonempty 2025 export: `points` is a

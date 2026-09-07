@@ -1223,6 +1223,10 @@ final class AppModel {
         }
     }
 
+    func loadPlayerSeasonSummary(playerID: String) async throws -> PlayerSeasonSummary {
+        try await readForBrowsing { try await $0.loadPlayerSeasonSummary(playerID: playerID) }
+    }
+
     func loadWatchList(refresh: Bool = false) async {
         await playerTools.loadWatchList(refresh: refresh) {
             try await self.readForBrowsing { repository in

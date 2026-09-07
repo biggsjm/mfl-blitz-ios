@@ -568,6 +568,12 @@ public actor MFLClient {
         return response.nflSchedule
     }
 
+    public func nflSeasonSchedule(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLNFLSeasonSchedule {
+        let response = try await export(MFLNFLSeasonScheduleResponse.self, endpoint: .nflSchedule, host: .api,
+            leagueID: nil, parameters: ["W": "ALL"], ttl: 21_600, refreshPolicy: refreshPolicy)
+        return response.fullNflSchedule
+    }
+
     public func nflByeWeeks(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLByeWeeks {
         let response = try await export(MFLByeWeeksResponse.self, endpoint: .nflByeWeeks, host: .api,
             leagueID: nil, parameters: [:], ttl: 86_400, refreshPolicy: refreshPolicy)

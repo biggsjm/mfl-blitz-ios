@@ -65,10 +65,8 @@ struct ScoresView: View {
                     seasonScheduleLink
                         .padding(.horizontal, BlitzMetrics.pagePadding)
                 } else {
-                    if let featured = model.scores.featuredMatchup {
-                        NavigationLink {
-                            MatchupDetailView(matchupID: featured.id)
-                        } label: {
+                    if let featured = model.scores.featuredMatchup, let scope = model.browseScope {
+                        NavigationLink(value: LiveMatchupRoute(scope: scope, week: model.scores.week, matchupID: featured.id)) {
                             FeaturedMatchupCard(
                                 matchup: featured,
                                 scorePrecision: model.scores.scorePrecision
@@ -98,9 +96,9 @@ struct ScoresView: View {
                             ForEach(model.scores.matchups.filter {
                                 $0.id != model.scores.featuredMatchup?.id
                             }) { matchup in
-                                NavigationLink {
-                                    MatchupDetailView(matchupID: matchup.id)
-                                } label: {
+                                NavigationLink(value: model.browseScope.map {
+                                    LiveMatchupRoute(scope: $0, week: model.scores.week, matchupID: matchup.id)
+                                }) {
                                     MatchupCard(
                                         matchup: matchup,
                                         scorePrecision: model.scores.scorePrecision
