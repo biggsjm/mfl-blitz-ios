@@ -6,6 +6,8 @@ These checks remain open unless explicitly marked with an observation. They are 
 
 ## Already observed
 
+- Final **0.5.3 (28)** installed and launched September 7; read-only file metadata confirms the new display/league caches are populated on Josh's phone. Actual warm/offline launch timing remains an owner check; Instruments connection attempts produced no usable trace. Full exact-source local/GitHub regression passes and merge evidence are in [current status](current-status.md).
+
 - Josh reported successfully submitting a lineup and seeing Week 1 projections.
 - Builds 0.5.0 (19) and 0.5.1 (20) installed and launched on Josh's phone September 6; the latter contains the IR and request-pressure fixes. Delivery/launch is not a complete live workflow audit. Josh previously reported the My Team screen looked good; its detailed update timer was then simplified. Earlier read-only device checks verified owner names, franchise artwork, authenticated projections and daily catalog reuse. Full schedule comparison remains unchecked below.
 - Core, app-model and native UI checks passed as described in [current status](current-status.md). Four synthetic managers completed two accelerated weeks; those are not actual Week 1 results.
