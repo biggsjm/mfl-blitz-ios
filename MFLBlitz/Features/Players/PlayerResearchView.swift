@@ -13,7 +13,7 @@ struct PlayerResearchSections: View {
     var body: some View {
         Section {
             if let page = research.page {
-                if !page.weeks.isEmpty {
+                if !page.weeks.isEmpty && !dynamicTypeSize.isAccessibilitySize {
                     HStack(spacing: 12) {
                         Text("Week").frame(maxWidth: .infinity, alignment: .leading)
                         Text("Points").frame(maxWidth: .infinity, alignment: .trailing)
@@ -33,7 +33,7 @@ struct PlayerResearchSections: View {
                     layout {
                         Text("Week \(item.week)").font(.subheadline)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(pointsText(item))
+                        Text(dynamicTypeSize.isAccessibilitySize ? "\(pointsText(item)) pts" : pointsText(item))
                             .font(.subheadline.weight(.semibold).monospacedDigit())
                             .frame(maxWidth: .infinity, alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
                         Text(item.opponentLabel ?? "—")
@@ -72,10 +72,11 @@ struct PlayerResearchSections: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("About this log").font(.headline)
                                 Text("Points use your league’s scoring. NFL opponents follow \(research.page?.scheduleTeam.map { "\($0)’s" } ?? "the player’s current team’s") schedule; earlier teams may differ after a trade. MFL does not provide raw NFL statistics.")
-                                    .font(.subheadline).foregroundStyle(.secondary)
+                                    .font(.subheadline).foregroundStyle(Color.secondary)
                             }
                             .padding()
                         }
+                        .foregroundStyle(Color.primary)
                         .scrollBounceBehavior(.basedOnSize)
                         .frame(width: 300, height: dynamicTypeSize.isAccessibilitySize ? 350 : 190)
                         .presentationCompactAdaptation(.popover)
