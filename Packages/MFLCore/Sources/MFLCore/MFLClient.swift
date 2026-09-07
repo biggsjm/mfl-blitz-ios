@@ -103,6 +103,8 @@ public actor MFLClient {
     private var leagueCache: (any MFLPersistentResponseCache)?
     private var leagueCacheScope = ""
     private var cachedSeasonStatus: (value: MFLSeasonStatus, date: Date)?
+    private var cachedICS: (text: String, date: Date)?
+    private var icsRead: (id: UUID, task: Task<String, Error>)?
     private var seasonStatusRead: (id: UUID, task: Task<MFLSeasonStatus, Error>)?
     private let clock = ContinuousClock()
 
@@ -278,10 +280,51 @@ public actor MFLClient {
         return result.projectedScores
     }
 
-    public func calendar() async throws -> MFLJSONValue {
+    public func calendar(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLJSONValue {
         try await export(MFLJSONValue.self, endpoint: .calendar,
                          host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
-                         parameters: [:], ttl: 60, refreshPolicy: .reloadIgnoringCache)
+                         parameters: [:], ttl: 900, refreshPolicy: refreshPolicy)
+    }
+
+    public func leagueCalendar(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLLeagueCalendar {
+        let response = try await export(MFLLeagueCalendarResponse.self, endpoint: .calendar,
+            host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
+            parameters: [:], ttl: 900, refreshPolicy: refreshPolicy)
+        return response.calendar
+    }
+
+    public func calendarOccurrences(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> (MFLCalendarOccurrences, Date) {
+        let calendar = try await leagueCalendar(refreshPolicy: refreshPolicy)
+        let jsonDate = cache[CacheKey(endpoint: .calendar, leagueID: configuration.league.leagueID, parameters: [:])]?.fetchedAt ?? Date()
+        let repeating = calendar.events.contains { ($0.repetitions ?? 0) > 0 }
+        let text = repeating ? try? await calendarICS(refreshPolicy: refreshPolicy) : nil
+        let occurrences = MFLCalendarOccurrences(calendar: calendar, ics: text)
+        return (occurrences, text == nil ? jsonDate : min(jsonDate, cachedICS?.date ?? jsonDate))
+    }
+
+    private func calendarICS(refreshPolicy: MFLRefreshPolicy) async throws -> String {
+        if refreshPolicy == .useCache {
+            if let cachedICS, (0..<900).contains(Date().timeIntervalSince(cachedICS.date)) { return cachedICS.text }
+            if let icsRead { return try await icsRead.task.value }
+        }
+        let request = try requestBuilder.makeExportRequest(endpoint: .ics, host: try await resolvedLeagueHost(),
+            leagueID: configuration.league.leagueID, cookie: cookie)
+        let id = UUID()
+        let task = Task {
+            let data = try await self.exportData(request)
+            guard data.count < 1_000_000, let text = String(data: data, encoding: .utf8) else { throw MFLCoreError.invalidResponse }
+            _ = try MFLICSReader.events(text)
+            return text
+        }
+        icsRead = (id, task)
+        do {
+            let text = try await task.value
+            if icsRead?.id == id { cachedICS = (text, Date()); icsRead = nil }
+            return text
+        } catch {
+            if icsRead?.id == id { icsRead = nil }
+            throw error
+        }
     }
 
     public func waiverResults() async throws -> MFLJSONValue {
@@ -743,6 +786,46 @@ public actor MFLClient {
 
     // MARK: Trades and transaction activity
 
+    public func tradingBlock(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLTradingBlock {
+        let response = try await export(MFLTradingBlockResponse.self, endpoint: .tradeBait,
+            host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
+            parameters: ["INCLUDE_DRAFT_PICKS": "1"], ttl: 300, refreshPolicy: refreshPolicy)
+        return response.tradeBaits
+    }
+
+    public func tradingBlockSnapshot(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> (MFLTradingBlock, Date) {
+        let block = try await tradingBlock(refreshPolicy: refreshPolicy)
+        let key = CacheKey(endpoint: .tradeBait, leagueID: configuration.league.leagueID, parameters: ["INCLUDE_DRAFT_PICKS": "1"])
+        return (block, cache[key]?.fetchedAt ?? Date())
+    }
+
+    @discardableResult
+    public func publishTradingBlock(codes: Set<String>, lookingFor: String) async throws -> MFLMutationResult {
+        guard !codes.isEmpty, codes.allSatisfy({ MFLTradeAssetCode.isSupported($0) && !$0.hasPrefix("BB_") }),
+              lookingFor.count <= 256 else {
+            throw MFLCoreError.invalidRequest("Choose players or draft picks and keep your note under 256 characters.")
+        }
+        // Blank publication is not removal: the explicit removal entry point
+        // below must be selected by a confirmed existing-listing workflow.
+        let result = try await performImport(endpoint: .tradeBait, parameters: [
+            "WILL_GIVE_UP": codes.sorted().joined(separator: ","), "IN_EXCHANGE_FOR": lookingFor
+        ])
+        invalidate([.tradeBait])
+        return result
+    }
+
+    @discardableResult
+    public func removeTradingBlock() async throws -> MFLMutationResult {
+        // tradeBait replaces the owner's complete listing. Keep both fields
+        // present with empty values (not omitted, and no invented sentinel).
+        // The repository only confirms removal after a fresh export is empty.
+        let result = try await performImport(endpoint: .tradeBait, parameters: [
+            "WILL_GIVE_UP": "", "IN_EXCHANGE_FOR": ""
+        ])
+        invalidate([.tradeBait])
+        return result
+    }
+
     public func pendingTrades(franchiseID: String) async throws -> MFLPendingTrades {
         try validateIdentifier(franchiseID)
         let response = try await export(MFLPendingTradesResponse.self, endpoint: .pendingTrades,
@@ -803,6 +886,8 @@ public actor MFLClient {
     // MARK: Cache
 
     public func clearCache() {
+        cachedICS = nil
+        icsRead?.task.cancel(); icsRead = nil
         cache.removeAll(keepingCapacity: true)
         sharedReads.removeAll(keepingCapacity: true)
         readVersions.removeAll(keepingCapacity: true)

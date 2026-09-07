@@ -2,7 +2,41 @@
 
 Audited September 7, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Current installed private build — 0.5.4 (32), cancelled Scores requests
+## Current installed private build — 0.6.0 (35), remove the last trading-block player
+
+Josh found that build 34 could not save an empty existing block. Build 35 separates that intentional removal from a blank new draft: demote the last player, **Review removal**, then **Remove listing**. The review states that the listing and Looking for note will clear while every player stays on the roster. Empty removal drafts survive save/resume, and Cancel preserves the staged edit. Settings remains at the upper-left of My Team.
+
+The explicit removal entry point sends one trade-bait POST with both fields present and empty. Fresh owner membership/TRADES permission and unchanged-baseline checks remain mandatory. A durable empty intended-list marker precedes the request; only a fully parsed fresh export with no owner listing or empty assets **and** needs confirms removal. Failed reads, unchanged data and timeouts never falsely report success or replay the write. MFL's official form documents full replacement but not empty-list semantics; actual server acceptance remains an owner check. No live removal was performed for QA.
+
+- All **107 core tests / 13 suites** pass (`mfl-build35-core.log`).
+- All **209 app unit functions and five native journeys** pass on iOS 27: 214 functions / 268 executions, zero failures/skips/runtime warnings (`mfl-build35-removal27.xcresult`). Coverage includes absent/empty removal readback, retained ownership, permission/conflict rejection, saved empty drafts and timeout/relaunch no-replay recovery. The extended native editor journey verifies last-player demotion, saved removal draft, Cancel, explicit confirmation and return to the empty state. The actual Dark Mode removal review screenshot was inspected. Older-iOS checks are in progress.
+- **Phone:** signed **0.6.0 (35)** installed September 7; CoreDevice confirms the build (`mfl-build35-installed.json`). Signature verification passed. Automatic launch was denied by the device lock (`mfl-build35-launch.json`); open Blitz after unlocking. No live listing was removed for QA. The initial signed-build invocation omitted the development-team override and failed before installation; the corrected invocation with Josh's configured team succeeded.
+- [PR #10](https://github.com/biggsjm/mfl-blitz-ios/pull/10) remains unmerged while the latest revision is verified. Earlier passing evidence below is not claimed as build-35 evidence.
+
+## Previous installed private build — 0.6.0 (34), lineup-style Trading Block and My Team Settings
+
+Josh tested build 33 and requested roster-to-block promotion/demotion like Lineup, plus moving Settings from Scores to My Team. Build 34 replaces the separate asset picker with **On the block / Your roster**, green up/orange down controls, optional needs text and a pinned **Review & submit trading block** action. Review is a separate, cancelable sheet with an explicit final submit; moving a row never changes MFL roster membership or lineup starters. Owned draft picks remain in a secondary disclosure. The Settings gear is now top-leading on My Team, absent from Scores.
+
+The initial older-Xcode CI run for build 33 stopped at notification SDK Sendable annotations before running iOS tests. The notification import now bridges those legacy annotations while retaining actor-owned scheduling; build-34 CI compilation passes. A local older-iOS run also identified an obsolete inbox geometry assertion after adding the Offers / Trading Block selector; the test now requires Create trade directly below the selector, not immediately below navigation. No workflow assertion or safety check was removed. A first native submission test caught a missing receipt during nested-sheet dismissal; the sheets now close in order and the parent presents its queued notice only after dismissal completes.
+
+- **Exact app/test source:** `94628af49abd21a74203c303fb9300f742acbe42`.
+- **iOS 27:** all 204 app unit functions plus seven focused native journeys pass: 211 functions / 263 executions, zero failures/skips/runtime warnings (`mfl-build34-verified27.xcresult`). This covers block promotion/demotion, staged review/cancel/submit/readback, draft recovery/protection, Calendar/reminder navigation, largest-text editor access, My Team Settings and the Scores/empty-inbox toolbar regressions. Actual Dark Mode editor, review and reminder screenshots were inspected. Native runtime was 202 seconds.
+- **Core:** unchanged from build 33; all 106 tests / 13 suites pass locally and in exact-head CI.
+- **Phone:** the app and embedded Live Activity extension both pass signature verification and report build 34. Signed **0.6.0 (34)** installed on Josh's iPhone September 7 (`mfl-build34-installed.json`). Automatic launch was denied by the device lock (`mfl-build34-launch.json`); launch/owner acceptance is not yet claimed.
+- **Older-iOS:** the final full iOS 18.4 suite passes all 204 app unit functions and all 45 native journeys: 249 functions / 301 executions, zero failures/skips/runtime warnings (`mfl-build34-verified18.xcresult`), 1,075 seconds overall. Exact-head [CI run 34158249517](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/34158249517) predates the subsequent removal fix; it is not build-35 evidence. Interrupted or superseded local runs are not final passing evidence.
+
+## Previous installed private build — 0.6.0 (33), Trading Block, Calendar and Live Activity
+
+Josh approved plan items 1–3 and added the current-week matchup Live Activity. The [implementation contract](league-extras-implementation.md) records native navigation, fresh publication/readback, durable draft/uncertain-write recovery, protected optional-feed caches, exact calendar occurrences and notification lifecycle behavior. The [approved plan](trading-block-calendar-plan.md) records remaining scope. No TestFlight upload is authorized before the OS-beta hold and existing release gates are lifted.
+
+- Owner-provided empty/singleton trading-block JSON verified `willGiveUp` / `inExchangeFor`; the attached ICS verified explicit repeat dates and the November DST shift against JSON anchors. Private exports are not committed; fixtures are synthetic.
+- **Local verification:** all 106 core tests / 13 suites pass (`mfl-build33-core-final.log`). Final source `24d64fc` passes all 204 app unit functions and four new native Preview journeys on iOS 27 in Dark Mode: 208 functions / 260 executions, zero failures/skips/runtime warnings (`mfl-build33-confirmed27.xcresult`). Actual screenshots were inspected; reminder confirmation stays visible in the toolbar. Read-only execution of the compiled parser against Josh's attachment verified all nine JSON anchors, 57 occurrences, and noon Central deadlines across CDT/CST (`mfl-verify-calendar`).
+- **Phone:** signed **0.6.0 (33)** installed and launched September 7; CoreDevice confirms version/build (`mfl-build33-installed.json`, `mfl-build33-launch.json`). No preview launch arguments or live mutation were used. Owner feedback on the Trading Block editor prompted build 34.
+- **GitHub:** [PR #10](https://github.com/biggsjm/mfl-blitz-ios/pull/10) contains the implementation, plan and documentation. Initial [run 34157196227](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/34157196227) passes core but fails older-SDK iOS compilation; it is not a passing release run. Merge awaits build-34 exact-head checks.
+- Entire-block removal and new cash listings remain on MFL. No commissioner calendar editing, inferred lineup-review deadline, calendar subscription or raw NFL statistics is added.
+- Live Activity updates are on-device/foreground only, stale after two minutes without an update. There is no APNs backend or promise of continued scores while Blitz is closed. Real active-game appearance, permission denial/delivery and Apple Calendar insertion remain owner/device checks; automated QA makes no real league, calendar or notification changes.
+
+## Installed baseline — 0.5.4 (32), cancelled Scores requests
 
 Josh's September 7 screenshot shows URLSession `NSURLErrorCancelled` (`-999`) from live scoring displayed as a raw error dump. The transport preserved Swift `CancellationError` but wrapped URLSession cancellation as `MFLCoreError.transport`; Scores then presented it as a failed refresh. Build 32 normalizes both typed forms, quietly retains existing Scores data/warnings on cancelled manual/polling/full reads, releases loading gates, and does not delay foreground recovery after an interrupted full refresh. Real transport failures use concise copy without raw URL/UserInfo; internal wrapping keeps only a numeric code. There is no blanket suppression of mutation errors or replay of cancelled writes.
 
@@ -14,7 +48,8 @@ The new core tests reproduced the wrapping/diagnostic leak; the new app tests re
 - **Full older-iOS regression:** all 193 app unit functions and all 40 native journeys pass on iOS 18.4: 233 functions / 285 executions, zero failures/skips/runtime warnings (`mfl-build32-ios18.xcresult`). Native execution took 946 seconds, including the complete offline two-week manager journey.
 - **GitHub:** exact-head [run 34145452711](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/34145452711) passed the full core and iOS jobs: 97 core tests, 193 app unit functions and 40 native journeys. The Xcode 16.4 iOS job completed in 28 minutes 10 seconds; its native tests took 1,371 seconds, zero failures.
 - **Merge:** [PR #9](https://github.com/biggsjm/mfl-blitz-ios/pull/9) squash-merged as [630b6ba](https://github.com/biggsjm/mfl-blitz-ios/commit/630b6baf82907030b42c49f3807eda426a5155cb) September 7 at 12:25 PM Central. The final completion record changes documentation only; app/test source remains the exact tested and installed `14cc99b`. No live league writes were used for QA.
-- **Owner/release checks:** cancellation recovery, player opening speed, physical profiling, real Week 1 scoring/writes, manual accessibility/device checks and Week 2 distribution gates remain open. Features 6–9 remain queued.
+- **Owner/release checks:** Josh confirmed the Scores cancellation fix works September 7. Player opening speed, physical profiling, real Week 1 scoring/writes and broader manual accessibility/device checks remain open. Josh will validate Week 1 on his dev device; TestFlight is intentionally on hold until both iOS 27 and macOS 27 leave beta, followed by the remaining release gates and his go-ahead. No release date is assumed.
+- **Subsequent work:** Josh approved Trading Block, League Calendar and reminders, plus a Live Activity; see the build-33 candidate above. Polls and playoff brackets remain queued.
 
 ## Previous installed private build — 0.5.4 (31), immediate player identity
 
@@ -169,7 +204,7 @@ Default request spacing reduces pressure but does not guarantee freedom from MFL
 - **MFL Blitz 0.4.1 (18): My Team and Board drafts.** Implemented, tested and signed. The final compatibility rebuild was installed and launched successfully on Josh's iPhone on September 6 after the phone became available. Includes the concise schedule update label and Board Close/save/discard with visible draft recovery.
 - Previous installed baseline: **0.3.7 (16), [e779e4b](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b)**. The documentation baseline was merged in [PR #1](https://github.com/biggsjm/mfl-blitz-ios/pull/1).
 - **Private owner testing**, not an App Store/TestFlight release. Production MFL registration and Week 2 invitation readiness remain unconfirmed.
-- Tabs remain **Scores / Lineup / My Team / Standings / Board**. Build 22 exposes six Schedule-first tools directly inside My Team. Settings remains upper-left on Scores; Scores and Lineup retain Week N controls.
+- Tabs remain **Scores / Lineup / My Team / Standings / Board**. Build 22 exposes six Schedule-first tools directly inside My Team. Build 34 moves Settings to My Team; Scores and Lineup retain Week N controls.
 - Connected mode performs real reads and explicitly reviewed writes. Champion Hall preview uses synthetic data, offers, owners and schedules; its actions send nothing to MFL.
 
 ## Implemented workflows

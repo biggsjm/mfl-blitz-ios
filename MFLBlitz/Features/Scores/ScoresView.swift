@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ScoresView: View {
     @Environment(AppModel.self) private var model
-    @State private var showingSettings = false
 
     private let columns = [GridItem(.adaptive(minimum: 330), spacing: 12)]
 
@@ -119,17 +118,12 @@ struct ScoresView: View {
         .pageBackground()
         .navigationTitle(model.workspace?.leagueName ?? "Scores")
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Settings", systemImage: "gearshape") { showingSettings = true }
-                    .accessibilityIdentifier("scores-settings")
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 WeekPicker(selection: weekBinding, range: 1...18)
                     .disabled(model.isUsingCachedSession)
             }
         }
         .refreshable { await model.refreshScores() }
-        .sheet(isPresented: $showingSettings) { SettingsView() }
     }
 
     private var weekBinding: Binding<Int> {

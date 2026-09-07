@@ -402,7 +402,11 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertGreaterThan(create.frame.width, app.frame.width * 0.8)
         XCTAssertGreaterThanOrEqual(create.frame.height, 44)
         XCTAssertGreaterThan(create.frame.minY, app.navigationBars.firstMatch.frame.maxY)
-        XCTAssertLessThan(create.frame.minY - app.navigationBars.firstMatch.frame.maxY, 24)
+        let modes = app.segmentedControls["trades-section"]
+        XCTAssertTrue(modes.exists)
+        XCTAssertGreaterThan(modes.frame.minY, app.navigationBars.firstMatch.frame.maxY)
+        XCTAssertGreaterThanOrEqual(create.frame.minY, modes.frame.maxY)
+        XCTAssertLessThan(create.frame.minY - modes.frame.maxY, 24)
         XCTAssertTrue(app.staticTexts["No active trades"].exists)
         XCTAssertFalse(app.staticTexts["No incoming offers"].exists)
         XCTAssertFalse(app.staticTexts["No sent offers"].exists)
@@ -465,23 +469,20 @@ final class MFLBlitzUITests: XCTestCase {
     }
 
     @MainActor
-    func testScoresToolbarKeepsWeekAndSettingsInCorners() throws {
+    func testScoresToolbarKeepsWeekAtTrailingEdgeWithoutSettings() throws {
         let app = XCUIApplication()
         app.launch()
         enterPreview(in: app)
-        let settings = app.navigationBars.buttons["scores-settings"]
         let week = app.navigationBars.buttons["week-picker"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 3))
+        XCTAssertTrue(week.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.navigationBars.buttons["scores-settings"].exists)
+        XCTAssertFalse(app.navigationBars.buttons["my-team-settings"].exists)
         XCTAssertTrue(week.isHittable)
         XCTAssertEqual(week.label, "Week 1")
-        XCTAssertLessThan(settings.frame.midX, app.frame.width * 0.25)
         XCTAssertGreaterThan(week.frame.midX, app.frame.width * 0.6)
         XCTAssertEqual(app.buttons.matching(identifier: "week-picker").count, 1)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = "Scores — Settings left, Week right"; screenshot.lifetime = .keepAlways; add(screenshot)
-        settings.tap()
-        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
-        app.buttons["Done"].tap()
+        screenshot.name = "Scores — Week control without Settings"; screenshot.lifetime = .keepAlways; add(screenshot)
         week.tap()
         app.buttons["Week 2"].tap()
         XCTAssertEqual(week.label, "Week 2")

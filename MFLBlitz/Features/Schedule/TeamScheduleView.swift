@@ -3,10 +3,28 @@ import SwiftUI
 /// Owns its scroll container. TeamDetailView supplies the fixed team header and
 /// Roster / Schedule control above this view.
 struct TeamScheduleView: View {
+    @Environment(AppModel.self) private var app
     let franchiseID: String
+    @State private var section = 0
+    @State private var visitedCalendar = false
 
     var body: some View {
-        ScheduleTimeline(franchiseID: franchiseID)
+        VStack(spacing: 0) {
+            Picker("Schedule", selection: $section) {
+                Text("Matchups").tag(0)
+                Text("Calendar").tag(1)
+            }.pickerStyle(.segmented).padding(.horizontal, 16).padding(.vertical, 8)
+                .accessibilityIdentifier("schedule-section")
+            ZStack {
+                ScheduleTimeline(franchiseID: franchiseID)
+                    .opacity(section == 0 ? 1 : 0).allowsHitTesting(section == 0).accessibilityHidden(section != 0)
+                if visitedCalendar, let calendar = app.leagueCalendar {
+                    LeagueCalendarView(calendar: calendar, showsControls: section == 1)
+                        .opacity(section == 1 ? 1 : 0).allowsHitTesting(section == 1).accessibilityHidden(section != 1)
+                }
+            }
+        }.pageBackground()
+            .onChange(of: section) { if section == 1 { visitedCalendar = true } }
     }
 }
 

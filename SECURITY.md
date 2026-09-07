@@ -1,6 +1,6 @@
 # Security policy
 
-Reviewed September 7, 2026 against **0.5.3 (28)**. Contact the repository owner through an established private channel rather than posting a vulnerability publicly. GitHub private vulnerability reporting was disabled at the September 6 check; establishing an available reporting route is a [distribution gate](docs/roadmap.md). Do not assume a **Report a vulnerability** button is available. If no private contact is available, request a private reporting route without disclosing exploit details or sensitive data.
+Reviewed September 7, 2026 against **0.6.0 (33)** implementation. Contact the repository owner through an established private channel rather than posting a vulnerability publicly. GitHub private vulnerability reporting was disabled at the September 6 check; establishing an available reporting route is a [distribution gate](docs/roadmap.md). Do not assume a **Report a vulnerability** button is available. If no private contact is available, request a private reporting route without disclosing exploit details or sensitive data.
 
 Never include MyFantasyLeague usernames, passwords, `MFL_USER_ID` values, API keys, private message content, trade terms, blind bids or unredacted authenticated payloads in an issue or routine diagnostic report. Use synthetic reproduction data; report build, affected workflow and expected/observed behavior.
 
@@ -15,7 +15,7 @@ MFL Blitz is designed to:
 - reject insecure API endpoints and cross-host mutation redirects;
 - perform no analytics, ad tracking, or credential proxying;
 - isolate franchise images in an ephemeral cookieless session with HTTPS validation, no redirects and bounded static thumbnails;
-- isolate the daily public player disk cache from protected private display/league metadata; keep other private response caches in memory;
+- isolate the daily public player disk cache from protected private display/league metadata; retain bounded optional Trading Block/Calendar snapshots in scoped device-only Keychain items, with other private response caches in memory;
 - detach/invalidate league disk caching before imports and on disconnect; reject late or differently scoped display-cache writes; never serialize raw cookies, passwords or response headers into cache files;
 - review intended lineup, waiver, trade, board and roster actions, use fresh preflight/readback, and never blindly retry imports;
 - retain durable markers for ambiguous board/trade/watchlist/roster writes across relaunch, without assuming disappearance alone proves a timed-out trade acceptance.
@@ -27,3 +27,7 @@ Resolve any unconfirmed action against MFL before disconnecting, since disconnec
 Build 16 fixes a response-review presentation bug in earlier trade builds: first-tap Decline/Withdraw could display a default Accept review. Use build 16 or a later validated build for trade testing. Fresh identifiable sheet payloads and explicit editor identities are regression requirements, in addition to API participant checks.
 
 These controls and tests are not a completed independent security audit or proof of support for every league configuration. See [release status](docs/current-status.md) and the remaining validation gates before broader distribution.
+
+Builds 33–35 extend fresh exact-owner membership/capability/asset checks, full-baseline comparison and durable no-replay markers to Trading Block publication. Arrow controls only stage a draft; explicit review and final submission retain the same fresh checks. Build 35 separately permits intentional whole-list removal after baseline/owner verification; it sends only empty trade-bait fields, never an add/drop or lineup import. A fresh fully parsed absent/empty owner listing confirms removal; errors or unchanged data preserve the marker. Unsupported assets still cannot be silently lost in partial replacement. Protected optional-feed loads are invalidated and drained before disconnect clears storage, and logout is serialized against new owner actions. Calendar recurrence is accepted only after all JSON/ICS anchors and repeat counts agree; no floating-time or weekly-interval guess can schedule an alert.
+
+Notification opt-in is contextual, minimal payloads contain no credentials/private trade terms, and app-owned alerts are removed on opt-out/disconnect. ActivityKit receives only matchup display data and uses explicit staleness. `mflblitz` deep links validate exact active scope and bounded event/week/matchup identifiers and only navigate; they never trigger a league write. Apple Calendar uses its out-of-process editor, not broad calendar-read permission. There is no APNs backend, shared credential container or credential-bearing extension payload. See [privacy](PRIVACY.md) and [the implementation contract](docs/league-extras-implementation.md).

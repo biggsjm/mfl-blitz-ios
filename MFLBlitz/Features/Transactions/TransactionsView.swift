@@ -59,7 +59,10 @@ struct AddsDropsView: View {
 }
 
 struct TradesView: View {
+    @Environment(AppModel.self) private var app
     @Environment(TransactionsModel.self) private var trades
+    @State private var section = 0
+    @State private var visitedBlock = false
     @State private var composerSession: TradeComposerSession?
     @State private var selectedOffer: TradeOffer?
     @State private var showingManualResolution = false
@@ -67,6 +70,13 @@ struct TradesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            Picker("Trades", selection: $section) {
+                Text("Offers").tag(0)
+                Text("Trading Block").tag(1)
+            }.pickerStyle(.segmented).padding(.horizontal, 16).padding(.vertical, 8)
+                .accessibilityIdentifier("trades-section")
+            ZStack {
+            VStack(spacing: 0) {
             PrimaryActionButton(
                 title: trades.draft == nil ? "Create trade" : "Resume trade",
                 systemImage: trades.draft == nil ? "plus" : "square.and.pencil",
@@ -77,9 +87,18 @@ struct TradesView: View {
             .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4)
 
             inbox
+            }.opacity(section == 0 ? 1 : 0).allowsHitTesting(section == 0).accessibilityHidden(section != 0)
+            if visitedBlock, let block = app.tradingBlock {
+                TradingBlockView(block: block) { draft in
+                    composerSession = TradeComposerSession(savedDraft: trades.draft, counteroffer: draft)
+                }.opacity(section == 1 ? 1 : 0).allowsHitTesting(section == 1).accessibilityHidden(section != 1)
+            }
+            }
         }
+        .onChange(of: section) { if section == 1 { visitedBlock = true } }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                if section == 0 {
                 Menu {
                     Button("Refresh offers", systemImage: "arrow.clockwise") { Task { await trades.refresh() } }
                         .disabled(trades.isLoading || trades.isBusy || (trades.retryAfter.map { $0 > Date() } ?? false))
@@ -90,6 +109,7 @@ struct TradesView: View {
                     }
                 } label: { Label("Trade options", systemImage: "ellipsis") }
                 .accessibilityIdentifier("trade-options")
+                }
             }
         }
         .task { await trades.refresh(ifNeeded: true) }
@@ -424,7 +444,7 @@ struct TransactionActivityView: View {
     }
 }
 
-private struct TransactionLoadingRow: View {
+struct TransactionLoadingRow: View {
     let title: String
     var body: some View {
         ProgressView(title)

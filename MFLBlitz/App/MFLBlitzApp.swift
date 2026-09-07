@@ -1,8 +1,11 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct MFLBlitzApp: App {
     @State private var model = Self.initialModel()
+
+    init() { UNUserNotificationCenter.current().delegate = LeagueDeepLinkRouter.shared }
 
     private static func initialModel() -> AppModel {
         #if DEBUG
@@ -18,6 +21,7 @@ struct MFLBlitzApp: App {
             RootView()
                 .environment(model)
                 .tint(.blitzGreen)
+                .onOpenURL { LeagueDeepLinkRouter.shared.receive($0) }
         }
     }
 }

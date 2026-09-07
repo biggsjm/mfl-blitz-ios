@@ -29,7 +29,7 @@ Five stable, labeled tabs keep Scores and Lineup one tap away; team tools are on
 | Standings | Divisions using supported league-configured tiebreakers | Switch overall/divisions or open a team |
 | Board | Existing MFL threads with unread state and visible Drafts | New thread / reply / resume draft; Close offers save/discard |
 
-Settings is upper-left on Scores, not a top-level tab. Scores and Lineup share a calendar control labeled Week N. Standings order information stays behind an anchored information popover. Trades put the native Create/Resume action first and move the routine MFL link into secondary options; errors retain visible recovery links.
+Settings is upper-left on My Team (moved from Scores in build 34), not a top-level tab. Scores and Lineup share a calendar control labeled Week N. Standings order information stays behind an anchored information popover. Trades put the native Create/Resume action first and move the routine MFL link into secondary options; errors retain visible recovery links. Trading Block follows Lineup's promotion/demotion, pinned review and explicit submit pattern without changing roster membership.
 
 This follows Apple's guidance that tabs represent persistent peer destinations, use familiar symbols plus labels, and avoid behaving like action buttons: [Tab bars](https://developer.apple.com/design/human-interface-guidelines/tab-bars).
 
@@ -40,6 +40,8 @@ The implemented navigation is **Scores / Lineup / My Team / Standings / Board**.
 Reuse existing My Team → Adds / Drops available-player search. There is no extra Players tab or new global search destination. Browsing a team/player/schedule must not change the active lineup week or drafts. My Team uses a 26-point original-rendered logo/initials inside the native tab bar. The system owns tab layout and selection; no raised custom tab bar is introduced. See the [schedule](schedule-ux.md) and [player-detail](player-detail-ux.md) plans.
 
 ## Design principles
+
+The build-33 [league extras](league-extras-implementation.md) extend existing destinations: Trades → Offers / Trading Block, Schedule → Matchups / Calendar. Trading Block makes owner intent and Make offer easy to find while preserving existing drafts. Calendar is an agenda, not another full-screen grid; deadlines link to the relevant task and reminders require a contextual opt-in. The current-matchup Live Activity is a glanceable score surface with explicit staleness, not a promise of continuously updating background data. No new main tab is added.
 
 - **Freshness is content.** Expose meaningful update/loading/error states. Foreground scoring is conservatively polled; background real-time delivery is not implemented.
 - **Proof beats optimism.** Reviewed writes use server readback. Ambiguous outcomes trigger reconciliation, not blind resubmission. Do not claim tiebreaker readback or completed trade approval when MFL cannot prove it.

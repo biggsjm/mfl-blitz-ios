@@ -54,6 +54,9 @@ final class AppModel {
     var boardThreads: [BoardThread] = []
     var transactions = TransactionsModel()
     var seasonSchedule = SeasonScheduleModel()
+    var tradingBlock: TradingBlockModel?
+    var leagueCalendar: LeagueCalendarModel?
+    let matchupActivity = MatchupActivityController()
     var playerTools = PlayerToolsModel()
     var pendingRosterChange: PendingRosterAction?
     var rosterChangeError: String?
@@ -1048,7 +1051,12 @@ final class AppModel {
     }
 
     func signOut() async {
-        guard !isBusy, !transactions.isBusy, !playerTools.isChangingWatchList else { return }
+        guard !isBusy, !transactions.isBusy, !playerTools.isChangingWatchList, tradingBlock?.isBusy != true,
+              leagueCalendar?.isSaving != true else { return }
+        isBusy = true
+        defer { isBusy = false }
+        await tradingBlock?.disconnect()
+        await leagueCalendar?.disconnect()
         if !isDemo, let workspace {
             do {
                 try privateStore.remove("drafts.\(workspace.storageScope)")
@@ -1057,10 +1065,14 @@ final class AppModel {
                 try privateStore.remove("trade.pending.\(workspace.storageScope)")
                 try privateStore.remove("roster.pending.\(workspace.storageScope)")
                 try privateStore.remove("watch-action.\(workspace.storageScope)")
+                for prefix in ["block.pending", "block.draft", "block.snapshot", "calendar.snapshot", "calendar.reminders"] {
+                    try privateStore.remove("\(prefix).\(workspace.storageScope)")
+                }
                 try privateStore.remove("session")
-            } catch { notice = .error(error.localizedDescription); return }
+            } catch { configureTransactions(); notice = .error(error.localizedDescription); return }
         }
         let signedInRepository = repository
+        await matchupActivity.disconnect()
         sessionGeneration &+= 1
         weekLoadGeneration &+= 1
         workspace = nil
@@ -1119,6 +1131,8 @@ final class AppModel {
         transactions = TransactionsModel()
         seasonSchedule.invalidateSession()
         seasonSchedule = SeasonScheduleModel()
+        tradingBlock?.invalidate(); tradingBlock = nil
+        leagueCalendar?.invalidate(); leagueCalendar = nil
         scopedScoreInspection = nil
         waiverReadError = nil; lastWaiverRefresh = nil; lastFullRefresh = nil
         isLoadingScores = false; isLoadingLineup = false
@@ -1175,6 +1189,13 @@ final class AppModel {
         playerTools.reset(scope: workspace?.storageScope)
         scopedScoreInspection = nil
         transactions = TransactionsModel(repository: repository, workspace: workspace, privateStore: privateStore, isDemo: isDemo)
+        tradingBlock?.invalidate(); leagueCalendar?.invalidate()
+        if let workspace {
+            let store = ProtectedFeedStore(isDemo ? PreviewPrivateStore() : privateStore)
+            tradingBlock = TradingBlockModel(repository: repository, workspace: workspace, store: store)
+            leagueCalendar = LeagueCalendarModel(repository: repository, workspace: workspace, store: store,
+                notifications: isDemo ? PreviewDeadlineNotifications() : SystemDeadlineNotifications())
+        }
         seasonSchedule.invalidateSession()
         seasonSchedule = SeasonScheduleModel(loader: { [weak self] in
             guard let self else { throw CancellationError() }
@@ -1183,6 +1204,20 @@ final class AppModel {
     }
 
     var browseScope: LeagueBrowseScope? { workspace.map(LeagueBrowseScope.init(workspace:)) }
+
+    func updateMatchupActivity(using snapshot: ScoresSnapshot? = nil) async {
+        guard let workspace else { return }
+        await matchupActivity.synchronize(scores: snapshot ?? scores, workspace: workspace, currentWeek: currentWeek,
+            isDemo: isDemo, isCached: isUsingCachedSession)
+    }
+
+    func refreshMatchupActivity() async {
+        guard matchupActivity.enabled, !isDemo, !isUsingCachedSession else { return }
+        let week = currentWeek
+        if let snapshot = try? await readForBrowsing({ try await $0.loadScores(week: week) }) {
+            await updateMatchupActivity(using: snapshot)
+        }
+    }
 
     // Destination-local reads must never change selectedWeek, scores or a draft.
     // Reject both successful and failed replies from a replaced account/session.

@@ -1,6 +1,6 @@
 # Execution plan and remaining work
 
-Updated September 7, 2026 for installed private build **0.5.4 (32)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records exact installation/test evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 7, 2026 for **0.6.0 (33–35)** implementation; installed baseline and exact delivery evidence are in [current status](current-status.md). Checked items mean implemented, not universal live-league certification. [The changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 
@@ -22,12 +22,12 @@ Updated September 7, 2026 for installed private build **0.5.4 (32)**. Checked it
 - [x] Matchup owner names, simplified position headers and single-stack matchup → player → Back routing; team tools work from pushed destinations.
 - [x] Player loading: lazy cached biography, reused primary detail on ordinary reappearance, and model-owned availability reads that survive screen cancellation. Josh confirmed the spinner fix; remaining card latency prompted build 31. Actual phone timing remains open.
 - [x] Immediate display-only player identity from the tapped row, independent Week/research loading, and unchanged ownership/action gates (build 31; local/GitHub verification passed, owner latency recheck remains open).
-- [x] Normalize URLSession cancellation, keep Scores visible without false refresh alerts, release retry gates, and remove raw transport diagnostic messages (build 32; installed, full local/GitHub checks passed and PR #9 merged; owner recovery check remains open).
+- [x] Normalize URLSession cancellation, keep Scores visible without false refresh alerts, release retry gates, and remove raw transport diagnostic messages (build 32; installed, full local/GitHub checks passed and PR #9 merged; Josh confirmed the fix works September 7).
 - [x] Initial My Team/shared team roster, Player Detail, team/league season schedules and canonical-ID navigation. Player tools 1–5 extend this in the installed build.
 
-## P0 — Week 1 validation and Week 2 release gates
+## P0 — Dev-device Week 1 validation and later release gates
 
-Josh wants to test personally in Week 1 and invite the league in Week 2 if it goes well. Each gate below remains open until its evidence is recorded. A calendar date or passing fixtures is not enough.
+September 7 decision: Josh will validate Week 1 on his development device. TestFlight is on hold until both iOS 27 and macOS 27 leave beta, then still requires the gates below and Josh's go-ahead. This replaces the earlier Week 2 invitation deadline; it is an owner preference, not an asserted Apple requirement. No OS release date is assumed. Each gate remains open until its evidence is recorded; a calendar date or passing fixtures is not enough.
 
 | Remaining gate | Owner / action | Done when |
 | --- | --- | --- |
@@ -65,12 +65,13 @@ Implementation boundaries: team/player work owns roster/player surfaces; schedul
 
 ## Next feature queue — after player tools 1–5
 
-6. [ ] Trading block: publish available assets/needs and start offers.
-7. [ ] League calendar and opt-in deadline reminders.
+6. [x] Trading Block: browse listings, publish players/picks/needs with owner preflight and readback, resume drafts and safely start offers. [Approved plan](trading-block-calendar-plan.md); build 35 adds explicit whole-list removal with empty readback, pending owner provider acceptance. New cash publication remains MFL-only.
+7. [x] League Calendar, opt-in deadline reminders and selected-event Apple Calendar handoff. Exact recurring instances/DST verified from owner-provided MFL exports. Development-device validation only until the distribution hold is lifted.
+   - [x] Build 34 owner feedback: Lineup-style block promotion/demotion and pinned review/submit; Settings gear relocated to My Team. Exact-source verification and device delivery are recorded separately.
 8. [ ] Board polls and voting.
 9. [ ] Playoff brackets beside schedules.
 
-These are retained in the [approved plan](player-tools-plan.md) and are not implemented in 0.5.4.
+Items 6–7 are implemented in 0.6.0 (33); 8–9 remain queued in the [feature plan](player-tools-plan.md). Delivery and live-owner acceptance are distinct. Device reminder delivery, changed deadlines, active-game ActivityKit behavior and new-feature accessibility checks remain open in the [checklist](week-1-testing.md).
 
 ## P2 — Broader coverage and polish
 
@@ -99,8 +100,9 @@ Fixtures cover selected normal/failure cases, not this entire matrix. Add dispos
 
 ## Later — Apple ecosystem and optional research
 
-- [ ] Widgets, Live Activities, App Shortcuts, Spotlight and contextual opt-in notifications.
-- [ ] Reviewed background/push architecture and required MFL coordination. No MFL Blitz push backend, webhook integration or notification delivery exists today.
-- [ ] Optional strength-of-schedule, calendar export, licensed news/player imagery and deeper research; none are prerequisites for the owner trial.
+- [x] Foreground-updated current-matchup Live Activity and contextual local deadline reminders (build 33); actual game-week/device acceptance remains open.
+- [ ] Home Screen widgets, App Shortcuts and Spotlight.
+- [ ] Reviewed background/push architecture and required MFL coordination. No MFL Blitz APNs backend or webhook integration exists. Local reminders can fire while closed; matchup scores cannot promise continuous closed-app updates.
+- [ ] Optional strength-of-schedule, full calendar subscription, licensed news/player imagery and deeper research; selected-event Apple Calendar handoff is implemented, but these broader items are not prerequisites for the owner trial.
 
 MFL's documented API does not provide the webhook/APNs contract needed to promise real-time background delivery. Foreground polling is not a background guarantee; new providers require separate scope/privacy review.

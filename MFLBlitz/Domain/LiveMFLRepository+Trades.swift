@@ -46,7 +46,7 @@ extension LiveMFLRepository {
             comments: cleanText(raw.comments), expires: raw.expires, timestamp: raw.timestamp, status: raw.status)
     }
 
-    private nonisolated func tradeAsset(_ code: String, players: [String: MFLPlayer], league: MFLLeague, season: Int) -> TradeAsset {
+    nonisolated func tradeAsset(_ code: String, players: [String: MFLPlayer], league: MFLLeague, season: Int) -> TradeAsset {
         guard MFLTradeAssetCode.isSupported(code) else {
             return TradeAsset(id: code, name: "Unrecognized asset: \(code)", detail: "Review the complete offer on MFL", kind: .unknown)
         }

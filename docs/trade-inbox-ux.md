@@ -14,6 +14,8 @@ Trade API preflight and readback safeguards remain unchanged. New offers remain 
 
 ## Composer and response reviews
 
+Build **0.6.0 (33)** adds **Offers / Trading Block**, defaulting to Offers and retaining the existing inbox/composer behavior. Trading Block puts the owner's Add/Edit/Resume first, followed by league listings with secondary owner names, asset research links and Make offer. The latter stages a draft, never sends one. If a trade draft already exists, Resume or explicit Replace is required. Block editing has its own protected draft, Close/save/discard flow and first-action publication with fresh owner/asset/baseline checks and readback. Unconfirmed publication exposes Check status and prevents another POST. Entire-block removal and cash listings remain on MFL. See [implementation and remaining limits](league-extras-implementation.md).
+
 Cancel is at the leading edge; Save & close is at the trailing edge and disabled for a blank/whitespace-only draft. Choosing a partner, assets, or entering a message enables saving even if the offer is not ready to send. Merely opening a blank composer does not create a resumable draft, and blank drafts from older builds are ignored on restore.
 
 Changing only expiration does not make a blank draft meaningful. Dirty editors cannot be swiped away without resolving edits; Cancel/Discard changes restores the pre-opening snapshot rather than deleting an already saved draft or sent offer.
@@ -25,6 +27,10 @@ Every editor opening uses a unique, explicit SwiftUI view identity and an immuta
 Click-through QA uncovered a first-presentation bug: separate response-action and sheet-visibility state could show the default Accept review after tapping Withdraw or Decline. The response sheet now receives the selected action as one identifiable payload. The API role checks remain in place; UI tests also assert the exact first-tap Decline/Withdraw titles and confirmation labels, then cancel without performing an action.
 
 ## Regression coverage
+
+Build 34 responds to owner feedback with a Lineup-style block editor: On the block / Your roster, green up/orange down controls, optional needs text, secondary owned picks and a pinned Review & submit action. The cancelable review lists exact terms before the final send. Empty/unchanged drafts cannot submit; roster membership and starter assignments never change. Native tests must cover promote → demote → promote, saved-draft recovery, Cancel review, explicit offline submit and unchanged readback. The Offers page's Create action remains directly below the new mode selector; geometry tests must account for that selector instead of assuming the action touches the navigation bar.
+
+Build 35 supersedes the empty-existing-block restriction: demoting the last player from a published listing offers **Review removal → Remove listing**. The short review distinguishes removing a league-visible listing/needs note from dropping a player. Empty removal drafts can be saved/resumed; Cancel retains them. A blank new draft remains disabled. Native QA continues the first-edit journey through publish → remove last player → save/resume → cancel removal → confirm removal → disabled blank new draft, using only the offline repository.
 
 The native test helper enters Trades directly through My Team. UI validation includes large-text access to the new entry, then the existing Create/Resume, draft and response journeys. See [current status](current-status.md) for candidate-specific results; the build-16 counts below remain historical.
 

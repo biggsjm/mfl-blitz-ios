@@ -1,10 +1,14 @@
-# Week 1 owner test and Week 2 go/no-go
+# Week 1 dev-device test and later league beta
+
+September 7 distribution decision: Josh will validate Week 1 on his development device. Do not push to TestFlight until both iOS 27 and macOS 27 leave beta, the remaining release gates pass, and Josh approves distribution. The earlier Week 2 invitation deadline is superseded; Week 2 rollover remains a functional test.
 
 Updated September 7, 2026 for installed private build **0.5.4 (32)**. It includes the Scores cancellation fix, player cards/game logs and their loading follow-up, cached startup, the Lineup projection margin, six direct My Team destinations and the shared numeric standings pattern. See [current status](current-status.md) for actual delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use a validated, installed build for owner testing.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
 ## Already observed
+
+- Josh confirmed the build-32 Scores cancellation fix works on September 7. This closes the reported cancellation-alert issue, not the entire offline/rollover or player-performance checklist.
 
 - Josh's September 7 11:45 AM screenshot shows a cancelled live-scoring request (`-999`) displayed as a raw alert. Build 32 addresses typed cancellation and error presentation; installation and verification are tracked in Current status. Recheck by refreshing Scores, switching tabs/backgrounding during a read, then returning and refreshing again. Existing scores should remain, with no cancellation alert; genuine offline failures should still report a concise warning.
 
@@ -22,11 +26,25 @@ These checks remain open unless explicitly marked with an observation. They are 
 
 ## Before kickoff
 
+### Build 35 league extras — installed for owner validation
+
+Build 35 is installed with the requested lineup-style editor, last-player removal and Settings gear on My Team. Open Blitz after unlocking the phone; see [current status](current-status.md) for launch and verification evidence. In the block editor, move a player up, move them back down, then review/cancel: your actual roster and starting lineup must stay unchanged. Submit only a block you intend to publish or remove. Confirm Settings opens from My Team and is absent from Scores.
+
+- [ ] My Team → Trades → Trading Block matches intended MFL listings. Edit only a listing you want published; verify it on MFL, then relaunch and check it. Resume/discard a private block draft without changing the published list. Build 35: if you intend to clear the block, demote the last player, review removal and confirm; verify the listing/needs note clears on MFL while roster and starters stay unchanged. Check status after uncertainty; do not resend. Cash listings still use MFL.
+- [ ] Make offer from a listing opens the right partner/assets without sending. With an existing trade draft, Cancel/Resume preserves it and Replace requires the explicit choice.
+- [ ] My Team → Schedule → Calendar matches MFL's waiver-processing, adds-open/closed and trade deadlines in local time. Compare September and November/DST occurrences. Calendar browsing must preserve the selected lineup week, edits and offers.
+- [ ] Opt into a deadline reminder deliberately. Confirm iOS permission appears only then, denial leaves it disabled, Off removes it, and a changed deadline replaces the old notification after a fresh calendar read. Check a chosen alert while Blitz is closed; Focus/system settings can affect delivery. Do not manufacture real deadlines for QA.
+- [ ] Apple Calendar handoff opens the selected event with the right time/title; Cancel creates nothing. Save only an event you actually want. This is a one-time copy, not a syncing subscription or permission to read your calendars.
+- [ ] During the current matchup, open Blitz while at least one starter is actively playing: confirm Lock Screen/Dynamic Island teams/scores, tap-to-matchup and return without losing lineup edits. Bench-only games, future weeks and stale reads must not start an activity.
+- [ ] After Blitz is closed for two minutes, confirm older scores are marked stale rather than presented as continuously live. Reopen to update. Dismissal must not immediately recreate the same activity; Settings can disable/re-enable it. Continuous closed-app updates need a future push service.
+- [ ] In a suitable test session, Disconnect removes app-owned pending/delivered reminders and ends the activity; never disconnect solely to test recovery while an intended MFL action is unconfirmed.
+
+
 - [ ] Confirm version/build, league, franchise, season and Week N after sign-in/restore. Reconnect must finish or offer cancellation, not block indefinitely; each section loads independently.
 - [ ] Let build 28 or newer successfully load Scores, Lineup, Standings, Board and My Team once. Close/reopen: saved content should appear while reconnecting, then update. In airplane mode reopen again: keep last-known content, no LIVE claims or editable cached lineup. Restore connectivity and tap Retry; confirm current week and starters with MFL before an intended change. Record phone time-to-content on Wi-Fi/cellular; first-ever loading and cache eviction legitimately need downloads.
 - [ ] Make a lineup edit, switch tabs, refresh, close/reopen and confirm the draft survives without submission. On an intended submission, compare saved starters on MFL. Verify the tiebreaker on MFL separately: the API cannot read its saved state back.
 - [ ] Check a starter's projection beside candidates, including a genuinely missing value. Missing values remain a dash, not zero; projections are pregame, not a live forecast.
-- [ ] Check Week N controls on Scores/Lineup and Settings upper-left on Scores. Avoid changing an active draft's week unintentionally.
+- [ ] Check Week N controls on Scores/Lineup and Settings upper-left on My Team (build 34 onward). Avoid changing an active draft's week unintentionally.
 - [ ] Check the Lineup projection card against both teams' Week 1 projected starters: positive margin green, negative orange, rounded tie Even. A substitution changes the projected margin without submitting. Status sits beside kickoff locks (stacked at larger text); incomplete or wrong-week opponent data never implies an advantage. See [comparison rules](lineup-projections.md).
 - [ ] Confirm owner names and the [standings pattern](standings-pattern.md): before results, `0–0 · Warner` without a made-up first place. Later, compare division rank in Divisions and league-wide rank in Overall against MFL. Matching records alone do not mean a tie. Unknown/custom/cyclic cases must not invent rank. Info opens an anchored popover; missing owners are not guessed. Check artwork fallback and long names.
 
@@ -96,7 +114,7 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 - [ ] Reopen at Week 2: the default follows MFL current week, while explicitly selected historical weeks remain selected. Lineup offers MFL's lineup week when different. Week-specific drafts and tiebreakers stay correctly scoped.
 - [ ] With actual users, check small-screen/iPad layout, light/dark appearance, long names, large text, VoiceOver and non-gesture actions. Automated synthetic personas are not a comprehension/accessibility study.
 
-## Week 2 release decision — still pending
+## League beta release decision — intentionally deferred
 
 Do not invite the league until P0 [release gates](roadmap.md) are complete: live Week 1 evidence, intended-write verification, regression/manual usability checks, production MFL registration/exact User-Agent, Apple signing/TestFlight/privacy/review setup, safe support/security reporting and Josh's go-ahead. Unsupported formats must be clearly excluded from the release scope with a usable MFL fallback.
 
