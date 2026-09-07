@@ -2,7 +2,18 @@
 
 Audited September 6, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Current installed private build — 0.5.3 (26)
+## Current installed private build — 0.5.3 (27)
+
+The [lineup projection card](lineup-projections.md) places status beside kickoff locks below the divider and adds a signed green/orange projected margin against the selected week's opponent. Edited starters recalculate it immediately; incomplete, wrong-week, failed or ambiguous opponent data omits it. No new API calls, persistence, permissions or mutation behavior.
+
+- **Design:** an independent iOS design-review agent inspected real native screenshots and approved the revised card's alignment, score/margin hierarchy, full opponent name and plain metadata footer. This is AI-assisted review, not human user testing.
+- **Local tests:** all 165 app unit functions pass (`mfl-build27-models.xcresult`, iOS 27). The final design passes 16 focused lineup model functions and both new native journeys in Light Mode (`mfl-build27-design-light.xcresult`, iOS 18.4); both journeys also pass in Dark Mode with Increase Contrast enabled (`mfl-build27-design-dark-contrast.xcresult`). A further largest-text capture passes (`mfl-build27-ax-upper.xcresult`). No automated tests submit live league changes.
+- **Device:** signed **0.5.3 (27)** installed and launched on Josh's iPhone; `devicectl` confirms the exact version/build (`mfl-build27-installed.json`). This verifies delivery, not live Week 1 projection accuracy.
+- **GitHub:** the updated source, plan and documentation are being prepared for exact-head compatibility CI and merge. The earlier standings/direct-tools increment is already merged in PR #5 below.
+
+Early development checks caught a test-fixture saved-status assumption and excessive inherited List icon spacing; both were corrected, not treated as passing final evidence. At the owner's request, the initial passing card was then revised following independent design review. The surrounding Lineup player rows/Starting header still need a separate maximum-Dynamic-Type follow-up, recorded in the roadmap.
+
+## Previous installed private build — 0.5.3 (26)
 
 The approved [standings pattern](standings-pattern.md) is implemented: shared `6–2 · 1st in Warner` headers, actual league-name fallback, correctly scoped division/overall places, confirmed ties and no manufactured preseason place. Tapping the header opens the matching standings context. The selector stays visible; maximum Dynamic Type gets stacked headers and rows. Existing direct tools and mutation protections remain unchanged.
 

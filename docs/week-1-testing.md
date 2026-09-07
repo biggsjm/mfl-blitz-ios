@@ -16,6 +16,7 @@ These checks remain open unless explicitly marked with an observation. They are 
 - [ ] Make a lineup edit, switch tabs, refresh, close/reopen and confirm the draft survives without submission. On an intended submission, compare saved starters on MFL. Verify the tiebreaker on MFL separately: the API cannot read its saved state back.
 - [ ] Check a starter's projection beside candidates, including a genuinely missing value. Missing values remain a dash, not zero; projections are pregame, not a live forecast.
 - [ ] Check Week N controls on Scores/Lineup and Settings upper-left on Scores. Avoid changing an active draft's week unintentionally.
+- [ ] Check the Lineup projection card against both teams' Week 1 projected starters: positive margin green, negative orange, rounded tie Even. A substitution changes the projected margin without submitting. Status sits beside kickoff locks (stacked at larger text); incomplete or wrong-week opponent data never implies an advantage. See [comparison rules](lineup-projections.md).
 - [ ] Confirm owner names and the [standings pattern](standings-pattern.md): before results, `0–0 · Warner` without a made-up first place. Later, compare division rank in Divisions and league-wide rank in Overall against MFL. Matching records alone do not mean a tie. Unknown/custom/cyclic cases must not invent rank. Info opens an anchored popover; missing owners are not guessed. Check artwork fallback and long names.
 
 ### Starter and FLEX replacement

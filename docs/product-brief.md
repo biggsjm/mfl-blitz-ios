@@ -1,6 +1,6 @@
 # Product brief
 
-Reconciled September 6, 2026 against private build **0.5.3 (26)**. [Current status](current-status.md) distinguishes implemented behavior from product targets and remaining validation.
+Reconciled September 6, 2026 against private build **0.5.3 (27)**. [Current status](current-status.md) distinguishes implemented behavior from product targets and remaining validation.
 
 ## Promise
 
@@ -11,7 +11,7 @@ MFL is unusually powerful because a commissioner can shape nearly every rule. Th
 ## Jobs to be done
 
 1. **Know what is happening now.** Open directly to the current matchup, then scan every league score without navigating a report tree.
-2. **Set a legal lineup before lock.** See league-derived slots, eligible bench/starter replacements and available projections; make changes accessibly; review the full lineup; retain edits if submission fails. Verified opponent/kickoff/injury enrichment remains incomplete.
+2. **Set a legal lineup before lock.** See league-derived slots, eligible bench/starter replacements and available projections, including a signed [same-week opponent comparison](lineup-projections.md); review the full lineup and retain edits if submission fails. Official opponent/kickoff/injury enrichment is implemented; complete live-week and manual accessibility verification remain open.
 3. **Build conditional bids confidently.** Search and sort free agents, see remaining budget, pair every add with its drop, reorder rounds, and replace the saved queue only after a clear review.
 4. **Stay connected where the league already talks.** Read, compose, and reply on MFL's message board rather than forcing the league into a second chat network.
 5. **Understand the race.** See division/overall places, owners, record and points without a horizontally scrolling report. Places follow supported configured tiebreakers; unknown places stay blank and MFL remains authoritative for custom orders. Team and league schedules use published opponents; undecided playoffs stay explicitly unset.

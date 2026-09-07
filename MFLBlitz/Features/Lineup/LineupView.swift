@@ -55,10 +55,11 @@ struct LineupView: View {
                 Section {
                     LineupSummaryCard(
                         lineup: model.lineup,
+                        comparison: model.lineupProjectionComparison,
                         isDirty: isDirty,
                         hasValidationIssue: model.starterValidationMessage != nil
                     )
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                     .listRowBackground(Color.clear)
                 } footer: {
                     if let note = model.lineup.projectionNote { Text(note) }
@@ -437,48 +438,102 @@ private struct LineupReplacementCandidateRow: View {
 }
 
 private struct LineupSummaryCard: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorScheme) private var colorScheme
     let lineup: LineupSnapshot
+    let comparison: LineupProjectionComparison?
     let isDirty: Bool
     let hasValidationIssue: Bool
 
     var body: some View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Week \(lineup.week) projection")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Week \(lineup.week) projection")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                    let layout = dynamicTypeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                        : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 16))
+                    layout {
                         Text(lineup.projectedTotal.pointsText)
-                            .font(.system(.largeTitle, design: .rounded, weight: .black))
+                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                            .monospacedDigit()
+                            .layoutPriority(1)
                             .contentTransition(.numericText())
+                            .accessibilityLabel("Week \(lineup.week) projection, \(lineup.projectedTotal.pointsText) points")
+                            .accessibilityIdentifier("lineup-summary-projection")
+                        if let comparison {
+                            VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 3) {
+                                Text(comparison.margin == 0 ? comparison.marginText : "\(comparison.marginText) pts")
+                                    .font(.title3.weight(.semibold))
+                                    .monospacedDigit()
+                                    .foregroundStyle(marginColor(comparison.margin))
+                                    .contentTransition(.numericText())
+                                Text("vs \(comparison.opponentName)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
+                                    .lineLimit(nil)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(maxWidth: .infinity, alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(comparison.accessibilityLabel)
+                            .accessibilityIdentifier("lineup-projected-margin")
+                        }
                     }
-                    Spacer()
-                    StatusPill(
-                        text: status.text,
-                        systemImage: status.systemImage,
-                        tone: status.tone
-                    )
                 }
 
                 Divider()
 
-                HStack {
-                    if let deadline = lineup.deadline {
-                        Label(deadline.formatted(date: .omitted, time: .shortened), systemImage: "clock")
-                    } else {
-                        Label("Locks at each kickoff", systemImage: "clock")
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) {
+                        lockNote.fixedSize()
+                        Spacer(minLength: 0)
+                        lineupStatus.fixedSize()
                     }
-                    Spacer()
-                    if let submitted = lineup.lastSubmitted {
-                        Label(submitted.formatted(date: .omitted, time: .shortened), systemImage: "checkmark.circle")
+                    VStack(alignment: .leading, spacing: 10) {
+                        lockNote
+                        lineupStatus
                     }
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .labelStyle(LineupSummaryLabelStyle())
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var lockNote: some View {
+        Label(lineup.deadline.map { $0.formatted(date: .omitted, time: .shortened) }
+              ?? "Locks at each kickoff", systemImage: "clock")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("lineup-lock-message")
+    }
+
+    private var lineupStatus: some View {
+        Label(status.text, systemImage: status.systemImage)
+            .font(.caption)
+            .foregroundStyle(status.tone.foreground)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(status.text)
+            .accessibilityValue(lineup.lastSubmitted.map {
+                "Last submitted \($0.formatted(date: .omitted, time: .shortened))"
+            } ?? "")
+            .accessibilityIdentifier("lineup-summary-status")
+    }
+
+    private func marginColor(_ margin: Double) -> Color {
+        if margin == 0 { return .secondary }
+        // Darker semantic greens/oranges keep small numeric text legible on light surfaces.
+        if colorScheme == .light {
+            return margin > 0 ? Color(red: 0.12, green: 0.43, blue: 0.20)
+                : Color(red: 0.68, green: 0.28, blue: 0.02)
+        }
+        return margin > 0 ? .green : .orange
     }
 
     private var status: (text: String, systemImage: String, tone: StatusPill.Tone) {
@@ -492,6 +547,18 @@ private struct LineupSummaryCard: View {
             return ("Submitted", "checkmark", .positive)
         }
         return ("Current lineup", "checkmark.circle", .neutral)
+    }
+}
+
+/// Avoid List's column-aligned label spacing inside the compact summary footer.
+private struct LineupSummaryLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            configuration.icon
+            configuration.title
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 

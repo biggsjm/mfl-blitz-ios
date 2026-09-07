@@ -128,6 +128,45 @@ enum GameStatus: Equatable, Sendable {
     }
 }
 
+/// Pregame projections for the edited starters versus one confirmed, same-week opponent.
+/// This is not a live-score lead or a win-probability estimate.
+struct LineupProjectionComparison: Equatable, Sendable {
+    let opponentName: String
+    let margin: Double
+
+    init?(lineup: LineupSnapshot, scores: ScoresSnapshot, franchiseID: String) {
+        guard !franchiseID.isEmpty, franchiseID != "0000", lineup.week == scores.week,
+              lineup.hasValidStarterPositions,
+              Set(lineup.starters.map(\.id)).count == lineup.requiredStarterCount,
+              let total = lineup.projectedTotal, total.isFinite else { return nil }
+        let matchups = scores.matchups.filter { $0.away.id == franchiseID || $0.home.id == franchiseID }
+        // Never select an arbitrary game for a bye, missing matchup or doubleheader.
+        guard matchups.count == 1, let matchup = matchups.first else { return nil }
+        let opponent = matchup.away.id == franchiseID ? matchup.home : matchup.away
+        guard !opponent.id.isEmpty, opponent.id != "0000", opponent.id != franchiseID,
+              opponent.starters.count == lineup.requiredStarterCount,
+              Set(opponent.starters.map(\.id)).count == lineup.requiredStarterCount,
+              opponent.starters.allSatisfy({ $0.lineupStatus == .starter }),
+              opponent.unclassifiedPlayers.isEmpty,
+              let projection = opponent.projectedScore, projection.isFinite else { return nil }
+        // The repository supplies an aggregate only when every reported starter has a projection.
+        // Also require a complete starter count above; a partial lineup is not a fair comparison.
+        let roundedMargin = ((total - projection) * 10).rounded() / 10
+        guard roundedMargin.isFinite else { return nil }
+        opponentName = opponent.name
+        margin = roundedMargin == 0 ? 0 : roundedMargin
+    }
+
+    var marginText: String {
+        margin == 0 ? "Even" : "\(margin > 0 ? "+" : "−")\(abs(margin).pointsText)"
+    }
+
+    var accessibilityLabel: String {
+        if margin == 0 { return "Projected even with \(opponentName)" }
+        return "Projected \(abs(margin).pointsText) points \(margin > 0 ? "ahead of" : "behind") \(opponentName)"
+    }
+}
+
 struct LineupSnapshot: Equatable, Sendable {
     var week: Int
     var players: [LineupPlayer]
