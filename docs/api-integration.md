@@ -154,6 +154,24 @@ The request gate rechecks spacing after suspension to prevent resume bursts. Con
 
 Build 32 treats both Swift cancellation and Foundation's typed URLSession cancellation (`NSURLErrorDomain` / `NSURLErrorCancelled`, including bridged NSError) as `CancellationError`. No diagnostic-string matching is used. Scores manual/polling and full-refresh reads retain their previous data and warnings rather than reporting cancellation as failure; cancelled full refreshes do not establish the successful foreground cooldown. Actual failures still surface. Transport wrapping stores only the numeric network code, while localized transport messages omit the payload entirely. Do not suppress uncertain mutation outcomes or infer that a cancelled POST was not applied; durable pending markers/readback and no-replay protections remain required.
 
+## League extras — 0.6.0 (33)
+
+See the [implementation contract](league-extras-implementation.md) for exact decoding, recurrence, persistence, lifecycle and failure boundaries.
+
+| Surface | Request | Cache / authority |
+| --- | --- | --- |
+| Trading Block | export `tradeBait&INCLUDE_DRAFT_PICKS=1` | 5 minutes, original age; protected scoped display snapshot |
+| Publish own block | import `tradeBait`, `WILL_GIVE_UP`, `IN_EXCHANGE_FOR` | Fresh exact membership, abilities, assets and baseline before the only POST; durable marker and uncached exact readback |
+| Calendar | export `calendar` | Shared 15-minute cache for agenda and waiver processing date |
+| Explicit recurring instances | export `ics`, without `JSON=1` | 15 minutes; fetched only for repeating JSON events; JSON anchor validation before UTC interpretation |
+| Live Activity | existing current-week `liveScoring` | No new provider; fresh owner matchup and playing-starter clocks, foreground only |
+
+Owner-provided JSON verifies camel-case `willGiveUp` / `inExchangeFor`, an empty container and singleton listing. Unknown assets remain visible but block destructive replacement; new publication supports players/picks, not cash, and entire-block removal stays on MFL until its import contract is verified. A timed-out publication is never replayed automatically.
+
+The supplied ICS expands recurring events, rather than providing RRULE/TZID. Its date strings correspond to JSON UTC epochs despite lacking `Z`; all base UID/time anchors must agree before interpreting repetitions. Generated occurrence UIDs change between exports and are not reminder identities. Stable JSON-series IDs plus occurrence indices identify events; explicit future instances preserve the November DST change. Count/shape/anchor mismatches stay partial with no guessed recurrence. Raw private exports are not checked in.
+
+Opt-in reminders use absolute, nonrepeating local notifications for verified future events, at most 32 over a rolling 14-day horizon. Disabled preferences remove alerts even offline; disconnect drains reads and removes app-owned pending/delivered alerts. No commissioner `calendarEvent` import, APNs registration or continuous background scoring is implemented. Apple Calendar handoff uses the system event editor without requesting access to read the user's calendars.
+
 ## Distribution and unimplemented data surfaces
 
 The app currently supplies `MFL Blitz/0.1 (com.biggsjm.MFLBlitz)` on sign-in/restore. MFLCore separately defaults to `MFL Blitz/1.0`. Neither string proves registration; confirm production registration and configure the exact approved identity before distribution. Do not change it simply to match the marketing version without considering registered-client identity.

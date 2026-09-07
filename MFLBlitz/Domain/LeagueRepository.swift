@@ -11,6 +11,11 @@ enum LiveWritePolicy {
 }
 
 protocol LeagueRepository: Sendable {
+    func loadTradingBlock(refresh: Bool) async throws -> TradingBlockSnapshot
+    func publishTradingBlock(_ draft: TradingBlockDraft) async throws -> TradingBlockReceipt
+    func pendingTradingBlock() async throws -> PendingTradingBlock?
+    func reconcileTradingBlock() async throws -> TradingBlockReceipt
+    func loadLeagueCalendar(refresh: Bool) async throws -> LeagueCalendarSnapshot
     func signIn(with credentials: LoginCredentials) async throws -> LeagueWorkspace
     func loadWorkspace() async throws -> LeagueWorkspace
     func restoreSession() async throws -> LeagueWorkspace?
@@ -55,6 +60,11 @@ protocol LeagueRepository: Sendable {
 }
 
 extension LeagueRepository {
+    func loadTradingBlock(refresh: Bool) async throws -> TradingBlockSnapshot { throw RepositoryError.server("Trading Block is unavailable.") }
+    func publishTradingBlock(_ draft: TradingBlockDraft) async throws -> TradingBlockReceipt { throw RepositoryError.server("Publishing is unavailable.") }
+    func pendingTradingBlock() async throws -> PendingTradingBlock? { nil }
+    func reconcileTradingBlock() async throws -> TradingBlockReceipt { throw RepositoryError.server("Check your trading block on MFL.") }
+    func loadLeagueCalendar(refresh: Bool) async throws -> LeagueCalendarSnapshot { throw RepositoryError.server("League Calendar is unavailable.") }
     func loadRosterActionContext() async throws -> RosterActionContext { throw RepositoryError.server("Roster actions are unavailable.") }
     func performRosterAction(_ request: RosterActionRequest, reviewed: RosterActionContext) async throws -> RosterActionReceipt { throw RepositoryError.server("Roster actions are unavailable.") }
     func reconcileRosterAction() async throws -> RosterActionReceipt { throw RepositoryError.server("Check your roster on MFL.") }

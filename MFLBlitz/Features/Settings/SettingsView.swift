@@ -19,6 +19,19 @@ struct SettingsView: View {
                     Text("Connected league")
                 }
 
+                Section {
+                    Toggle("Matchup Live Activity", isOn: Binding(get: { model.matchupActivity.enabled }, set: { enabled in
+                        model.matchupActivity.enabled = enabled
+                        Task {
+                            if enabled { model.matchupActivity.resume(); await model.updateMatchupActivity() }
+                            else { await model.matchupActivity.end() }
+                        }
+                    }))
+                    if let error = model.matchupActivity.errorMessage { Text(error).font(.footnote).foregroundStyle(.secondary) }
+                } header: { Text("Game day") } footer: {
+                    Text("Shows your current matchup while starters are playing. Scores update while Blitz is open; older scores are marked Update needed. No background push service is connected.")
+                }
+
                 Section("Privacy") {
                     Label("No ads or cross-app tracking", systemImage: "hand.raised.fill")
                     Label("Password is never stored", systemImage: "key.fill")
@@ -70,7 +83,7 @@ struct SettingsView: View {
                     Button("Disconnect this device", role: .destructive) {
                         showingSignOutConfirmation = true
                     }
-                    .disabled(model.isBusy || model.transactions.isBusy || model.playerTools.isChangingWatchList)
+                    .disabled(model.isBusy || model.transactions.isBusy || model.playerTools.isChangingWatchList || model.tradingBlock?.isBusy == true || model.leagueCalendar?.isSaving == true)
                 } footer: {
                     Text("MFL Blitz is an independent open-source client and is not affiliated with or endorsed by MyFantasyLeague, the NFL, or any NFL team.")
                 }

@@ -6,6 +6,8 @@ The shared full-schedule cache also supplies completed pairwise H2H results when
 
 ## Information architecture
 
+Build **0.6.0 (33)** adds **Matchups / Calendar** to the Schedule destination, defaulting to the existing Matchups timeline. Both retain navigation/scroll state after first visiting. Calendar groups verified MFL occurrences into Today / This week / Later and an earlier-events disclosure. Event detail shows local date/time, the appropriate league task, opt-in reminders and one-time Apple Calendar handoff. Category settings and source/recurrence information are secondary controls; icons reflow above titles at accessibility sizes. This supersedes the initial slice's calendar/reminder exclusion below. See the [league-extras contract](league-extras-implementation.md); full calendar subscription, commissioner editing and inferred lineup-review deadlines remain outside scope.
+
 Use **Scores / Lineup / My Team / Standings / Board**. My Team replaces Transactions in the center, retaining the native tab bar, franchise-logo/initials icon, visible label and trade attention badge. Lineup stays one tap away.
 
 My Team contains identity, current record and official standing, six [direct shortcuts](my-team-shortcuts.md) with **Schedule first**, and a roster grouped by position and sorted by actual season points. Schedule is a separate pushed destination. Other-team pages retain **Roster / Schedule**. The roster opens Player Detail; lineup editing remains in Lineup.

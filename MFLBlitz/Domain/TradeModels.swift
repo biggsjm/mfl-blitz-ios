@@ -9,13 +9,14 @@ struct TradeAsset: Identifiable, Codable, Equatable, Sendable {
     var kind: Kind
 }
 
-struct TradeTeam: Identifiable, Equatable, Sendable {
+struct TradeTeam: Identifiable, Codable, Equatable, Sendable {
     let id: String
     var name: String
     var abbreviation: String
     var artworkURLs: [URL] = []
     var assets: [TradeAsset]
     var blindBidBalance: Decimal?
+    var ownerName: String = ""
 }
 
 struct TradeOffer: Identifiable, Codable, Equatable, Sendable {

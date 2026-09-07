@@ -145,7 +145,7 @@ struct TradeComposerView: View {
     }
 }
 
-private struct TradeAssetPicker: View {
+struct TradeAssetPicker: View {
     @Environment(\.dismiss) private var dismiss
     let team: TradeTeam
     @Binding var selected: Set<String>

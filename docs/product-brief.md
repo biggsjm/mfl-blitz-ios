@@ -41,6 +41,8 @@ Reuse existing My Team → Adds / Drops available-player search. There is no ext
 
 ## Design principles
 
+The build-33 [league extras](league-extras-implementation.md) extend existing destinations: Trades → Offers / Trading Block, Schedule → Matchups / Calendar. Trading Block makes owner intent and Make offer easy to find while preserving existing drafts. Calendar is an agenda, not another full-screen grid; deadlines link to the relevant task and reminders require a contextual opt-in. The current-matchup Live Activity is a glanceable score surface with explicit staleness, not a promise of continuously updating background data. No new main tab is added.
+
 - **Freshness is content.** Expose meaningful update/loading/error states. Foreground scoring is conservatively polled; background real-time delivery is not implemented.
 - **Proof beats optimism.** Reviewed writes use server readback. Ambiguous outcomes trigger reconciliation, not blind resubmission. Do not claim tiebreaker readback or completed trade approval when MFL cannot prove it.
 - **One obvious action.** Each screen keeps its critical action persistent and moves secondary detail behind disclosure.

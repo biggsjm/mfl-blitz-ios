@@ -2,6 +2,14 @@
 
 Implemented private-build history through September 7, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.6.0 (33) — September 7, 2026 — league tools and matchup activity
+
+- Add Offers / Trading Block inside Trades, own-player/pick publication, separate resumable block drafts, fresh owner/asset/baseline checks and durable ambiguous-publication recovery without replay.
+- Add Matchups / Calendar inside Schedule with local-time agenda, explicit MFL recurrence instances and DST validation, event details, relevant destinations and one-time Apple Calendar editor handoff.
+- Add contextual opt-in category/event reminders, bounded absolute-date scheduling, offline opt-out and disconnect cleanup. Optional block/calendar feeds use protected cached display and do not block startup.
+- Add an ActivityKit extension for the owner's confirmed current-week matchup while a starter is actively playing. Foreground updates, stale presentation, dismissal handling and scoped deep links are included; continuous background updates are not.
+- Add synthetic two-week decoder/model safety checks and native draft/calendar/reminder/large-text journeys. Whole-block removal/cash publication stay on MFL. See [current status](docs/current-status.md) for final verification and installation, distinct from implementation.
+
 ## 0.5.4 (32) — September 7, 2026 — cancelled score refreshes
 
 - Preserve Swift and URLSession cancellation as cancellation instead of wrapping it in a user-facing transport failure.

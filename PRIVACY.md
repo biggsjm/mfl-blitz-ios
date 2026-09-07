@@ -2,7 +2,7 @@
 
 Effective September 7, 2026
 
-Implementation reviewed against private build **0.5.3 (28)**. This build adds protected on-device league metadata and last-loaded screen caches so returning users can see content during reconnection. It adds no data source, permission, analytics or server. Other private response caches remain memory-only, as specified below.
+Implementation reviewed against **0.6.0 (33)**. In addition to the earlier protected league metadata/display caches, this increment adds protected Trading Block/Calendar snapshots and drafts, optional local deadline notifications, selected-event Apple Calendar handoff and a matchup Live Activity. Installation evidence is in [current status](docs/current-status.md). There is no MFL Blitz server or remote push service.
 
 MFL Blitz is an independent, open-source iOS client for MyFantasyLeague. It has no advertising, analytics, tracking, crash-reporting, or proprietary chat service.
 
@@ -25,6 +25,14 @@ The player-tools increment also reads public injury/schedule/bye feeds, league-s
 
 ## Sharing and tracking
 
+Trading Block and Calendar read the signed-in league's listings, asset ownership, owner/team names, event titles and dates. The last-loaded snapshots, block draft/publication marker and reminder preferences are stored in device-only Keychain items scoped to season, league and franchise. Each snapshot is bounded to 1 MB and used for display for at most seven days; older saved content may remain until replacement or disconnect. Ordinary fresh reads reuse five-minute block and fifteen-minute calendar caches. Cached content never authorizes a publication or a new reminder. Block publication sends only the owner's reviewed assets/needs directly to MFL, which makes them visible to the league.
+
+Deadline reminders are off until you choose an event/category and allow notifications. iOS receives a generic event-kind label, deadline/fire time and minimal league/franchise/event identifiers for opening the right screen; no credentials, bids, trade comments or private custom event titles are placed in notification content. These reminders may appear on your Lock Screen according to your system settings. They use local scheduled notifications, not a server or APNs token. Turning a reminder off removes the app's corresponding alert; Disconnect removes app-owned pending/delivered deadline notifications.
+
+Add to Apple Calendar hands one selected event title/date to Apple's system editor. You choose Save or Cancel. Blitz does not request permission to read your calendars, does not inspect your existing events, and does not maintain a subscription. Saved events remain in your chosen calendar under Apple's/account provider's settings; later MFL changes do not update that one-time copy, and Disconnect does not remove it.
+
+The optional matchup Live Activity gives iOS the two team names/abbreviations, scores, active-player count, week and minimal matchup/scope identifiers. This can be visible on the Lock Screen and Dynamic Island. No cookie, credentials, player injury detail or trading/waiver data is included. A device preference and a dismissed-matchup identifier are stored in app preferences so the same dismissed activity is not immediately recreated. Disable it in Blitz Settings or iOS; Disconnect ends it and clears dismissal tracking. The activity updates while Blitz is foregrounded and marks older scores stale; no continuous closed-app update service is present.
+
 MFL Blitz does not sell or share personal information and does not track you across apps or websites. The app includes no third-party analytics, advertising, or social SDKs.
 
 ## Retention and deletion
@@ -36,6 +44,8 @@ Meaningful trade edits are autosaved privately for interruption recovery. Cancel
 Meaningful Board edits are autosaved for interruption recovery. Close asks whether to retain the draft, discard it, or keep editing. Saved new threads and replies are accessible from Board → Drafts; a thread can also Resume reply. Discard deletes only that draft, not any MFL post or unresolved-send marker. Empty composers do not retain a draft. Save/discard failures keep the composer open for retry.
 
 ## Connected-league actions
+
+Trading Block adds an explicit owner-reviewed publication workflow. A fresh membership/permission/asset check and full-list baseline comparison precede the only send; exact readback confirms it. A timeout leaves a protected pending marker and Check status, never an automatic resend. Block drafts are saved when you choose Save draft or before a publication attempt; Discard deletes the draft, not a published listing. Entire-list removal and cash listings remain on MFL. Preview block edits, reminder choices and calendar screens use synthetic memory data without publishing, scheduling real alerts or saving calendar events.
 
 This private testing build permits live reads, explicit watchlist star toggles, and user-reviewed lineup, supported conditional blind-bid, trade, board, supported FCFS add/drop and IR submissions. Each is sent directly to MFL and read back for confirmation. Offers and responses may notify other owners through MFL. A counteroffer is a new offer and leaves the original open; acceptance may require league approval or processing. MFL does not expose saved lineup tiebreakers. A multi-round waiver save can partially succeed; the app stops and asks you to compare saved versus drafted rounds. Unconfirmed posts, trades, watchlist changes and roster moves are not automatically resent. Unsupported waiver configurations and unverified trade details use the league website. The interactive Champion Hall preview uses local sample data and sends nothing to MFL.
 

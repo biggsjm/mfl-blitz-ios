@@ -637,7 +637,7 @@ actor LiveMFLRepository: LeagueRepository {
         self.league = league
         async let freeAgentTask = client.freeAgents(refreshPolicy: .reloadIgnoringCache)
         async let pendingTask = client.pendingWaivers(franchiseID: workspace.franchiseID, refreshPolicy: .reloadIgnoringCache)
-        async let calendarTask: MFLJSONValue? = try? await client.calendar()
+        async let calendarTask = try? await client.calendarOccurrences()
         async let resultsTask: MFLJSONValue? = try? await client.waiverResults()
         let projectionWeek = seasonStatus?.lineupWeek ?? (workspace.weekIsConfirmed ? workspace.week : nil)
         async let projectionTask = loadProjections(client: client, week: projectionWeek)
@@ -701,7 +701,7 @@ actor LiveMFLRepository: LeagueRepository {
             maxRounds: league.maxWaiverRounds ?? 1,
             candidates: candidates,
             claims: claims,
-            processesAt: Self.nextBlindBidDate(in: calendar),
+            processesAt: calendar?.0.events.filter { $0.type == "WAIVER_BBID" && $0.start > Date() }.map(\.start).min(),
             minimumBid: LeagueRuleOverrides.minimumBlindBid(for: league, season: workspace.season) ?? 0,
             unavailableReason: franchise?.blindBidAvailableBalance == nil
                 ? "MFL didn’t return your remaining bid balance. Check MFL before making changes."

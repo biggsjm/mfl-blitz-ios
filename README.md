@@ -8,6 +8,8 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
+**0.6.0 (33) — implementation candidate:** adds Trading Block inside Trades, a League Calendar inside Schedule, opt-in deadline reminders, selected-event Apple Calendar handoff, and a current-matchup Live Activity. Optional feeds reuse protected last-loaded content and stay outside startup. Live Activities update while Blitz is foregrounded and mark stale scores; no continuous-background push service is included. See the [implementation contract](docs/league-extras-implementation.md), [approved plan and remaining limits](docs/trading-block-calendar-plan.md), and [delivery evidence](docs/current-status.md).
+
 **0.5.4 (32) — installed private build, merged in [PR #9](https://github.com/biggsjm/mfl-blitz-ios/pull/9):** fixes cancelled Scores requests appearing as failures and removes raw network diagnostics from transport-error messages. Existing scores remain visible; genuine errors and uncertain-write safeguards are retained. See [current status](docs/current-status.md) for exact checks and GitHub delivery status.
 
 **Player cards, introduced through 0.5.4 (29–31), merged in [PR #8](https://github.com/biggsjm/mfl-blitz-ios/pull/8).** Redesigned Player Detail puts identity, season points/average and current roster/health status first, consolidates Week information, and adds a visible paged Week / Points / NFL opponent log. The opponent caveat lives behind an information button; biography loads separately when expanded. Drop is a labeled secondary action, not a bench control. Matchup owner names and single-stack player navigation are included. Josh confirmed build 30 fixes the stranded spinner. Build 31 shows identity from the tapped row before waiting for ownership, while Week metrics and research load independently; roster actions still require the completed status read. See [player design](docs/player-detail-ux.md) and [current status](docs/current-status.md) for exact verification and delivery evidence.
@@ -31,6 +33,9 @@ The app includes:
 - team and league season timelines with published opponents, configured week bounds, clear future/playoff states and matchup browsing that preserves lineup edits and the selected week;
 - direct Adds / Drops, Trades and League Activity pages inside My Team; native player/pick/FAAB offers, acceptance, decline, withdrawal, and explicitly separate counteroffers;
 - a prominent Create trade / Resume trade action, Cancel with draft rollback, Save & close disabled for blank drafts, exact two-sided review, fresh ownership checks, and restart-safe protection against repeating an unconfirmed trade action;
+- Trading Block listings, owner-scoped player/pick publication with readback, a separate resumable draft, and Make offer with existing-offer-draft protection;
+- Matchups / Calendar modes under Schedule, verified MFL recurring dates, explicit reminder opt-in and one-time event handoff to Apple's editor;
+- an on-device Lock Screen / Dynamic Island matchup activity while a starter is playing, with freshness and foreground-update limits made explicit;
 - division and overall standings with MFL owner names and supported league-configured tiebreakers; missing/ambiguous places stay blank and MFL's report remains authoritative for custom orders;
 - league team artwork in scores, matchup details, and standings, with initials as an offline/missing-image fallback;
 - the existing MFL message board presented as readable native threads, with compose and reply flows;
@@ -46,9 +51,9 @@ The app includes:
 
 ## What is next
 
-First: owner-led live Week 1 validation, MFL client registration/User-Agent confirmation, accessibility/device checks, and Apple/TestFlight preparation. Week 2 invitations depend on those gates, not just automated tests.
+Josh will validate Week 1 on his development device. TestFlight is intentionally on hold until iOS 27 and macOS 27 are both out of beta, followed by the existing release gates and Josh's approval; the earlier Week 2 invitation deadline is superseded. The approved [Trading Block, Calendar, reminders and Live Activity increment](docs/trading-block-calendar-plan.md) is implemented for development-device validation; current status distinguishes tests, installation and owner acceptance. Entire-block removal and cash listings remain on MFL. Continuous background Live Activity updates need a separately approved push service.
 
-**My Team, schedules and player tools 1–5 are implemented**. Tabs are Scores / Lineup / My Team / Standings / Board. The next approved queue is trading block, calendar/reminders, polls and playoff brackets. Complete supported-device/accessibility and real game-week validation remain. Existing waiver search is reused; there is no extra Players tab or new global search destination. See the [remaining execution plan](docs/roadmap.md).
+**My Team, schedules and player tools 1–5 are implemented**. Tabs are Scores / Lineup / My Team / Standings / Board. Polls and playoff brackets remain queued after this increment. Complete supported-device/accessibility and real game-week validation remain. Existing waiver search is reused; there is no extra Players tab or new global search destination. See the [remaining execution plan](docs/roadmap.md).
 
 ## Why this app
 
@@ -74,13 +79,14 @@ MFLCore (local Swift package)
     ├── HTTPS login + device-only Keychain session-cookie authorization
     ├── tolerant DTO decoding + body-level error checks
     ├── request spacing + response caching
-    └── lineup, waiver, trade, board, watchlist, FCFS and IR imports
+    └── lineup, waiver, trade, trading-block, board, watchlist, FCFS and IR imports
 
 App-owned storage
-    ├── device-only Keychain: session, scoped drafts, unconfirmed-action markers
+    ├── device-only Keychain: session, scoped drafts/markers, optional block/calendar snapshots and reminder preferences
     ├── daily public player disk cache + shared decoded lookup index
     ├── protected, non-backed-up league metadata and display snapshot caches
-    └── other private response caches and isolated artwork thumbnails: memory only
+    ├── other private response caches and isolated artwork thumbnails: memory only
+    └── system notifications / ActivityKit: minimal opted-in deadline and matchup display payloads
 ```
 
 The local package isolates MFL's legacy wire format from the UI. IDs remain strings, API errors are detected even inside HTTP 200 responses, league hosts are resolved per session, and writes are never blindly retried. Sessions restore from the device-only Keychain after fresh membership verification. Lineup, waiver, board, and trade drafts survive a restart and are isolated by season, league, and franchise. Refreshes preserve drafts and surface conflicts rather than silently overwriting them. The app owns reviewed mutation workflows, secure storage, and readback; there is no MFL Blitz backend.

@@ -272,10 +272,12 @@ public enum MFLExportEndpoint: String, CaseIterable, Sendable {
     case messageBoardThread
     case pendingWaivers
     case pendingTrades
+    case tradeBait
     case assets
     case weeklyResults
     case schedule
     case calendar
+    case ics
     case transactions
     case injuries
     case nflSchedule
@@ -290,6 +292,7 @@ public enum MFLImportEndpoint: String, CaseIterable, Sendable {
     case lineup
     case blindBidWaiverRequest
     case tradeProposal
+    case tradeBait
     case tradeResponse
     case messageBoard
     case myWatchList
@@ -317,7 +320,7 @@ public struct MFLAPIRequestBuilder: Sendable {
     ) throws -> URLRequest {
         var query = parameters
         query["TYPE"] = endpoint.rawValue
-        query["JSON"] = "1"
+        if endpoint != .ics { query["JSON"] = "1" }
         if let leagueID { query["L"] = leagueID }
         return try makeRequest(
             path: "export",

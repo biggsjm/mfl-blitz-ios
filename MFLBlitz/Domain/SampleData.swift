@@ -361,6 +361,7 @@ enum SampleData {
 }
 
 actor DemoLeagueRepository: LeagueRepository {
+    var demoBlockListings = [MFLTradingBlockListing(id: "0008", codes: ["demo-wr", "FP_0008_2027_1"], lookingFor: "Running backs or a package of picks")]
     var demoTrades = SampleData.tradePreview
     var demoWatched: Set<String> = []
     var demoMembership: [String: String]?

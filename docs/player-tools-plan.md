@@ -84,12 +84,14 @@ Follow-up 0.5.3 (22): replace the Transactions/Manage roster umbrellas with six 
 
 ## Queued after 1–5 — do not lose these
 
-6. [ ] Trading block: publish available assets and what the owner wants; browse league listings and start an offer (`tradeBait` export/import).
-7. [ ] League calendar: deadlines and upcoming events, calendar export and opt-in local reminders (`calendar`, `ics`).
+September 7: Josh approved items 6–7 as stages 1–3 of the [Trading Block, League Calendar and reminder plan](trading-block-calendar-plan.md), plus a current-matchup Live Activity. Implementation is in 0.6.0 (33); [current status](current-status.md) separates verification, delivery and acceptance. Week 1 stays on Josh's dev device, and TestFlight waits until iOS 27 and macOS 27 are both out of beta plus the release gates.
+
+6. [x] Trading Block: publish own players/picks and needs, browse listings, resume block drafts and safely start offers (`tradeBait`). Entire-list removal and new cash assets remain MFL-only pending verified contracts.
+7. [x] League Calendar: actual deadlines/occurrences, selected-event Apple Calendar handoff and opt-in local reminders (`calendar`, `ics`). Inferred lineup-review deadlines and a full calendar subscription are not included.
 8. [ ] League polls: view and vote from Board (`polls`, `pollVote`).
 9. [ ] Playoff brackets: add configured postseason brackets beside schedules (`playoffBrackets`, `playoffBracket`).
 
-Later candidates, not authorized as part of 1–5: keeper selection, draft tools, multi-league switching, commissioner/accounting tools, broader waiver/taxi/salary formats, widgets and Live Activities. Investigate MFL's `device_tokens` / `add_device_token` before promising push delivery; registration endpoints alone do not establish an APNs delivery contract for Blitz. Raw NFL statistics and third-party news require a separate source and rights review.
+The added Live Activity is foreground-updated, with two-minute stale presentation and safe matchup deep links. Continuous updates while Blitz is closed need separately approved push infrastructure; no APNs service is present. Later candidates: keeper selection, draft tools, multi-league switching, commissioner/accounting tools, broader waiver/taxi/salary formats and Home Screen widgets. MFL's `device_tokens` / `add_device_token` endpoints alone do not establish an APNs delivery contract for Blitz. Raw NFL statistics and third-party news require a separate source and rights review.
 
 ## Verified wire evidence — September 6
 

@@ -2,7 +2,16 @@
 
 Audited September 7, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Current installed private build — 0.5.4 (32), cancelled Scores requests
+## Implementation candidate — 0.6.0 (33), Trading Block, Calendar and Live Activity
+
+Josh approved plan items 1–3 and added the current-week matchup Live Activity. The [implementation contract](league-extras-implementation.md) records native navigation, fresh publication/readback, durable draft/uncertain-write recovery, protected optional-feed caches, exact calendar occurrences and notification lifecycle behavior. The [approved plan](trading-block-calendar-plan.md) records remaining scope. No TestFlight upload is authorized before the OS-beta hold and existing release gates are lifted.
+
+- Owner-provided empty/singleton trading-block JSON verified `willGiveUp` / `inExchangeFor`; the attached ICS verified explicit repeat dates and the November DST shift against JSON anchors. Private exports are not committed; fixtures are synthetic.
+- **Local verification:** all 106 core tests / 13 suites pass (`mfl-build33-core-final.log`). All 204 app unit functions and four new native Preview journeys pass on iOS 27 in Dark Mode: 208 functions / 260 executions, zero failures/skips/runtime warnings (`mfl-build33-final27.xcresult`). Actual screenshots were inspected; final confirmation-toolbar polish is under recheck, and the complete older-iOS suite is running. Exact final source, signed phone delivery and GitHub checks will be recorded here when confirmed; the installed baseline remains build 32 meanwhile.
+- Entire-block removal and new cash listings remain on MFL. No commissioner calendar editing, inferred lineup-review deadline, calendar subscription or raw NFL statistics is added.
+- Live Activity updates are on-device/foreground only, stale after two minutes without an update. There is no APNs backend or promise of continued scores while Blitz is closed. Real active-game appearance, permission denial/delivery and Apple Calendar insertion remain owner/device checks; automated QA makes no real league, calendar or notification changes.
+
+## Installed baseline — 0.5.4 (32), cancelled Scores requests
 
 Josh's September 7 screenshot shows URLSession `NSURLErrorCancelled` (`-999`) from live scoring displayed as a raw error dump. The transport preserved Swift `CancellationError` but wrapped URLSession cancellation as `MFLCoreError.transport`; Scores then presented it as a failed refresh. Build 32 normalizes both typed forms, quietly retains existing Scores data/warnings on cancelled manual/polling/full reads, releases loading gates, and does not delay foreground recovery after an interrupted full refresh. Real transport failures use concise copy without raw URL/UserInfo; internal wrapping keeps only a numeric code. There is no blanket suppression of mutation errors or replay of cancelled writes.
 
@@ -14,7 +23,8 @@ The new core tests reproduced the wrapping/diagnostic leak; the new app tests re
 - **Full older-iOS regression:** all 193 app unit functions and all 40 native journeys pass on iOS 18.4: 233 functions / 285 executions, zero failures/skips/runtime warnings (`mfl-build32-ios18.xcresult`). Native execution took 946 seconds, including the complete offline two-week manager journey.
 - **GitHub:** exact-head [run 34145452711](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/34145452711) passed the full core and iOS jobs: 97 core tests, 193 app unit functions and 40 native journeys. The Xcode 16.4 iOS job completed in 28 minutes 10 seconds; its native tests took 1,371 seconds, zero failures.
 - **Merge:** [PR #9](https://github.com/biggsjm/mfl-blitz-ios/pull/9) squash-merged as [630b6ba](https://github.com/biggsjm/mfl-blitz-ios/commit/630b6baf82907030b42c49f3807eda426a5155cb) September 7 at 12:25 PM Central. The final completion record changes documentation only; app/test source remains the exact tested and installed `14cc99b`. No live league writes were used for QA.
-- **Owner/release checks:** cancellation recovery, player opening speed, physical profiling, real Week 1 scoring/writes, manual accessibility/device checks and Week 2 distribution gates remain open. Features 6–9 remain queued.
+- **Owner/release checks:** Josh confirmed the Scores cancellation fix works September 7. Player opening speed, physical profiling, real Week 1 scoring/writes and broader manual accessibility/device checks remain open. Josh will validate Week 1 on his dev device; TestFlight is intentionally on hold until both iOS 27 and macOS 27 leave beta, followed by the remaining release gates and his go-ahead. No release date is assumed.
+- **Subsequent work:** Josh approved Trading Block, League Calendar and reminders, plus a Live Activity; see the build-33 candidate above. Polls and playoff brackets remain queued.
 
 ## Previous installed private build — 0.5.4 (31), immediate player identity
 

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B10000000000000000000001 /* Embed Live Activity */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A10000000000000000000001 /* MFLCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000030 /* MFLCore */; };
 /* End PBXBuildFile section */
 
@@ -28,12 +29,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B10000000000000000000002 /* MFLBlitzLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MFLBlitzLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000004 /* MFLBlitz.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MFLBlitz.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000005 /* MFLBlitzTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MFLBlitzTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000006 /* MFLBlitzUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MFLBlitzUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		B10000000000000000000003 /* Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Shared; sourceTree = "<group>"; };
+		B10000000000000000000004 /* MFLBlitzLiveActivity */ = {isa = PBXFileSystemSynchronizedRootGroup; path = MFLBlitzLiveActivity; sourceTree = "<group>"; };
 		A10000000000000000000007 /* MFLBlitz */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MFLBlitz;
@@ -52,6 +56,7 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		B10000000000000000000008 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A1000000000000000000000A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -76,10 +81,16 @@
 		};
 /* End PBXFrameworksBuildPhase section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		B1000000000000000000000A = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (B10000000000000000000001, ); name = "Embed App Extensions"; runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXGroup section */
 		A1000000000000000000000D = {
 			isa = PBXGroup;
 			children = (
+				B10000000000000000000003 /* Shared */,
+				B10000000000000000000004 /* MFLBlitzLiveActivity */,
 				A10000000000000000000007 /* MFLBlitz */,
 				A10000000000000000000008 /* MFLBlitzTests */,
 				A10000000000000000000009 /* MFLBlitzUITests */,
@@ -90,6 +101,7 @@
 		A1000000000000000000000E /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				B10000000000000000000002 /* MFLBlitzLiveActivity.appex */,
 				A10000000000000000000004 /* MFLBlitz.app */,
 				A10000000000000000000005 /* MFLBlitzTests.xctest */,
 				A10000000000000000000006 /* MFLBlitzUITests.xctest */,
@@ -100,10 +112,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		B10000000000000000000005 /* MFLBlitzLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B10000000000000000000006;
+			buildPhases = (B10000000000000000000007, B10000000000000000000008, B10000000000000000000009, );
+			buildRules = ();
+			dependencies = ();
+			fileSystemSynchronizedGroups = (B10000000000000000000003, B10000000000000000000004, );
+			name = MFLBlitzLiveActivity;
+			productName = MFLBlitzLiveActivity;
+			productReference = B10000000000000000000002;
+			productType = "com.apple.product-type.app-extension";
+		};
 		A10000000000000000000011 /* MFLBlitz */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A10000000000000000000020 /* Build configuration list for PBXNativeTarget "MFLBlitz" */;
 			buildPhases = (
+				B1000000000000000000000A /* Embed App Extensions */,
 				A10000000000000000000015 /* Sources */,
 				A1000000000000000000000A /* Frameworks */,
 				A10000000000000000000018 /* Resources */,
@@ -111,8 +136,10 @@
 			buildRules = (
 			);
 			dependencies = (
+				B1000000000000000000000B,
 			);
 			fileSystemSynchronizedGroups = (
+				B10000000000000000000003 /* Shared */,
 				A10000000000000000000007 /* MFLBlitz */,
 			);
 			name = MFLBlitz;
@@ -197,6 +224,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				B10000000000000000000005 /* MFLBlitzLiveActivity */,
 				A10000000000000000000011 /* MFLBlitz */,
 				A10000000000000000000012 /* MFLBlitzTests */,
 				A10000000000000000000013 /* MFLBlitzUITests */,
@@ -205,23 +233,60 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		B10000000000000000000009 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000018 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000019 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A1000000000000000000001A /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		B10000000000000000000007 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000015 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000016 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000017 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		B1000000000000000000000B = {isa = PBXTargetDependency; target = B10000000000000000000005; };
 		A10000000000000000000025 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = A10000000000000000000011 /* MFLBlitz */; targetProxy = A10000000000000000000002 /* PBXContainerItemProxy */; };
 		A10000000000000000000026 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = A10000000000000000000011 /* MFLBlitz */; targetProxy = A10000000000000000000003 /* PBXContainerItemProxy */; };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		B10000000000000000000010 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
+			APPLICATION_EXTENSION_API_ONLY = YES;
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = 33;
+			GENERATE_INFOPLIST_FILE = YES;
+			INFOPLIST_FILE = "MFLBlitzLiveActivity-Info.plist";
+			INFOPLIST_KEY_CFBundleDisplayName = "MFL Blitz Matchup";
+			IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+			MARKETING_VERSION = 0.6.0;
+			PRODUCT_BUNDLE_IDENTIFIER = com.biggsjm.MFLBlitz.LiveActivity;
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SKIP_INSTALL = YES;
+			SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+			SWIFT_VERSION = 6.0;
+			SWIFT_STRICT_CONCURRENCY = complete;
+			TARGETED_DEVICE_FAMILY = "1,2";
+		}; name = Debug; };
+		B10000000000000000000011 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
+			APPLICATION_EXTENSION_API_ONLY = YES;
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = 33;
+			GENERATE_INFOPLIST_FILE = YES;
+			INFOPLIST_FILE = "MFLBlitzLiveActivity-Info.plist";
+			INFOPLIST_KEY_CFBundleDisplayName = "MFL Blitz Matchup";
+			IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+			MARKETING_VERSION = 0.6.0;
+			PRODUCT_BUNDLE_IDENTIFIER = com.biggsjm.MFLBlitz.LiveActivity;
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SKIP_INSTALL = YES;
+			SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+			SWIFT_VERSION = 6.0;
+			SWIFT_STRICT_CONCURRENCY = complete;
+			TARGETED_DEVICE_FAMILY = "1,2";
+		}; name = Release; };
 		A10000000000000000000040 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -342,10 +407,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MFLBlitz/Support/MFLBlitz.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 32;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "MFLBlitz-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "MFL Blitz";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Josh Biggs";
@@ -354,7 +420,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 0.5.4;
+				MARKETING_VERSION = 0.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.biggsjm.MFLBlitz;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -374,10 +440,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MFLBlitz/Support/MFLBlitz.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 32;
+				CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "MFLBlitz-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "MFL Blitz";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Josh Biggs";
@@ -386,7 +453,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 0.5.4;
+				MARKETING_VERSION = 0.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.biggsjm.MFLBlitz;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -472,6 +539,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		B10000000000000000000006 = {isa = XCConfigurationList; buildConfigurations = (B10000000000000000000010, B10000000000000000000011, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A1000000000000000000001F /* Build configuration list for PBXProject "MFLBlitz" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (A10000000000000000000040 /* Debug */, A10000000000000000000041 /* Release */);
