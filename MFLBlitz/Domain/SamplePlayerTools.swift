@@ -28,6 +28,12 @@ extension DemoLeagueRepository {
             throw RepositoryError.server("Your preview roster changed. Review the move again.")
         }
         if let error = context.problem(for: request) { throw RepositoryError.server(error) }
+        if request.kind == .add {
+            let detail = try await loadPlayerDetail(playerID: request.playerID, refresh: true)
+            guard detail.ownership?.allowsImmediateAdd(for: context.ownerID) == true else {
+                throw RepositoryError.server("This preview player is locked or unavailable for an immediate add.")
+            }
+        }
         demoMembership = context.expectedMembership(after: request)
         return RosterActionReceipt(confirmed: true, message: "Preview roster updated")
     }

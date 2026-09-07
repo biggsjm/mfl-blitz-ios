@@ -4,6 +4,90 @@ import Testing
 @testable import MFLBlitz
 
 struct TeamPlayerDetailTests {
+    @Test("My Team groups positions and sorts actual season points, with missing scores last")
+    func positionPointOrdering() {
+        func player(_ id: String, _ position: String?, _ score: Double?, _ name: String = "Player") -> RosterPlayerSummary {
+            .init(identity: .init(id: id, name: name, position: position), membership: .active, seasonPoints: score)
+        }
+        let roster = TeamRosterSnapshot(scope: "s", team: .init(id: "1", name: "Team", abbreviation: "T"),
+            players: [player("1", "RB", nil), player("2", "rb", -1), player("3", "RB", 0),
+                player("4", "RB", 24, "Zee"), player("5", "RB", 24, "Aye"),
+                player("6", "QB", 12), player("7", nil, nil), player("8", "WR", .infinity)], lineupWeek: nil)
+        #expect(roster.positionGroups == ["QB", "RB", "WR", "Other"])
+        #expect(roster.players(at: "RB").map(\.id) == ["5", "4", "3", "2", "1"])
+        #expect(roster.players(at: "WR").first?.id == "8")
+    }
+
+    @Test("Own-team season roster batches and caches YTD scores instead of fetching lineup assignments")
+    func seasonRosterRead() async throws {
+        let transport = TeamPlayerFixtureTransport()
+        let repository = try await connected(transport)
+        let first = try await repository.loadTeamRoster(franchiseID: "0001", lineupWeek: nil, refresh: false)
+        _ = try await repository.loadTeamRoster(franchiseID: "0001", lineupWeek: nil, refresh: false)
+        let refreshed = try await repository.loadTeamRoster(franchiseID: "0001", lineupWeek: nil, refresh: true)
+        #expect(first.players.first { $0.id == "101" }?.seasonPoints == nil)
+        #expect(first.players.first { $0.id == "102" }?.seasonPoints == 0)
+        #expect(first.players.first { $0.id == "103" }?.seasonPoints == 12.5)
+        #expect(refreshed.players == first.players)
+        let requests = await transport.requests
+        let scores = requests.filter { $0["TYPE"] == "playerScores" }
+        #expect(scores.count == 2)
+        #expect(scores.allSatisfy { $0["W"] == "YTD" && $0["PLAYERS"] == "101,102,103" })
+        #expect(!requests.contains { $0["TYPE"] == "playerRosterStatus" })
+        #expect(requests.filter { $0["TYPE"] == "players" }.count == 1)
+        #expect(requests.filter { $0["TYPE"] == "league" }.count == 1)
+        #expect(await transport.postCount == 0)
+    }
+
+    @Test("Unavailable season scores preserve the current roster without inventing zeroes")
+    func unavailableSeasonPoints() async throws {
+        let transport = TeamPlayerFixtureTransport()
+        await transport.configure(rosterMode: "scoresUnavailable")
+        let roster = try await connected(transport).loadTeamRoster(franchiseID: "0001", lineupWeek: nil, refresh: false)
+        #expect(roster.players.count == 3)
+        #expect(roster.players.allSatisfy { $0.seasonPoints == nil })
+        #expect(roster.issues.contains(.seasonPoints))
+    }
+
+    @Test("Detail Add uses the same strict acquisition decision as write preflight")
+    func immediateAddEligibility() throws {
+        let cases: [(String, Bool, String?)] = [
+            (#""is_fa":"1""#, true, nil),
+            (#""is_fa":"1","cant_add":"0","locked":"0""#, true, nil),
+            (#""isFA":true,"cantAdd":false,"isLocked":false"#, true, nil),
+            (#""is_fa":"1","locked":"1""#, false, "Locked for adds"),
+            (#""is_fa":"1","cant_add":"1""#, false, "Adding unavailable"),
+            (#""is_fa":"1","locked":null"#, false, "Add availability unconfirmed"),
+            (#""is_fa":"1","locked":"unknown""#, false, "Add availability unconfirmed"),
+            (#""is_fa":"1","locked":"0","isLocked":"1""#, false, "Add availability unconfirmed"),
+            (#""is_fa":"1","isFA":"0""#, false, "Add availability unconfirmed"),
+            (#""is_fa":"1","roster_franchise":{"franchise_id":"0002","status":"R"}"#, false, "Add availability unconfirmed"),
+            (#""is_fa":"0""#, false, nil),
+            (#""locked":"0""#, false, nil)
+        ]
+        for (fields, allowed, message) in cases {
+            let response = try decodeStatus("{\"playerStatus\":{\"id\":\"101\",\(fields)}}")
+            let ownership = try #require(TeamPlayerMapper.ownership(response, playerID: "101",
+                teams: [], availabilityFranchiseID: "0001"))
+            #expect(ownership.canAddImmediately == response.statuses[0].canAddImmediately)
+            #expect(ownership.allowsImmediateAdd(for: "0001") == allowed)
+            #expect(!ownership.allowsImmediateAdd(for: "0002"))
+            #expect(ownership.acquisitionRestriction == message)
+        }
+    }
+
+    @Test("Preview includes both an unlocked and individually locked free agent")
+    func previewAcquisitionStates() async throws {
+        let repository = DemoLeagueRepository()
+        let unlocked = try await repository.loadPlayerDetail(playerID: "w1", refresh: false)
+        let locked = try await repository.loadPlayerDetail(playerID: "w2", refresh: false)
+        let owner = SampleData.workspace.franchiseID
+        #expect(unlocked.ownership?.allowsImmediateAdd(for: owner) == true)
+        #expect(locked.ownership?.isFreeAgent == true)
+        #expect(locked.ownership?.allowsImmediateAdd(for: owner) == false)
+        #expect(locked.ownership?.acquisitionRestriction == "Locked for adds")
+    }
+
     @Test("Generic and unknown assignments never imply bench, and current reserve membership wins")
     func rosterClassification() {
         let identity = PlayerIdentity(id: "101", name: "Fixture Player")
@@ -315,6 +399,10 @@ private actor TeamPlayerFixtureTransport: MFLHTTPTransport {
             MFLHTTPResponse(data: try JSONSerialization.data(withJSONObject: value), statusCode: 200, url: request.url)
         }
         switch query["TYPE"] {
+        case "playerScores":
+            if rosterMode == "scoresUnavailable" { throw MFLCoreError.transport("Fixture scoring offline") }
+            return try response(["playerScores": ["week": "YTD", "playerScore": [
+                ["id": "102", "score": "0"], ["id": "103", "score": "12.5"]]]])
         case "players":
             if query["DETAILS"] == "1" {
                 if failBio { throw MFLCoreError.transport("Fixture bio offline") }

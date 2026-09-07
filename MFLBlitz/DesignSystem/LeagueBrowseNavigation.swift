@@ -26,7 +26,7 @@ struct PlayerRoute: Hashable, Sendable {
 }
 
 struct TeamToolsRoute: Hashable, Sendable {
-    enum Destination: Hashable, Sendable { case transactions, rosterMoves }
+    enum Destination: Hashable, Sendable { case transactions, rosterMoves, schedule, watchlist }
     let scope: LeagueBrowseScope
     let destination: Destination
 }
@@ -62,6 +62,11 @@ private struct LeagueBrowseDestinations: ViewModifier {
                     switch route.destination {
                     case .transactions: TransactionsView().environment(model.transactions)
                     case .rosterMoves: RosterManagementView()
+                    case .schedule:
+                        TeamScheduleView(franchiseID: route.scope.ownerID)
+                            .navigationTitle("Schedule").navigationBarTitleDisplayMode(.inline)
+                    case .watchlist:
+                        WatchListView().navigationTitle("Watchlist").navigationBarTitleDisplayMode(.inline)
                     }
                 } else { unavailableSession }
             }

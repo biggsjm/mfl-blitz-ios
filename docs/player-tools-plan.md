@@ -50,9 +50,11 @@ Champion Hall's September 6 public configuration reports `BBID_FCFS`, conditiona
 
 ## 5 — IR management
 
+Follow-up 0.5.2 (21): symbol-only Add/Drop, eligible-only Player Detail IR, strict player-specific Add gating, and My Team's standing/navigation cards/position roster with season-to-date ordering are implemented; [current status](current-status.md) tracks tests/device delivery. This does not add automatic bids or bypass a locked player's next waiver run.
+
 - [x] Offer Move to IR / Activate only on the signed-in owner's applicable players, using current roster membership rather than displayed starter slot.
 - [x] Show available IR/active-roster capacity and review the move. Check current capabilities, limits and baseline; MFL enforces league-specific injury eligibility.
-- [x] Disable Move to IR before review unless a current matching injury report lists a qualifying Out/IR designation; loading, missing, stale and failed reports do not qualify.
+- [x] Keep Move to IR unavailable without a current matching Out/IR report; loading, missing, stale and failed reports do not qualify. Build 21 omits it from Player Detail when ineligible; Manage roster and review keep their disabled gates.
 - [x] Support explicit activation with a required reviewed drop when necessary; never silently drop a player to make space.
 - [x] Reuse the durable roster-action and verification machinery. Confirm the target player's new roster status and any intended drop before declaring success.
 - [x] Keep taxi, salary and commissioner-on-behalf writes outside this increment.

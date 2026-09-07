@@ -16,26 +16,23 @@ struct TeamDetailView<ScheduleContent: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-            if isOwnTeam {
-                transactionsLink
+            if !isOwnTeam {
+                header
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+                    .padding(.vertical, 12)
+                if let message = detailModel.headerErrorMessage {
+                    Label(message, systemImage: "wifi.exclamationmark")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .padding(.horizontal, 16).padding(.bottom, 8)
+                }
+                Picker("Team section", selection: $section) {
+                    ForEach(TeamDetailSection.allCases.filter { $0 != .watchlist }) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+                .accessibilityIdentifier("team-section-picker")
             }
-            if let message = detailModel.headerErrorMessage {
-                Label(message, systemImage: "wifi.exclamationmark")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .padding(.horizontal, 16).padding(.bottom, 8)
-            }
-            Picker("Team section", selection: $section) {
-                ForEach(TeamDetailSection.allCases.filter { isOwnTeam || $0 != .watchlist }) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
-            .accessibilityIdentifier("team-section-picker")
 
             if section == .roster {
                 rosterContent
@@ -47,7 +44,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
             }
         }
         .pageBackground()
-        .navigationTitle(isOwnTeam ? "My Team" : team.name)
+        .navigationTitle(isOwnTeam ? (section == .roster ? "My Team" : section.rawValue) : team.name)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: "\(headerKey)|availability|\(assignmentWeek ?? model.currentWeek)") {
             await model.loadPlayerAvailability(week: assignmentWeek ?? model.currentWeek)
@@ -62,7 +59,8 @@ struct TeamDetailView<ScheduleContent: View>: View {
 
     private var isOwnTeam: Bool { model.workspace?.franchiseID == franchiseID }
     private var headerKey: String { "\(model.workspace?.storageScope ?? "none")|\(franchiseID)" }
-    private var rosterKey: String { "\(headerKey)|\(assignmentWeek.map(String.init) ?? "none")|\(model.rosterRevision)" }
+    private var rosterKey: String { "\(headerKey)|\(requestedLineupWeek.map(String.init) ?? "none")|\(model.rosterRevision)" }
+    private var requestedLineupWeek: Int? { isOwnTeam ? nil : assignmentWeek }
     private var assignmentWeek: Int? {
         guard let workspace = model.workspace else { return nil }
         return workspace.lineupWeek ?? (workspace.weekIsConfirmed ? model.currentWeek : nil)
@@ -94,6 +92,13 @@ struct TeamDetailView<ScheduleContent: View>: View {
                          ? "\(standing.wins)–\(standing.losses)–\(standing.ties) · \(standing.division)"
                          : "\(standing.wins)–\(standing.losses) · \(standing.division)")
                         .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    if isOwnTeam {
+                        Text("League standing · \(standing.rank) of \(model.standings.count)")
+                            .font(.subheadline.weight(.medium)).monospacedDigit()
+                            .accessibilityIdentifier("my-team-standing")
+                    }
+                } else if isOwnTeam {
+                    Text("Standing unavailable").font(.caption).foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 0)
@@ -103,39 +108,53 @@ struct TeamDetailView<ScheduleContent: View>: View {
         .accessibilityIdentifier("team-header-\(franchiseID)")
     }
 
-    private var transactionsLink: some View {
-        NavigationLink(value: model.browseScope.map { TeamToolsRoute(scope: $0, destination: .transactions) }) {
+    private func toolLink(_ title: String, subtitle: String, symbol: String,
+                          destination: TeamToolsRoute.Destination, identifier: String) -> some View {
+        NavigationLink(value: model.browseScope.map { TeamToolsRoute(scope: $0, destination: destination) }) {
             HStack(spacing: 12) {
-                Image(systemName: "arrow.triangle.swap").font(.title3).foregroundStyle(Color.blitzNavy)
+                Image(systemName: symbol).font(.title3).foregroundStyle(Color.blitzNavy)
                     .frame(width: 42, height: 42)
                     .background(Color.blitzGreen, in: RoundedRectangle(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Transactions").font(.headline).foregroundStyle(.primary)
-                    Text("Waivers, trades & activity").font(.caption).foregroundStyle(.secondary)
+                    Text(title).font(.headline).foregroundStyle(.primary)
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 4)
-                if model.transactions.needsAttentionCount > 0 {
+                if destination == .transactions, model.transactions.needsAttentionCount > 0 {
                     Text("\(model.transactions.needsAttentionCount)")
                         .font(.caption.bold()).foregroundStyle(.white)
                         .padding(.horizontal, 8).padding(.vertical, 5)
                         .background(.red, in: Capsule())
                         .accessibilityLabel("\(model.transactions.needsAttentionCount) trade items need attention")
                 }
-                Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
             }
-            .padding(12)
-            .background(.background, in: RoundedRectangle(cornerRadius: 16))
+            .padding(.vertical, 4)
             .frame(maxWidth: BlitzMetrics.maxReadableWidth)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("my-team-transactions")
+        .accessibilityIdentifier(identifier)
     }
 
     private var rosterContent: some View {
         List {
             if isOwnTeam {
+                Section { header }.listRowBackground(Color.clear)
+                Section {
+                    toolLink("Transactions", subtitle: "Waivers, trades & activity", symbol: "arrow.triangle.swap",
+                        destination: .transactions, identifier: "my-team-transactions")
+                }
+                Section {
+                    toolLink("Schedule", subtitle: "Matchups & results", symbol: "calendar",
+                        destination: .schedule, identifier: "my-team-schedule")
+                }
+                Section {
+                    toolLink("Watchlist", subtitle: "Players you’re following", symbol: "star",
+                        destination: .watchlist, identifier: "my-team-watchlist")
+                }
+                if let message = detailModel.headerErrorMessage {
+                    Section { Label(message, systemImage: "wifi.exclamationmark").font(.caption) }
+                }
                 PendingRosterChangeSection()
                 Section {
                     NavigationLink("Manage roster", value: model.browseScope.map { TeamToolsRoute(scope: $0, destination: .rosterMoves) })
@@ -151,20 +170,30 @@ struct TeamDetailView<ScheduleContent: View>: View {
             }
             if let roster = detailModel.roster, roster.scope == model.workspace?.storageScope,
                roster.team.id == franchiseID {
-                Section {
-                    if let week = roster.lineupWeek {
-                        Text("Current roster · Week \(week) assignments").font(.caption).foregroundStyle(.secondary)
-                    } else {
-                        Text("Current roster").font(.caption).foregroundStyle(.secondary)
-                    }
+                if !roster.issues.isEmpty { Section {
                     ForEach(roster.issues) { issue in
                         Label(issue.message, systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)
                     }
-                }
+                } }
                 if roster.players.isEmpty {
                     ContentUnavailableView("No rostered players", systemImage: "person.3",
                         description: Text("MFL returned an empty roster for this team."))
                         .listRowBackground(Color.clear)
+                } else if isOwnTeam {
+                    ForEach(roster.positionGroups, id: \.self) { position in
+                        let players = roster.players(at: position)
+                        Section {
+                            ForEach(players) { player in rosterRow(player) }
+                        } header: {
+                            HStack {
+                                Text("\(position) · \(players.count)")
+                                Spacer()
+                                Text("Season pts").textCase(nil)
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityIdentifier("roster-position-\(position)")
+                        }
+                    }
                 } else {
                     ForEach(TeamRosterGroup.allCases) { group in
                         let players = roster.players(in: group)
@@ -193,7 +222,11 @@ struct TeamDetailView<ScheduleContent: View>: View {
             }
         }
         .listStyle(.insetGrouped)
-        .refreshable { await loadRoster(refresh: true) }
+        .listSectionSpacing(12)
+        .refreshable {
+            await loadRoster(refresh: true)
+            if isOwnTeam { await model.refreshStandings() }
+        }
         .accessibilityIdentifier("team-roster")
         .task(id: headerKey) { if isOwnTeam { await model.loadPendingRosterChange() } }
     }
@@ -203,10 +236,18 @@ struct TeamDetailView<ScheduleContent: View>: View {
         if let workspace = model.workspace {
             NavigationLink(value: PlayerRoute(scope: LeagueBrowseScope(workspace: workspace),
                 playerID: player.id, inspectedWeek: assignmentWeek)) {
-                VStack(alignment: .leading, spacing: 6) {
-                    PlayerIdentityView(player: player.identity, subtitle: contractSummary(player))
-                    PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.identity.nflTeam ?? "",
-                        week: assignmentWeek ?? model.currentWeek)
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        PlayerIdentityView(player: player.identity, subtitle: contractSummary(player))
+                        PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.identity.nflTeam ?? "",
+                            week: assignmentWeek ?? model.currentWeek)
+                    }
+                    if isOwnTeam {
+                        Spacer(minLength: 0)
+                        Text(player.seasonPoints.pointsText)
+                            .font(.subheadline.weight(.semibold)).monospacedDigit()
+                            .accessibilityLabel(player.seasonPoints.map { "\($0.pointsText) season points" } ?? "Season points unavailable")
+                    }
                 }
             }
             .accessibilityIdentifier("roster-player-\(player.id)")
@@ -217,6 +258,8 @@ struct TeamDetailView<ScheduleContent: View>: View {
 
     private func contractSummary(_ player: RosterPlayerSummary) -> String? {
         var parts: [String] = []
+        if player.membership == .injuredReserve { parts.append("IR") }
+        if player.membership == .taxiSquad { parts.append("Taxi") }
         if case .unknown = player.membership { parts.append("Roster status unavailable") }
         else if case .unknown = player.lineupAssignment { parts.append("Lineup status unavailable") }
         if let salary = player.salary { parts.append("Salary \(salary.formatted())") }
@@ -227,7 +270,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
 
     private func loadRoster(refresh: Bool) async {
         guard let workspace = model.workspace else { detailModel.invalidate(); return }
-        let week = assignmentWeek
+        let week = requestedLineupWeek
         await detailModel.loadRoster(scope: workspace.storageScope, franchiseID: franchiseID,
             lineupWeek: week, force: refresh) {
             try await model.loadTeamRoster(franchiseID: franchiseID, lineupWeek: week, refresh: refresh)

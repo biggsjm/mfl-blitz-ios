@@ -25,7 +25,7 @@ Five stable, labeled tabs keep Scores and Lineup one tap away; Transactions is o
 |---|---|---|
 | Scores | User matchup, then league scoreboard | Refresh / change week |
 | Lineup | Submitted starters and bench | Review and submit |
-| My Team | Team identity, Transactions entry, Roster / Schedule | Browse players/opponents or open Waivers / Trades / Activity |
+| My Team | Identity/standing, Transactions / Schedule / Watchlist cards, roster by position and season points | Browse players/opponents or open Waivers / Trades / Activity |
 | Standings | Divisions using official MFL sort | Switch overall/divisions or open a team |
 | Board | Existing MFL threads with unread state and visible Drafts | New thread / reply / resume draft; Close offers save/discard |
 
@@ -35,7 +35,7 @@ This follows Apple's guidance that tabs represent persistent peer destinations, 
 
 ### My Team navigation
 
-The implemented navigation is **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions, with a prominent Transactions entry above Roster / Schedule / Watchlist, with separate Manage roster. Lineup remains the dedicated editor. Other-team details share Roster / Schedule, and player identity links from rosters, Lineup and matchup cells open shared player detail. Existing waiver Add and trade asset-selection actions are unchanged; separate contextual research links are now present.
+The implemented navigation is **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. Its 0.5.2 follow-up shows current official standing and matching Transactions, Schedule and Watchlist cards above the position-grouped roster; those destinations replace its segmented control. Rows sort by actual season-to-date points, missing scores last. Manage roster stays separate. Lineup remains the dedicated editor. Other-team details retain Roster / Schedule, and player identity links from rosters, Lineup and matchup cells open shared player detail. Existing waiver Add and trade asset-selection actions are unchanged; separate contextual research links are present.
 
 Reuse existing Transactions → Waivers available-player search. There is no extra Players tab or new global search destination. Browsing a team/player/schedule must not change the active lineup week or drafts. My Team uses a 26-point original-rendered logo/initials inside the native tab bar. The system owns tab layout and selection; no raised custom tab bar is introduced. See the [schedule](schedule-ux.md) and [player-detail](player-detail-ux.md) plans.
 

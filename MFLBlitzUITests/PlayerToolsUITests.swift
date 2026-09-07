@@ -2,17 +2,25 @@ import XCTest
 
 final class PlayerToolsUITests: XCTestCase {
     @MainActor
-    func testIneligibleIRIsDisabledInPlayerAndRosterActions() {
+    func testIneligibleIRIsHiddenInDetailAndDisabledInRosterMenu() {
         let app = preview()
         app.tabBars.buttons["My Team"].firstMatch.tap()
         let player = app.buttons["roster-player-13319"]
         for _ in 0..<6 where !player.isHittable { app.swipeUp() }
         player.tap()
-        let move = app.buttons["Move to IR"]
-        XCTAssertTrue(move.waitForExistence(timeout: 5))
-        XCTAssertFalse(move.isEnabled)
-        XCTAssertTrue(app.staticTexts["Requires Out or IR"].waitForExistence(timeout: 5))
-        capture(app, "Player Detail — ineligible IR disabled")
+        let move = app.buttons["player-action-reserve-13319"]
+        let drop = app.buttons["player-action-drop-13319"]
+        XCTAssertTrue(drop.waitForExistence(timeout: 5))
+        XCTAssertTrue(drop.isHittable && drop.isEnabled)
+        XCTAssertFalse(move.exists)
+        XCTAssertFalse(app.staticTexts["Requires Out or IR"].exists)
+        XCTAssertGreaterThanOrEqual(drop.frame.height, 44)
+        // A single native List action can expose the padded row as its
+        // accessibility target. Its visible circle remains fixed at 48 pt;
+        // the retained screenshot verifies compactness, not that larger hit area.
+        XCTAssertFalse(drop.staticTexts["Drop"].exists)
+        XCTAssertEqual(drop.label, "Drop player, Aaron Jones")
+        capture(app, "Player Detail — symbol-only Drop, ineligible IR omitted")
         app.navigationBars["Aaron Jones"].buttons.firstMatch.tap()
         let manage = app.buttons["Manage roster"]
         for _ in 0..<6 where !manage.isHittable { app.swipeDown() }
@@ -21,9 +29,33 @@ final class PlayerToolsUITests: XCTestCase {
         // Exercise the measured-touch path on every SDK, even where XCTest
         // can also resolve an accessibility hit point for this menu.
         tapRosterMenu(menu, in: app, useMeasuredTouch: true)
-        XCTAssertTrue(move.waitForExistence(timeout: 5))
-        XCTAssertFalse(move.isEnabled)
+        let menuMove = app.buttons["Move to IR"]
+        XCTAssertTrue(menuMove.waitForExistence(timeout: 5))
+        XCTAssertFalse(menuMove.isEnabled)
         capture(app, "Roster menu — Questionable does not permit IR")
+    }
+
+    @MainActor
+    func testEligibleIRAppearsBesideSymbolOnlyDrop() {
+        let app = preview()
+        app.tabBars.buttons["Lineup"].firstMatch.tap()
+        let player = app.buttons["lineup-player-12620"]
+        XCTAssertTrue(player.waitForExistence(timeout: 5))
+        player.tap()
+        let move = app.buttons["player-action-reserve-12620"]
+        let drop = app.buttons["player-action-drop-12620"]
+        XCTAssertTrue(move.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitUntilEnabled(move))
+        XCTAssertTrue(drop.isHittable && drop.isEnabled)
+        XCTAssertFalse(move.staticTexts["Move to IR"].exists)
+        XCTAssertEqual(move.label, "Move to IR, Dak Prescott")
+        XCTAssertFalse(drop.staticTexts["Drop"].exists)
+        XCTAssertGreaterThanOrEqual(move.frame.height, 44)
+        XCTAssertGreaterThanOrEqual(drop.frame.height, 44)
+        XCTAssertLessThanOrEqual(move.frame.height, 64)
+        XCTAssertLessThanOrEqual(drop.frame.height, 64)
+        XCTAssertEqual(move.frame.midY, drop.frame.midY, accuracy: 2)
+        capture(app, "Player Detail — eligible IR and symbol-only Drop")
     }
 
     @MainActor
@@ -36,6 +68,12 @@ final class PlayerToolsUITests: XCTestCase {
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         app.buttons["roster-move-player-w1"].tap()
         XCTAssertTrue(app.buttons["player-watch-w1"].waitForExistence(timeout: 5))
+        let detailAdd = app.buttons["player-action-add-w1"]
+        XCTAssertTrue(detailAdd.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitUntilEnabled(detailAdd))
+        XCTAssertFalse(detailAdd.staticTexts["Add player"].exists)
+        XCTAssertEqual(detailAdd.label, "Add player, Isaiah Bond")
+        capture(app, "Player Detail — available symbol-only Add")
         app.navigationBars["Isaiah Bond"].buttons.firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Roster moves"].waitForExistence(timeout: 5))
         XCTAssertTrue(add.exists)
@@ -56,6 +94,53 @@ final class PlayerToolsUITests: XCTestCase {
         app.segmentedControls.buttons["My roster"].tap()
         let retained = revealRosterMenu("12620", in: app)
         XCTAssertTrue(retained.exists)
+    }
+
+    @MainActor
+    func testLockedFreeAgentCannotOpenImmediateAdd() {
+        let app = preview()
+        app.tabBars.buttons["My Team"].firstMatch.tap()
+        app.buttons["Manage roster"].tap()
+        app.segmentedControls.buttons["Free agents"].tap()
+        let player = app.buttons["roster-move-player-w2"]
+        XCTAssertTrue(player.waitForExistence(timeout: 5))
+        player.tap()
+        let add = app.buttons["player-action-add-w2"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        XCTAssertFalse(add.isEnabled)
+        XCTAssertTrue(app.staticTexts["Locked for adds"].exists)
+        XCTAssertFalse(app.buttons["confirm-roster-move"].exists)
+        capture(app, "Player Detail — locked free agent cannot be added")
+    }
+
+    @MainActor
+    func testLargeTextPlayerActionsStayCompactAndDropStillRequiresReview() {
+        let app = preview(arguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        app.tabBars.buttons["Lineup"].firstMatch.tap()
+        let player = app.buttons["lineup-player-12620"]
+        for _ in 0..<8 where !player.isHittable { app.swipeUp() }
+        XCTAssertTrue(player.waitForExistence(timeout: 5))
+        player.tap()
+        let move = app.buttons["player-action-reserve-12620"]
+        let drop = app.buttons["player-action-drop-12620"]
+        for _ in 0..<8 where !drop.isHittable { app.swipeUp() }
+        XCTAssertTrue(drop.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitUntilEnabled(drop))
+        XCTAssertTrue(move.waitForExistence(timeout: 5))
+        XCTAssertEqual(drop.frame.midY, move.frame.midY, accuracy: 2)
+        XCTAssertGreaterThanOrEqual(drop.frame.height, 44)
+        XCTAssertLessThanOrEqual(drop.frame.maxX, app.frame.maxX)
+        capture(app, "Player Detail — accessible compact action group")
+        drop.tap()
+        XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 5))
+        let confirm = app.buttons["confirm-roster-move"]
+        for _ in 0..<10 where !confirm.isHittable { app.swipeUp() }
+        XCTAssertTrue(waitUntilEnabled(confirm))
+        confirm.tap()
+        XCTAssertTrue(app.alerts["Drop player?"].waitForExistence(timeout: 3))
+        app.alerts.buttons["Cancel"].tap()
+        app.buttons["Close"].tap()
+        XCTAssertTrue(app.buttons["player-action-drop-12620"].waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -80,7 +165,9 @@ final class PlayerToolsUITests: XCTestCase {
         XCTAssertTrue(history.waitForExistence(timeout: 5))
         capture(app, "Player research — history and availability")
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        app.segmentedControls["team-section-picker"].buttons["Watchlist"].tap()
+        let watchlist = app.buttons["my-team-watchlist"]
+        for _ in 0..<8 where !watchlist.isHittable { app.swipeDown() }
+        watchlist.tap()
         let saved = app.buttons["watchlist-player-12620"]
         XCTAssertTrue(saved.waitForExistence(timeout: 5))
         capture(app, "My Team — synced watchlist")
@@ -201,7 +288,14 @@ final class PlayerToolsUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = arguments
         app.launch()
-        app.buttons["Preview Champion Hall"].tap()
+        let enterPreview = app.buttons["Preview Champion Hall"]
+        XCTAssertTrue(enterPreview.waitForExistence(timeout: 5))
+        // Fixture sessions left by app-unit tests may fail restoration on launch.
+        // Dismiss that alert deliberately so XCTest's interruption handler cannot
+        // replay a stale onboarding tap onto the newly presented tab content.
+        let restoreAlert = app.alerts["Something went wrong"]
+        if restoreAlert.exists { restoreAlert.buttons["OK"].tap() }
+        enterPreview.tap()
         XCTAssertTrue(app.tabBars.buttons["My Team"].firstMatch.waitForExistence(timeout: 5))
         return app
     }

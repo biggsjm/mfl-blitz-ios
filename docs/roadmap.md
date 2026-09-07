@@ -37,11 +37,14 @@ My Team is a separately verified product increment. It does not substitute for r
 
 ## P1 — My Team, schedule and player detail
 
+- [x] Replace oversized Player Detail action rows with compact accessible buttons; preserve strict acquisition flags so locked free agents cannot open Add review (0.5.2 follow-up). Test/device delivery is tracked in [current status](current-status.md), independently of live-owner acceptance.
+- [x] My Team: current official league standing, matching Transactions/Schedule/Watchlist cards instead of tabs, and position-grouped roster sorted by actual season-to-date points. One batched YTD read replaces assignment fetching; missing totals stay blank. Live season-total comparison remains an owner check.
+
 **Current installed increment: [Player tools 1–5](player-tools-plan.md).** Josh approved injury/kickoff/bye context, richer league-scored player research, an MFL-synced watchlist, native first-come add/drop and IR management on September 6. The linked plan defines acceptance checks and keeps trading blocks, calendars, polls and playoff brackets queued after those five. All five are implemented in build 20; test/CI/device evidence and live-owner checks are recorded separately.
 
 **Initial slice implemented in 0.4.0 (17).** Tabs: **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. No Players tab and no new global search destination; reuse the existing available-player search in Transactions → Waivers.
 
-1. [x] Implement canonical-ID routes and the shared read-only team shell. My Team exposes Transactions above Roster / Schedule; dedicated Lineup retains editing/submission. Other-team pages never present the owner's inbox as their own. Carry the existing trade-specific badge onto My Team and its Transactions entry.
+1. [x] Implement canonical-ID routes and the shared read-only team shell. My Team exposes matching Transactions/Schedule/Watchlist cards above its roster in the 0.5.2 follow-up; dedicated Lineup retains editing/submission. Other-team pages never present the owner's inbox as their own. Carry the existing trade-specific badge onto My Team and its Transactions entry.
 2. [x] Add team roster and truthful initial player detail: identity, authoritative ownership/status, available projection/current points and optional supplied bio/contracts. Keep identity taps separate from lineup/waiver/asset-selection actions. See [player-detail plan](player-detail-ux.md).
 3. [x] Validate the official schedule request/schema; add a shared season/league cache and team/league timelines. Use configured week bounds, distinguishing byes, TBD, missing data and multiple matchups. See [schedule plan](schedule-ux.md).
 4. [x] Progressive targeted player history (four completed weeks/page), season totals/average and position points-allowed context. Missing scores are not zero. Live completed-week comparison remains a Week 1 gate.

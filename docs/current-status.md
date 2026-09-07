@@ -4,6 +4,8 @@ Audited September 6, 2026. [Roadmap](roadmap.md) is the remaining execution plan
 
 ## Current installed private build
 
+Follow-up **0.5.2 (21)** is in verification, not yet installed: symbol-only Add/Drop, eligible-only IR on Player Detail, strict acquisition gating, and My Team's standing/navigation-card/position-roster redesign with batched season-to-date scores. No live roster changes are part of QA. Build 20 below remains the installed baseline until device delivery is recorded.
+
 **0.5.1 (20)** implements the approved [features 1–5](player-tools-plan.md): official availability, on-demand league-scored history, synced watchlist, reviewed FCFS add/drop and IR activation/deactivation. The final signed compatibility rebuild installed and launched on Josh's iPhone September 6. Production app code is from `4cab25e`; subsequent commits through `679afeb` change only UI tests. It replaces **0.5.0 (19)**, on which Josh reported enabled IR controls for ineligible players and 429 cooldowns on Lineup/My Team. Build 20 adds early IR eligibility gating, section-local refresh, cached browse reads, deferred history, per-host cooldowns and 1.25-second request spacing. Installation/launch is verified; live post-fix browsing and intended roster moves remain owner checks.
 
 Wire validation: Josh supplied abilities, empty/singleton watchlist responses and player 9431's owned status for franchise 0008. Public availability feeds were checked; last season's nonempty points-allowed response verified position totals. No real roster/trade/waiver/lineup/board writes were made by automated QA. Watching another owner's player is valid and does not imply free-agent eligibility.
