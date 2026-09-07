@@ -917,8 +917,16 @@ final class MFLBlitzUITests: XCTestCase {
         body.tap(); body.typeText("Unsent reply draft")
         app.buttons["board-composer-close"].tap()
         app.alerts.buttons["Save draft"].tap()
+        let composerClosed = expectation(for: NSPredicate(format: "exists == false"),
+            evaluatedWith: app.buttons["board-composer-close"])
+        wait(for: [composerClosed], timeout: 5)
         XCTAssertEqual(reply.label, "Resume reply")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        // Do not target a transitioning or covered navigation bar after sheet dismissal.
+        let back = app.navigationBars["Week 1 is finally here"].buttons["Board"]
+        let backReady = expectation(for: NSPredicate(format: "exists == true AND hittable == true"), evaluatedWith: back)
+        wait(for: [backReady], timeout: 5)
+        back.tap()
+        XCTAssertTrue(app.navigationBars["Board"].waitForExistence(timeout: 3))
         let resume = app.buttons["board-draft-t1"]
         XCTAssertTrue(resume.waitForExistence(timeout: 3))
         resume.tap()
