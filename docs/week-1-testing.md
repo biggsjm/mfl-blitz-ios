@@ -1,6 +1,6 @@
 # Week 1 owner test and Week 2 go/no-go
 
-Updated September 6, 2026 for **0.5.1 (20)**, installed and launched on Josh's iPhone. Build 20 addresses the IR eligibility and cooldown issues reported on build 19. See [current status](current-status.md) for delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
+Updated September 6, 2026 for **0.5.2 (21)**, installed on Josh's iPhone. Build 21 refines My Team, player action controls and acquisition gating; it retains build 20's IR eligibility and cooldown fixes. See [current status](current-status.md) for exact delivery/test evidence and [roadmap](roadmap.md) for remaining work. Use build 16 or a later validated build for trades; earlier builds had a first-presentation response-review bug.
 
 These checks remain open unless explicitly marked with an observation. They are **real actions only when the owner intends and confirms them**. Automated tests use preview/in-memory data and have not changed a real roster, bid, trade or message. Use a disposable league for destructive, invalid or interruption tests; never submit an unwanted live action just to complete this list.
 
@@ -29,7 +29,8 @@ MFL stores starter IDs, not named FLEX slots. The app allocates league-required 
 
 ### My Team, players and schedule
 
-- [ ] My Team shows the correct franchise/logo/owner. Transactions is visible above Roster / Schedule; its badge remains trade-specific. Other teams do not display your inbox.
+- [ ] My Team shows the correct franchise/logo/owner and official league standing. Matching Transactions, Schedule and Watchlist cards open their own pages and return without changing lineup/trade drafts; the badge remains trade-specific. Other teams do not display your inbox.
+- [ ] Compare My Team's position-grouped roster and season-to-date points with MFL. Players sort highest to lowest within each position; real zero/negative totals remain distinct from missing “—” values. Pull to refresh after processing; no Starting/Bench assignment callout should reappear.
 - [ ] Compare the current roster and labeled starting/bench assignments with MFL. Generic roster status must not be guessed as Bench. Open players and check ownership, available matching-week points/projections and optional biography.
 - [ ] Compare your remaining opponents and the league timeline against MFL, including playoff boundaries. Future games must not show fake scores; missing opponents are not assumed byes.
 - [ ] Make an unsent lineup edit, browse a different schedule week/player/team, then return. The edit and selected Lineup/Scores week must remain unchanged. Check Back and section/scroll restoration.

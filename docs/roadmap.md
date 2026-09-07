@@ -1,6 +1,6 @@
 # Execution plan and remaining work
 
-Updated September 6, 2026 for the installed private build **0.5.1 (20)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 6, 2026 for private build **0.5.2 (21)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records exact installation/test evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 
@@ -60,7 +60,7 @@ Implementation boundaries: team/player work owns roster/player surfaces; schedul
 8. [ ] Board polls and voting.
 9. [ ] Playoff brackets beside schedules.
 
-These are retained in the [approved plan](player-tools-plan.md) and are not implemented in 0.5.1.
+These are retained in the [approved plan](player-tools-plan.md) and are not implemented in 0.5.2.
 
 ## P2 — Broader coverage and polish
 

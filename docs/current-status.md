@@ -4,7 +4,22 @@ Audited September 6, 2026. [Roadmap](roadmap.md) is the remaining execution plan
 
 ## Current installed private build
 
-Follow-up **0.5.2 (21)** is in verification, not yet installed: symbol-only Add/Drop, eligible-only IR on Player Detail, strict acquisition gating, and My Team's standing/navigation-card/position-roster redesign with batched season-to-date scores. No live roster changes are part of QA. Build 20 below remains the installed baseline until device delivery is recorded.
+**0.5.2 (21)** installed on Josh's iPhone September 6 from source `e1fcba5`. It adds symbol-only person-plus Add, red person-minus Drop and neutral medical-bag IR for eligible owned players, strict acquisition gating, and My Team's official standing/navigation-card/position-roster redesign with batched season-to-date scores. No live roster changes are part of QA. Installation is confirmed; iOS refused automatic launch because the phone was locked. Open the installed app after unlocking.
+
+The tested source was squash-merged in [PR #4](https://github.com/biggsjm/mfl-blitz-ios/pull/4) as [d8e472b](https://github.com/biggsjm/mfl-blitz-ios/commit/d8e472b934478448dc85b6c18d8c788158310c15) on September 6 after both checks passed. The final completion record changes documentation only. Remaining Week 1/Week 2 gates below are unchanged.
+
+Build-21 verification:
+
+- **Core:** 75 tests / 11 suites passed in a fresh temporary SwiftPM directory (`mfl-player-actions-core-clean.log`). Core source is unchanged by this increment.
+- **Full local regression:** all 150 app unit functions and all 32 native journeys passed: **182 functions / 214 executions**, no failures, skips or reported runtime warnings (`mfl-build21-regression.xcresult`, iPhone 17 Pro / iOS 27).
+- **Dark Mode follow-up:** all four targeted My Team/Add/IR/locked-player journeys passed without failures, skips or reported runtime warnings (`mfl-build21-dark.xcresult`). Actual Light/Dark screenshots were inspected for the matching cards, position points, neutral medical bag, red person-minus, available/locked person-plus and reviewed cancellation.
+- **GitHub compatibility:** [run 34070135205](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/34070135205) passed on `e1fcba5`: 75 core tests, all 150 app unit functions and all 32 native UI journeys, zero failures, using the Xcode 16.4 / iOS 18.5 CI environment. The exact tested head was checked before merge.
+- **Coverage:** strict acquisition flags and owner scope; one batched cached YTD read instead of assignment fetching; zero/negative/missing totals and position ordering; all three My Team destinations; lineup/trade draft preservation; symbol action names and minimum touch targets; eligible-only IR; locked Add; explicit review/cancellation; watchlist and the two-week synthetic journey.
+- **Visual development findings:** corrected duplicate card chevrons, multiple navigation links sharing one List row, and section identifiers overriding player-row identifiers. Explicit compact frames fixed native single-control sizing. A single-action List row can expose a larger accessibility hit area than its drawn circle; tests retain minimum touch-target checks and screenshot verification without treating that larger hit area as an oversized visual button. Superseded/interrupted runs are not passing evidence.
+- **Device:** final signed 0.5.2 (21) built successfully and installed on Josh's iPhone. Automatic launch was denied by the lock screen, not by build/signing. No live owner action or completed game week is certified by this installation.
+- **Documentation:** product/navigation/API/cache contracts, feature plan, remaining release gates, changelog and owner checklist reconciled; local Markdown links and whitespace checks pass.
+
+## Previous installed build — 0.5.1 (20)
 
 **0.5.1 (20)** implements the approved [features 1–5](player-tools-plan.md): official availability, on-demand league-scored history, synced watchlist, reviewed FCFS add/drop and IR activation/deactivation. The final signed compatibility rebuild installed and launched on Josh's iPhone September 6. Production app code is from `4cab25e`; subsequent commits through `679afeb` change only UI tests. It replaces **0.5.0 (19)**, on which Josh reported enabled IR controls for ineligible players and 429 cooldowns on Lineup/My Team. Build 20 adds early IR eligibility gating, section-local refresh, cached browse reads, deferred history, per-host cooldowns and 1.25-second request spacing. Installation/launch is verified; live post-fix browsing and intended roster moves remain owner checks.
 
@@ -26,7 +41,7 @@ Build-20 verification:
 
 Default request spacing reduces pressure but does not guarantee freedom from MFL's variable per-server/per-IP limits. Registered client identity remains unconfirmed. Native IR is conservatively limited to current Out/IR reports verified for Champion Hall; the API does not expose every league-specific IR rule, and MFL still enforces final eligibility.
 
-## Previous installed private build
+## Earlier installed private builds
 
 - **MFL Blitz 0.4.1 (18): My Team and Board drafts.** Implemented, tested and signed. The final compatibility rebuild was installed and launched successfully on Josh's iPhone on September 6 after the phone became available. Includes the concise schedule update label and Board Close/save/discard with visible draft recovery.
 - Previous installed baseline: **0.3.7 (16), [e779e4b](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b)**. The documentation baseline was merged in [PR #1](https://github.com/biggsjm/mfl-blitz-ios/pull/1).
@@ -40,7 +55,7 @@ Default request spacing reduces pressure but does not guarantee freedom from MFL
 | --- | --- | --- |
 | Scores | Featured/all matchups, positional/FLEX detail, foreground refresh and final reconciliation | No background push; projections are not live win forecasts |
 | Lineup | League-aware bench/starter/FLEX replacements and rotations, saved drafts, review and starter readback | MFL stores starter IDs, not FLEX placements; saved tiebreakers cannot be read back |
-| My Team / team pages | Franchise logo/initials, owner/record, roster, schedule and own-team watchlist; Transactions and Manage roster entries | No second lineup editor; another team never shows your inbox or owner roster controls |
+| My Team / team pages | Official own-team standing, matching Transactions/Schedule/Watchlist cards and position-grouped roster sorted by actual season points; separate Manage roster | Missing totals stay absent; other teams retain assignment-based rosters and never show your inbox or owner controls |
 | Player Detail | Identity, ownership/status, weekly metrics, availability, progressive history, totals/average, points allowed, watch star and supplied biography | Missing source data stays absent; no external imagery/news or guessed facts |
 | Season schedule | Shared team/league timelines, configured bounds, current/future/final/unset states and route-local matchup scoring | Ambiguous doubleheaders never select an arbitrary scoring game; missing opponents are not guessed byes |
 | Waivers / roster moves | Available-player search/watch filtering, conditional blind bids and reviewed FCFS/IR actions with exact membership readback | Supported owner/rule gates only; broader classic/non-conditional, taxi, salary and duplicate-player formats use MFL |

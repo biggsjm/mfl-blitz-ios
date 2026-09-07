@@ -1,6 +1,6 @@
 # Season schedule and My Team
 
-Status: **Initial implementation — 0.4.0 (17)**, September 6, 2026. [Current status](current-status.md) records verification; [roadmap](roadmap.md) records remaining work.
+Status: **Initial implementation — 0.4.0 (17), My Team navigation refined in 0.5.2 (21)**, September 6, 2026. [Current status](current-status.md) records verification; [roadmap](roadmap.md) records remaining work.
 
 ## Information architecture
 

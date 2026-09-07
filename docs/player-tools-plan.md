@@ -1,6 +1,6 @@
 # Player tools and roster actions
 
-Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in 0.5.0 (19), with owner-feedback fixes in **0.5.1 (20)**, installed and launched on Josh's iPhone. Implementation and automated verification are separate from live-owner certification. [Current status](current-status.md) records the evidence; [roadmap](roadmap.md) retains release gates and remaining work.
+Approved by Josh September 6, 2026, after **0.4.1 (18)**. Implemented in 0.5.0 (19), with owner-feedback fixes in 0.5.1 (20) and **0.5.2 (21)**. Build 21 adds compact player actions, strict visible Add gating and the My Team standing/season-roster refinement. Implementation and automated verification are separate from live-owner certification. [Current status](current-status.md) records exact device/test evidence; [roadmap](roadmap.md) retains release gates and remaining work.
 
 ## Scope and sequence
 
