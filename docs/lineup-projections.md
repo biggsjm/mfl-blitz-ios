@@ -15,6 +15,8 @@ Use existing `AppModel.scores` and `lineup` snapshots. Add no API requests, cach
 
 Both sides need complete, unique starter sets and finite projections. The edited lineup must satisfy its position rules. Opponent starters must be explicitly classified and match the league's required starter count; the repository's aggregate is only populated when every reported starter has a projection. An unavailable/failed score refresh, missing aggregate or unknown lineup omits the margin instead of implying zero or an advantage. A cached successful snapshot remains usable during ordinary refresh; the number updates when new data arrives.
 
+If MFL has not published the week's matchup starters yet (including its preseason live-scoring gap), the owner's projection can be visible without a comparison. Do not substitute a guessed opponent lineup or score. Confirm the live matchup/projection comparison in the Week 1 owner check below.
+
 ## Verification
 
 An independent iOS design-review agent inspected native screenshots at the owner's request. Its recommended revision aligned the card with the roster, reduced the margin's visual weight, named the full opponent and removed the status capsule. This was an AI-assisted design review, not a human usability study. Adjacent player-row truncation at maximum text sizes remains a separate accessibility issue in the release gate.
