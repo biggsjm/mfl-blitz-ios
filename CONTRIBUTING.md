@@ -13,7 +13,7 @@ xcodebuild test -project MFLBlitz.xcodeproj -scheme MFLBlitz \
   -parallel-testing-enabled NO -collect-test-diagnostics never CODE_SIGNING_ALLOWED=NO
 ```
 
-Replace the destination with an installed simulator. Run simulator jobs serially and coordinate the build/install owner when multiple tasks share a checkout. If stale build metadata prevents package signing, use a new temporary `--scratch-path` instead of deleting unrelated build data. A compiler/runner failure is not a passing test. Core tests do not replace app/UI, manual accessibility or live-owner validation.
+Replace the destination with an installed simulator. Run jobs against the same simulator or DerivedData directory serially; independent simulators may run in parallel with separate DerivedData paths. Coordinate the build/install owner when multiple tasks share a checkout. If stale build metadata prevents package signing, use a new temporary `--scratch-path` instead of deleting unrelated build data. A compiler/runner failure is not a passing test. Core tests do not replace app/UI, manual accessibility or live-owner validation.
 
 ## Safety and regressions
 
@@ -24,6 +24,7 @@ Replace the destination with an installed simulator. Run simulator jobs serially
 - Keep browsing routes separate from the active lineup week/draft. Player identity taps must not replace Start/Replace/Add/Select actions.
 - My Team regressions live in `MyTeamNavigationTests`, `TeamPlayerDetailTests`, `SchedulePresentationTests` and MFLCore `ScheduleTests`. Run native roster/player/current-future schedule journeys as well as the existing lineup/trade suite when changing shared routes. Keep whole-season schedule reads shared; do not fan out player scoring for every week.
 - Validate large text, VoiceOver labels/action separation, light/dark appearance and native navigation after UI changes. Record incomplete manual checks honestly.
+- Standings regressions live in core `StandingsRankingTests`, app `MyTeamNavigationTests`/`MutationRecoveryTests` and native standings journeys. Never infer rank from franchise-array position or ties from matching records alone. Test missing criteria, H2H cycles, division identity, scope-specific places, no-results state and cached-read counts. Ranked Preview launch flags must never affect a live repository.
 
 Player-tools regressions live in core `PlayerToolsTests`, app `PlayerToolsSafetyTests` and native `PlayerToolsUITests`. Roster DTOs may retain legacy read defaults, but write preflight requires explicit statuses. Do not broaden ability matching to descriptions/substrings; use exact owner-scoped IDs. Keep FCFS player locks distinct from lineup locks. Preserve the device-only markers before POST and never replay uncertain imports.
 

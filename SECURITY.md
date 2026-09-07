@@ -4,6 +4,8 @@ Reviewed September 6, 2026 against **0.5.1 (20)**. Contact the repository owner 
 
 Never include MyFantasyLeague usernames, passwords, `MFL_USER_ID` values, API keys, private message content, trade terms, blind bids or unredacted authenticated payloads in an issue or routine diagnostic report. Use synthetic reproduction data; report build, affected workflow and expected/observed behavior.
 
+Build **0.5.3 (26)** leaves these authentication, storage and mutation controls unchanged. Its temporary read-only standings diagnostic was removed before the final build; private API payloads are not committed. GitHub private vulnerability reporting was rechecked as disabled on September 6; enabling it remains an owner/distribution action, not part of this UI increment.
+
 MFL Blitz is designed to:
 
 - send credentials only to MFL over HTTPS;

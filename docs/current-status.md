@@ -2,19 +2,24 @@
 
 Audited September 6, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Current candidate — 0.5.3 (26)
+## Current installed private build — 0.5.3 (26)
 
 The approved [standings pattern](standings-pattern.md) is implemented: shared `6–2 · 1st in Warner` headers, actual league-name fallback, correctly scoped division/overall places, confirmed ties and no manufactured preseason place. Tapping the header opens the matching standings context. The selector stays visible; maximum Dynamic Type gets stacked headers and rows. Existing direct tools and mutation protections remain unchanged.
 
 A read-only authenticated request through the app's own session verified that Champion Hall's standings rows were in franchise-ID order with all-zero preseason results and no explicit rank. The earlier array-index implementation was wrong. Build 26 instead compares configured PCT/H2H/PTS/DIVPCT criteria, with separate division scopes, exact record percentages, confirmed pairwise H2H, conservative missing/cyclic states and cached reads. MFL's report remains authoritative for manual/custom orders not exposed in the API; completed-week comparison remains an owner gate. Temporary diagnostic code is removed from the final source; no credentials or authenticated payloads are committed.
 
-Verification so far:
+Verification:
 
-- **Core:** all **87 tests / 12 suites** passed (`mfl-standings-core-final3.log`), including 12 ranking tests plus the existing API/cache/mutation coverage. An additional owner-requested regression explicitly checks that T2/T2/4 cannot be inferred with missing points or H2H data; its final result is recorded with delivery below.
+- **Core:** all **88 tests / 12 suites** pass (`mfl-standings-core-final4.log`), including 13 ranking tests. The owner-requested T2/T2/4 regression proves those places require known points and cannot be inferred with missing points or an earlier unresolved H2H criterion.
 - **Focused native/model checks:** **31 app model functions and 5 native UI journeys** pass on iOS 18.4 in Dark Mode (`mfl-build26-standings-verified.xcresult`). Covers header navigation, division/overall ranks, ties, no divisions, largest text, info popover, existing draft navigation and return to IR after player inspection.
-- **Full local regression / final GitHub checks / signed build 26 installation:** pending at this candidate checkpoint. Exact receipts will be recorded before declaring delivery complete.
+- **Final model follow-up:** all 31 My Team/mutation-fixture functions pass on the final app source (`mfl-build26-final-models.xcresult`), including the unassigned-division sorting fallback added after the focused UI run.
+- **Light Mode follow-up:** all 3 focused native standings journeys pass on final source `0736ab1`, iOS 18.4, with no failures/skips/runtime warnings (`mfl-build26-standings-light.xcresult`). Actual Light/Dark screenshots were inspected at normal and maximum text sizes.
+- **Full local regression:** all **161 app unit functions + 35 native UI journeys** pass: **196 functions / 228 executions**, no failures, skips or reported runtime warnings (`mfl-build26-regression.xcresult`, iPhone 17 Pro / iOS 27). This run started before the two-line unassigned-division sorting fallback; the final model and Light Mode follow-ups above cover that final app source. Includes existing lineup/waiver/trade/board safety, direct tools, IR and the two-week Preview journeys.
+- **Device:** signed **0.5.3 (26)** installed and launched on Josh's iPhone; `devicectl` confirms version 0.5.3 / bundle version 26. Production source is `8adfa30`; `0736ab1` adds only the tie-safety test and documentation. No live league mutations were made by QA.
+- **GitHub / merge:** final compatibility [run 34078121031](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/34078121031) passed on `0736ab12ca69b161da962146f39e0a8f0f3a180f`: 88 core tests, 161 app unit functions and 35 native UI journeys, zero failures, Xcode 16.4 / iOS 18.5. [PR #5](https://github.com/biggsjm/mfl-blitz-ios/pull/5) was squash-merged as [08c97c1](https://github.com/biggsjm/mfl-blitz-ios/commit/08c97c1e588928ad9f37512e2f04fd86f1a5ce60) September 6 at 10:30 PM Central after exact-head checks passed. Superseded run 34078021145 was canceled, not counted as a pass.
+- **Documentation:** all 22 local Markdown files pass link checks; whitespace checks pass. Package API/ranking notes, product/navigation/cache/privacy/security docs, roadmap and owner checklist are reconciled. This completion record changes documentation only, not the tested app.
 
-Interim builds 24–25 were installed for presentation and read-only diagnosis, not released. Build 25 is the last installed iteration at this checkpoint. Earlier failed or partial runs are not final-source evidence: numeric formatting, a scroll-away selector and a large-text header were corrected before the focused passing run above.
+Interim builds 24–25 were installed for presentation and read-only diagnosis, not released, and have been replaced by build 26. Earlier failed or partial runs are not final-source evidence: numeric formatting, a scroll-away selector and a large-text header were corrected before the focused passing run above.
 
 ## Verified direct-tool baseline — 0.5.3 (23)
 
