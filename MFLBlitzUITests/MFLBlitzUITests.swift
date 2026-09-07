@@ -396,6 +396,11 @@ final class MFLBlitzUITests: XCTestCase {
         let confirmation = XCTAttachment(screenshot: app.screenshot())
         confirmation.name = "Discard draft — centered confirmation"; confirmation.lifetime = .keepAlways; add(confirmation)
         app.alerts.buttons["Cancel"].tap()
+        // On iOS 18 the alert can still obscure the inbox after tap() returns.
+        // Await the actual interactive state; do not race the dismissal animation.
+        let returnedToInbox = expectation(for: NSPredicate(format: "exists == true AND hittable == true"), evaluatedWith: resume)
+        wait(for: [returnedToInbox], timeout: 5)
+        XCTAssertFalse(app.alerts["Discard trade draft?"].exists)
         XCTAssertTrue(resume.isHittable)
         app.buttons["trade-options"].tap()
         app.buttons["Discard draft"].tap()
