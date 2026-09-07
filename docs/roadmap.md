@@ -50,7 +50,7 @@ My Team is a separately verified product increment. It does not substitute for r
 - [x] Replace oversized Player Detail action rows with compact accessible buttons; preserve strict acquisition flags so locked free agents cannot open Add review (0.5.2 follow-up). Test/device delivery is tracked in [current status](current-status.md), independently of live-owner acceptance.
 - [x] My Team: contextual division/league standing, Schedule / Adds & Drops / Trades / Watchlist / Injured Reserve / League Activity shortcuts, then a position-grouped roster sorted by actual season-to-date points. No overlapping Transactions / Manage roster pages. One batched YTD read replaces assignment fetching; missing totals stay blank. See [direct-tool contract](my-team-shortcuts.md).
 
-**Current installed increment: [Player tools 1–5](player-tools-plan.md).** Josh approved injury/kickoff/bye context, richer league-scored player research, an MFL-synced watchlist, native first-come add/drop and IR management on September 6. The linked plan defines acceptance checks and keeps trading blocks, calendars, polls and playoff brackets queued after those five. All five are implemented in build 20; test/CI/device evidence and live-owner checks are recorded separately.
+**Earlier installed increment: [Player tools 1–5](player-tools-plan.md).** Josh approved injury/kickoff/bye context, richer league-scored player research, an MFL-synced watchlist, native first-come add/drop and IR management on September 6. All five were implemented by build 20. Trading Block and Calendar/reminders subsequently joined the implemented app in builds 33–35, as recorded below; polls and playoff brackets remain queued. Test/CI/device evidence and live-owner checks are recorded separately.
 
 **Initial slice implemented in 0.4.0 (17).** Tabs: **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. No Players tab and no new global search destination; reuse the existing available-player search in My Team → Adds / Drops.
 
@@ -71,7 +71,7 @@ Implementation boundaries: team/player work owns roster/player surfaces; schedul
 8. [ ] Board polls and voting.
 9. [ ] Playoff brackets beside schedules.
 
-Items 6–7 are implemented in 0.6.0 (33); 8–9 remain queued in the [feature plan](player-tools-plan.md). Delivery and live-owner acceptance are distinct. Device reminder delivery, changed deadlines, active-game ActivityKit behavior and new-feature accessibility checks remain open in the [checklist](week-1-testing.md).
+Items 6–7 are implemented in 0.6.0 (33–35), installed as build 35 and merged in [PR #10](https://github.com/biggsjm/mfl-blitz-ios/pull/10) after full local/GitHub checks. Items 8–9 remain queued in the [feature plan](player-tools-plan.md). Delivery and live-owner acceptance are distinct. Real block removal/readback, device reminder delivery, changed deadlines, active-game ActivityKit behavior and broader new-feature accessibility checks remain open in the [checklist](week-1-testing.md).
 
 ## P2 — Broader coverage and polish
 

@@ -1,6 +1,6 @@
 # Trading Block, League Calendar and Deadline Reminders
 
-Status: **Implemented, final merge checks running**, September 7, 2026. Josh approved items 1–3 and added a current-matchup Live Activity. Build 0.6.0 (35) is installed with his feedback: Lineup-style roster/block promotion/demotion with review/submit, explicit last-player removal, and Settings relocated to My Team. Build 33 launched; build 35's automatic launch was blocked by the phone lock. No real league listing, personal calendar event or reminder has been created or removed for automated QA.
+Status: **Implemented, tested, installed and merged in [PR #10](https://github.com/biggsjm/mfl-blitz-ios/pull/10)**, September 7, 2026. Josh approved items 1–3 and added a current-matchup Live Activity. Build 0.6.0 (35) includes his feedback: Lineup-style roster/block promotion/demotion with review/submit, explicit last-player removal, and Settings relocated to My Team. Build 33 launched; build 35's automatic launch was blocked by the phone lock. Full local/current-iOS and GitHub/older-iOS suites pass on the installed source; exact evidence is in [current status](current-status.md). No real league listing, personal calendar event or reminder has been created or removed for automated QA.
 
 ## Implementation checkpoint
 
@@ -8,7 +8,7 @@ Status: **Implemented, final merge checks running**, September 7, 2026. Josh app
 - [x] Shared typed Calendar JSON/ICS feed, explicit published occurrences, agenda, event details and links to existing workflows. Existing waiver timing uses the same cached source.
 - [x] Opt-in per-event/category local reminders, bounded scheduling, reconciliation, permission-denial handling, scoped deep links and user-reviewed single-event Apple Calendar export.
 - [x] Live Activity extension and on-device lifecycle: current owner's matchup, actively playing starters, foreground updates, stale-state presentation, user dismissal and disconnect handling.
-- [ ] Final exact-source regression, signed phone delivery and GitHub merge/documentation completion.
+- [x] Final exact-source regression, signed phone delivery and GitHub merge/documentation completion. Source `3663a37`; merge `e946b1c`; all 107 core tests, 209 app unit functions and 45 native journeys pass. Installation is not live-owner acceptance.
 - [ ] Owner Week 1 validation of intended native publication, device reminders, Apple Calendar handoff and real Live Activity behavior.
 - [x] Build 35: explicit last-player/full-block removal review, recoverable empty draft, owner/baseline preflight and exact empty readback; requested after Josh found the build-34 restriction.
 - [ ] Owner verification that MFL accepts the explicit empty-field replacement and shows the intended removal. Fixtures are not provider acceptance evidence.
