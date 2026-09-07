@@ -122,7 +122,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
                             Image(systemName: destination.symbol)
                                 .font(.system(size: 20, weight: .medium))
                                 .frame(width: 26)
-                                .foregroundStyle(destination == .injuredReserve ? Color.primary : Color.blitzGreen)
+                                .foregroundStyle(Color.blitzGreen)
                             Text(destination.title).font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 0)
