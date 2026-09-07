@@ -60,7 +60,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
     }
 
     private var isOwnTeam: Bool { model.workspace?.franchiseID == franchiseID }
-    private var headerKey: String { "\(model.workspace?.storageScope ?? "none")|\(franchiseID)" }
+    private var headerKey: String { "\(model.workspace?.storageScope ?? "none")|\(franchiseID)|\(model.isUsingCachedSession)" }
     private var rosterKey: String { "\(headerKey)|\(requestedLineupWeek.map(String.init) ?? "none")|\(model.rosterRevision)" }
     private var requestedLineupWeek: Int? { isOwnTeam ? nil : assignmentWeek }
     private var assignmentWeek: Int? {
@@ -152,7 +152,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
                     .accessibilityValue(destination == .trades && model.transactions.needsAttentionCount > 0
                         ? "\(model.transactions.needsAttentionCount) trade items need attention" : "")
                     .accessibilityIdentifier(destination.accessibilityID)
-                    .disabled(openTeamTool == nil)
+                    .disabled(openTeamTool == nil || model.isUsingCachedSession)
                 }
             }
         }
@@ -161,6 +161,9 @@ struct TeamDetailView<ScheduleContent: View>: View {
 
     private var rosterContent: some View {
         List {
+            if model.connectionMessage != nil {
+                ConnectionStatusBanner().listRowBackground(Color.clear)
+            }
             if isOwnTeam {
                 Section { header }.listRowBackground(Color.clear)
                 Section { toolShortcuts }
@@ -223,6 +226,9 @@ struct TeamDetailView<ScheduleContent: View>: View {
                     }
                 }
                 .font(.caption).foregroundStyle(.secondary)
+                if let saved = model.cachedRosterDate, isOwnTeam {
+                    SavedDataLabel(date: saved)
+                }
             } else if detailModel.isLoading {
                 ProgressView("Loading roster…").frame(maxWidth: .infinity).listRowBackground(Color.clear)
             } else if detailModel.errorMessage == nil {
@@ -281,8 +287,11 @@ struct TeamDetailView<ScheduleContent: View>: View {
     private func loadRoster(refresh: Bool) async {
         guard let workspace = model.workspace else { detailModel.invalidate(); return }
         let week = requestedLineupWeek
+        if isOwnTeam, detailModel.roster == nil, let cached = model.cachedOwnerRoster {
+            detailModel.restoreDisplay(cached, scope: workspace.storageScope, franchiseID: franchiseID)
+        }
         await detailModel.loadRoster(scope: workspace.storageScope, franchiseID: franchiseID,
-            lineupWeek: week, force: refresh) {
+            lineupWeek: week, force: refresh, displayOnly: model.isUsingCachedSession) {
             try await model.loadTeamRoster(franchiseID: franchiseID, lineupWeek: week, refresh: refresh)
         }
     }

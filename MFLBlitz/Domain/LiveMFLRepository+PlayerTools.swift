@@ -84,7 +84,7 @@ extension LiveMFLRepository {
             // field meanings or manufacture a matchup rank from absent data.
             let allowed = try await TeamPlayerMapper.optionalRead { try await client.pointsAllowed() }
             let catalog = try await client.players()
-            if let player = catalog.players.first(where: { $0.id == playerID }),
+            if let player = catalog.playersByID[playerID],
                let team = player.nflTeam, let position = player.position {
                 let availability = try await loadPlayerAvailability(week: contextWeek, refresh: false)
                 if let opponent = availability.games[team]?.opponent {
@@ -116,7 +116,7 @@ extension LiveMFLRepository {
         let list = try await client.watchList(refreshPolicy: refresh ? .reloadIgnoringCache : .useCache)
         let catalog = try await client.players()
         try validatePlayerToolsSession(client, workspace.storageScope)
-        let byID = Dictionary(uniqueKeysWithValues: catalog.players.map { ($0.id, $0) })
+        let byID = catalog.playersByID
         let players = list.playerIDs.map { TeamPlayerMapper.identity(byID[$0], id: $0) }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         let pending = try privateStore.decode(PendingWatchAction.self, key: "watch-action.\(workspace.storageScope)")

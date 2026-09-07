@@ -31,6 +31,10 @@ Player-tools regressions live in core `PlayerToolsTests`, app `PlayerToolsSafety
 
 ## Documentation and releases
 
+Startup/cache regressions live in `StartupCacheTests`, `ScoringAndCacheTests` and core `PersistentCacheTests`. Test display-before-auth, verified-auth-but-stale-lineup, offline/retry, expiry, account isolation, original age, write invalidation and initial request budgets. Never turn cached display into permissions or write preflight. File I/O/encoding belongs on cache actors, not SwiftUI body evaluation.
+
+`--synthetic-cached-startup` and optional `--synthetic-startup-offline` are DEBUG-only native test fixtures with a separate synthetic store and no live network/Keychain. Do not use these flags for phone delivery or represent their timings as real account/network measurements. See [performance evidence](docs/performance-startup.md).
+
 Update [current status](docs/current-status.md), [roadmap](docs/roadmap.md), [changelog](CHANGELOG.md), README and affected API/UX/test/privacy documents when behavior changes. Keep one clear installed baseline and distinguish implemented, automated-tested, owner-observed, unvalidated and proposed work. Historical reports retain their original versions/counts; link newer evidence instead of rewriting history. Never equate synthetic weeks with real elapsed weeks or a human study.
 
 New data sources/storage/permissions require corresponding privacy/security documentation. Check local Markdown links and `git diff --check`. Documentation-only changes do not need an app version bump or phone reinstall. Agree file ownership before editing shared navigation or another task's design doc, and publish/merge only when the user authorizes that workflow.

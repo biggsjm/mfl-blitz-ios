@@ -9,6 +9,7 @@ struct ScoresView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 14) {
+                ConnectionStatusBanner().padding(.horizontal, BlitzMetrics.pagePadding)
                 if model.isDemo { DemoBanner() }
                 if model.workspace?.weekIsConfirmed == false {
                     Label("MFL’s current week couldn’t be confirmed. Choose a week to continue.", systemImage: "calendar.badge.exclamationmark")
@@ -32,7 +33,11 @@ struct ScoresView: View {
                         StatusPill(text: "Live", systemImage: "dot.radiowaves.left.and.right", tone: .live)
                     }
                     Spacer()
-                    UpdatedLabel(date: model.scores.lastUpdated, isRefreshing: model.isLoadingScores)
+                    if let saved = model.cachedScoresDate {
+                        SavedDataLabel(date: saved)
+                    } else {
+                        UpdatedLabel(date: model.scores.lastUpdated, isRefreshing: model.isLoadingScores)
+                    }
                 }
                 .padding(.horizontal, BlitzMetrics.pagePadding)
 
@@ -122,6 +127,7 @@ struct ScoresView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 WeekPicker(selection: weekBinding, range: 1...18)
+                    .disabled(model.isUsingCachedSession)
             }
         }
         .refreshable { await model.refreshScores() }
@@ -211,7 +217,7 @@ private struct FeaturedMatchupCard: View {
                 FeaturedTeam(
                     team: matchup.away,
                     isLeading: matchup.leaderID == matchup.away.id,
-                    scorePrecision: scorePrecision
+                    scorePrecision: scorePrecision, showRemaining: matchup.status != .saved
                 )
                 Text("–")
                     .font(.title.bold())
@@ -220,7 +226,7 @@ private struct FeaturedMatchupCard: View {
                 FeaturedTeam(
                     team: matchup.home,
                     isLeading: matchup.leaderID == matchup.home.id,
-                    scorePrecision: scorePrecision
+                    scorePrecision: scorePrecision, showRemaining: matchup.status != .saved
                 )
             }
 
@@ -228,10 +234,12 @@ private struct FeaturedMatchupCard: View {
 
             HStack(spacing: 0) {
                 ProjectionMetric(title: "Pregame projection", value: projectionText)
-                Divider().frame(height: 34).overlay(.white.opacity(0.16))
-                ProjectionMetric(title: "Win outlook", value: winOutlook)
-                Divider().frame(height: 34).overlay(.white.opacity(0.16))
-                ProjectionMetric(title: "Still playing", value: "\(matchup.away.playersRemaining + matchup.home.playersRemaining)")
+                if matchup.status != .saved {
+                    Divider().frame(height: 34).overlay(.white.opacity(0.16))
+                    ProjectionMetric(title: "Win outlook", value: winOutlook)
+                    Divider().frame(height: 34).overlay(.white.opacity(0.16))
+                    ProjectionMetric(title: "Still playing", value: "\(matchup.away.playersRemaining + matchup.home.playersRemaining)")
+                }
             }
         }
         .padding(18)
@@ -281,6 +289,7 @@ private struct FeaturedTeam: View {
     let team: MatchupTeam
     let isLeading: Bool
     let scorePrecision: Int
+    var showRemaining = true
 
     var body: some View {
         VStack(spacing: 8) {
@@ -301,9 +310,11 @@ private struct FeaturedTeam: View {
                         .accessibilityLabel("Leading")
                 }
             }
-            Text("\(team.playersRemaining) remaining")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.62))
+            if showRemaining {
+                Text("\(team.playersRemaining) remaining")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.62))
+            }
         }
         .frame(maxWidth: .infinity)
     }

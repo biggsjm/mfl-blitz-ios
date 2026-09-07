@@ -1,6 +1,6 @@
 import Foundation
 
-public struct MFLStandingPlace: Equatable, Sendable {
+public struct MFLStandingPlace: Codable, Equatable, Sendable {
     public let position: Int
     public let isTied: Bool
     public init(position: Int, isTied: Bool = false) {
@@ -13,7 +13,7 @@ public struct MFLStandingPlace: Equatable, Sendable {
 /// MFL documents H2H as pairwise, not a mini-league percentage. A cycle or
 /// missing criterion makes that context unranked instead of inventing a winner.
 public struct MFLStandingsRanking: Equatable, Sendable {
-    public enum Issue: String, Equatable, Sendable {
+    public enum Issue: String, Codable, Equatable, Sendable {
         case awaitingResults, unavailable, unsupported, headToHeadUnavailable, ambiguous
     }
     public let places: [String: MFLStandingPlace]

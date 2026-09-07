@@ -16,6 +16,14 @@ final class TeamDetailModel {
     private var headerRevision = 0
     private var lastLoadedAt: Date?
 
+    func restoreDisplay(_ value: TeamRosterSnapshot, scope: String, franchiseID: String) {
+        guard roster == nil, value.scope == scope, value.team.id == franchiseID, value.lineupWeek == nil else { return }
+        roster = value
+        rosterKey = "\(scope)|\(franchiseID)|none"
+        // It is visible immediately, but must still refresh on the first load.
+        lastLoadedAt = nil
+    }
+
     func loadHeader(scope: String, franchiseID: String,
                     using loader: @MainActor () async throws -> [TeamSummary]) async {
         let key = "\(scope)|\(franchiseID)"
@@ -37,7 +45,7 @@ final class TeamDetailModel {
         }
     }
 
-    func loadRoster(scope: String, franchiseID: String, lineupWeek: Int?, force: Bool = false,
+    func loadRoster(scope: String, franchiseID: String, lineupWeek: Int?, force: Bool = false, displayOnly: Bool = false,
                     using loader: @MainActor () async throws -> TeamRosterSnapshot) async {
         let key = "\(scope)|\(franchiseID)|\(lineupWeek.map(String.init) ?? "none")"
         if !force, rosterKey == key, roster != nil,
@@ -59,7 +67,7 @@ final class TeamDetailModel {
             roster = value
             summary = value.team
             summaryScope = scope
-            lastLoadedAt = Date()
+            lastLoadedAt = displayOnly ? nil : Date()
         } catch {
             guard rosterRevision == revision, !Task.isCancelled, !(error is CancellationError) else { return }
             errorMessage = error.localizedDescription

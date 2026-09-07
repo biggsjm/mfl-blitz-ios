@@ -7,7 +7,7 @@ enum TeamDetailSection: String, CaseIterable, Hashable, Sendable, Identifiable {
     var id: Self { self }
 }
 
-struct TeamSummary: Identifiable, Equatable, Sendable {
+struct TeamSummary: Codable, Identifiable, Equatable, Sendable {
     let id: String
     var name: String
     var abbreviation: String
@@ -16,7 +16,7 @@ struct TeamSummary: Identifiable, Equatable, Sendable {
     var accentSeed: Int = 0
 }
 
-struct PlayerIdentity: Identifiable, Equatable, Sendable {
+struct PlayerIdentity: Codable, Identifiable, Equatable, Sendable {
     let id: String
     var name: String
     var position: String? = nil
@@ -27,7 +27,7 @@ struct PlayerIdentity: Identifiable, Equatable, Sendable {
     }
 }
 
-enum DetailReadIssue: String, Identifiable, Equatable, Sendable {
+enum DetailReadIssue: String, Codable, Identifiable, Equatable, Sendable {
     case playerNames
     case biography
     case ownership
@@ -48,7 +48,7 @@ enum DetailReadIssue: String, Identifiable, Equatable, Sendable {
 }
 
 /// Membership describes the current roster, independently of a submitted lineup.
-enum RosterMembership: Equatable, Sendable {
+enum RosterMembership: Codable, Equatable, Sendable {
     case active
     case injuredReserve
     case taxiSquad
@@ -64,7 +64,7 @@ enum RosterMembership: Equatable, Sendable {
     }
 }
 
-enum PlayerLineupAssignment: Equatable, Sendable {
+enum PlayerLineupAssignment: Codable, Equatable, Sendable {
     case starter
     case nonstarter
     case rostered
@@ -104,7 +104,7 @@ enum TeamRosterGroup: String, CaseIterable, Identifiable, Sendable {
     var id: Self { self }
 }
 
-struct RosterPlayerSummary: Identifiable, Equatable, Sendable {
+struct RosterPlayerSummary: Codable, Identifiable, Equatable, Sendable {
     var identity: PlayerIdentity
     var membership: RosterMembership
     var lineupAssignment: PlayerLineupAssignment? = nil
@@ -135,7 +135,7 @@ struct RosterPlayerSummary: Identifiable, Equatable, Sendable {
     }
 }
 
-struct TeamRosterSnapshot: Equatable, Sendable {
+struct TeamRosterSnapshot: Codable, Equatable, Sendable {
     let scope: String
     var team: TeamSummary
     var players: [RosterPlayerSummary]

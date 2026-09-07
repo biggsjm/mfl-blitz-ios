@@ -100,6 +100,10 @@ public actor MFLClient {
     private let requestBuilder: MFLAPIRequestBuilder
     private let responseDecoder = MFLResponseDecoder()
     private let playerCache: (any MFLPersistentResponseCache)?
+    private var leagueCache: (any MFLPersistentResponseCache)?
+    private var leagueCacheScope = ""
+    private var cachedSeasonStatus: (value: MFLSeasonStatus, date: Date)?
+    private var seasonStatusRead: (id: UUID, task: Task<MFLSeasonStatus, Error>)?
     private let clock = ContinuousClock()
 
     private var cookie: MFLAuthenticationCookie?
@@ -193,8 +197,34 @@ public actor MFLClient {
 
     // MARK: Reads
 
+    /// Attach only after fresh membership verification. The caller must bind
+    /// this protected store to the exact session, season and franchise.
+    public func setLeagueCache(_ store: (any MFLPersistentResponseCache)?, scope: String = "") {
+        invalidate([.league])
+        leagueCache = store
+        leagueCacheScope = scope
+    }
+
     /// No authentication cookie is sent to this public static resource.
-    public func seasonStatus() async throws -> MFLSeasonStatus {
+    public func seasonStatus(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLSeasonStatus {
+        if refreshPolicy == .useCache, let cachedSeasonStatus,
+           (0..<60).contains(Date().timeIntervalSince(cachedSeasonStatus.date)) { return cachedSeasonStatus.value }
+        if refreshPolicy == .useCache, let read = seasonStatusRead {
+            let value = try await read.task.value
+            try Task.checkCancellation()
+            return value
+        }
+        let id = UUID()
+        let task = Task { try await self.fetchSeasonStatus() }
+        seasonStatusRead = (id, task)
+        defer { if seasonStatusRead?.id == id { seasonStatusRead = nil } }
+        let value = try await task.value
+        if seasonStatusRead?.id == id { cachedSeasonStatus = (value, Date()) }
+        try Task.checkCancellation()
+        return value
+    }
+
+    private func fetchSeasonStatus() async throws -> MFLSeasonStatus {
         guard let url = URL(string: "https://api.myfantasyleague.com/fflnetdynamic\(configuration.league.season)/mfl_status.json") else {
             throw MFLCoreError.invalidResponse
         }
@@ -829,36 +859,41 @@ public actor MFLClient {
         )
         let version = UUID()
         readVersions[key] = version
-        let persistentKey = "players-v1:\(configuration.league.season)"
-        let persistentStore = endpoint == .players && parameters.isEmpty ? playerCache : nil
+        let persistentKey = endpoint == .league
+            ? "league-v1:\(configuration.league.season):\(host.name):\(leagueID ?? "")\(leagueCacheScope.isEmpty ? "" : ":" + leagueCacheScope)"
+            : "players-v1:\(configuration.league.season)"
+        let persistentStore = parameters.isEmpty ? (endpoint == .players ? playerCache : endpoint == .league ? leagueCache : nil) : nil
         let value: MFLStoredResponse
         if refreshPolicy == .useCache, ttl > 0 {
             let task = Task {
                 let value: MFLStoredResponse
                 let decoded: Value
+                let loadedFromDisk: Bool
                 if let stored = await persistentStore?.read(),
-                   stored.isFresh(key: persistentKey, ttl: min(ttl, 86_400)),
+                   stored.isFresh(key: persistentKey, ttl: min(ttl, 86_400, maximumAge ?? ttl)),
                    let storedValue = try? self.responseDecoder.decode(type, from: stored.data) {
                     #if DEBUG
-                    print("[MFL cache] public player directory: disk hit")
+                    print("[MFL cache] \(endpoint.rawValue): disk hit")
                     #endif
                     value = stored
                     decoded = storedValue
+                    loadedFromDisk = true
                 } else {
                     let data = try await self.exportData(request)
                     // Do not publish malformed responses to either cache.
                     decoded = try self.responseDecoder.decode(type, from: data)
                     #if DEBUG
-                    if persistentStore != nil { print("[MFL cache] public player directory: downloaded") }
+                    if persistentStore != nil { print("[MFL cache] \(endpoint.rawValue): downloaded") }
                     #endif
                     value = MFLStoredResponse(key: persistentKey, data: data)
+                    loadedFromDisk = false
                 }
                 // The read belongs to all waiters, not the caller that started
                 // it. Publish before checking any individual caller's cancellation.
                 if self.readVersions[key] == version {
                     self.cache[key] = CacheEntry(data: value.data, fetchedAt: value.fetchedAt,
                         expiresAt: value.fetchedAt.addingTimeInterval(ttl), players: decoded as? MFLPlayersResponse)
-                    await persistentStore?.write(value)
+                    if !loadedFromDisk { await persistentStore?.write(value) }
                 }
                 return value
             }
@@ -927,6 +962,13 @@ public actor MFLClient {
         guard let cookie else {
             throw MFLCoreError.unauthorized("Sign in to make changes to this league.")
         }
+        // Never restore pre-mutation balances/rules after relaunch. Detach and
+        // invalidate before awaiting disk removal so old shared reads cannot
+        // repopulate it. Even an ambiguous import leaves this cache unavailable.
+        let oldLeagueCache = leagueCache
+        leagueCache = nil
+        invalidate([.league])
+        await oldLeagueCache?.remove()
         let request = try requestBuilder.makeImportRequest(
             endpoint: endpoint,
             host: try await resolvedLeagueHost(),

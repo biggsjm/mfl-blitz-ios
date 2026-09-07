@@ -1,8 +1,24 @@
 # Current app status
 
-Audited September 6, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
+Audited September 7, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Current installed private build — 0.5.3 (27)
+## Current installed private build — 0.5.3 (28), cached startup
+
+September 7, 2026. [Performance review](performance-startup.md) documents the implemented cached-launch path, scores/lineup-first request ordering, protected daily league metadata, shared player index, storage boundaries and remaining profiling work. The first successful load seeds the new display cache; existing build-27 installs do not already have it. Saved content is read-only until verification/fresh section reads complete; no offline write queue or new analytics/backend is introduced.
+
+Verification in progress:
+
+- **Core:** all 91 tests in 12 suites pass on final source (`mfl-build28-core-delivery.log`), including persistent metadata freshness, invalidation and disconnect detachment.
+- **App/native:** all 173 app unit functions and both new cached/offline native journeys pass on iOS 27 (`mfl-build28-startup-ui-refined.xcresult`) and iOS 18.4 (`mfl-build28-ios18-verified.xcresult`). The latter also verifies disabled cached lineup after successful auth while its fresh read is held, cleared stale player clocks and revoked/changed franchise handling. Complete final regression and GitHub checks are pending below.
+- **Measured scope:** cached model content became available in about 10 ms with synthetic authentication deliberately held. Two synthetic repository launches reuse one league download while still making two fresh membership checks. These are not phone/network timing guarantees.
+- **Native review:** actual cached Scores/Lineup/My Team and maximum-text offline screenshots inspected; compact status stays in scrolling content below navigation, not over the toolbar. Relative timestamps replace detailed dates. Broader Scores/Lineup maximum-text layout work remains a release gate.
+- **Final model follow-up:** all 173 app unit functions pass on delivery source (`mfl-build28-delivery-models.xcresult`, iOS 18.4), including final disconnect-cache detachment. No tests skipped.
+- **Phone:** signed build 28 installed and launched successfully on Josh's iPhone September 7. This verifies delivery, not real network launch timing. No live league mutations are used for QA.
+- **Documentation:** README, plan/remaining work, API/cache contract, product, privacy/security, package guidance and owner checklist updated for the private-storage change.
+
+Initial development checks exposed a foreground-week cache regression and a test error-assertion compile issue; both were corrected. Failed/superseded runs are not counted as final passes. Device Instruments traces, real Wi-Fi/cellular launch measurements and live Week 1 validation remain open.
+
+## Previous installed private build — 0.5.3 (27)
 
 The [lineup projection card](lineup-projections.md) places status beside kickoff locks below the divider and adds a signed green/orange projected margin against the selected week's opponent. Edited starters recalculate it immediately; incomplete, wrong-week, failed or ambiguous opponent data omits it. No new API calls, persistence, permissions or mutation behavior.
 
@@ -117,7 +133,7 @@ Default request spacing reduces pressure but does not guarantee freedom from MFL
 | Trades | Create/Resume, private drafts, Cancel/rollback, blank-save disabled, exact proposal/response review and separate counters | Counter leaves original open; acceptance can await MFL processing; no blind retries |
 | Standings | Official overall/division order, owners, artwork, anchored info and team drill-through | Missing owners not guessed; current record is not a projected record |
 | Board | Native threads/posts/replies, visible Drafts, Resume reply, Close/save/discard and exact-post readback | Saving a draft sends no post; plain text, not rich HTML or proprietary chat |
-| Storage/network | Device-only Keychain sessions/drafts/markers, daily public catalog and private memory caches | No private offline response store, analytics or backend |
+| Storage/network | Device-only Keychain sessions/drafts/markers, daily public catalog, protected league metadata/display snapshots and other private memory caches | Cached display cannot authorize changes; no full offline browsing, analytics or backend |
 
 Team/player/season reads have session-generation and canonical-route checks. Browsing never changes the active lineup draft, shared scoring week or saved trade terms. Current schedule detail replaces the scoreboard poller while visible; future weeks do not poll. League metadata and public player data remain cached during roster/player refresh.
 
@@ -155,7 +171,7 @@ The installed build includes [Player tools 1–5](player-tools-plan.md): availab
 - Season timelines use league bounds, but the separate Scores/Lineup week picker still uses 1…18.
 - Optional live biography fields vary. No headshots/news/licensed raw-stat feed or ADP is integrated; official availability and fantasy totals are now implemented.
 - Legacy live Lineup `opponent`/game-time and Lineup/Waiver `seasonPoints`/trend/rostered-percent placeholders are not reused as player research facts.
-- Broad league-format certification, multi-league switching, broader FCFS/IR formats, taxi/commissioner management, rich board HTML, private offline snapshots, diagnostics export and iPad split-view remain unfinished.
+- Broad league-format certification, multi-league switching, broader FCFS/IR formats, taxi/commissioner management, rich board HTML, full offline schedule/player browsing, diagnostics export and iPad split-view remain unfinished. Bounded display-only startup snapshots are implemented in build 28; real-device profiling remains open.
 - Full manual VoiceOver/Voice Control/Switch Control, contrast, small-screen/iPad and older-supported-OS validation remain release gates.
 - MFL client registration is unconfirmed. The app still supplies `MFL Blitz/0.1 (com.biggsjm.MFLBlitz)`; do not change a registered-client identity merely to match a marketing version.
 - GitHub private vulnerability reporting was disabled at the September 6 audit. Establish a safe private reporting route before wider distribution.

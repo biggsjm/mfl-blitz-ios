@@ -31,6 +31,12 @@ struct StandingsView: View {
             }
             ScrollViewReader { proxy in
                 List {
+                    if model.connectionMessage != nil {
+                        ConnectionStatusBanner().listRowBackground(Color.clear)
+                    }
+                    if let saved = model.cachedStandingsDate {
+                        SavedDataLabel(date: saved).listRowBackground(Color.clear)
+                    }
                     if model.isDemo {
                         DemoBanner()
                             .listRowInsets(EdgeInsets())

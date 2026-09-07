@@ -18,7 +18,7 @@ struct RootView: View {
         .animation(reduceMotion ? nil : .snappy, value: model.phase)
         .task { await model.restoreSession() }
         .overlay {
-            if model.isRestoringSession {
+            if model.isRestoringSession && model.phase == .onboarding {
                 ZStack {
                     Color(uiColor: .systemBackground).ignoresSafeArea()
                     VStack(spacing: 24) {

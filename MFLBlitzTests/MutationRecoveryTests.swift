@@ -53,7 +53,7 @@ actor MutationFixtureTransport: MFLHTTPTransport {
         self.failRound = failRound; self.boardTimeout = boardTimeout; self.hidePost = hidePost; boardAuthor = author
     }
     func revealPost() { hidePost = false }
-    func changeMembership() { membership = "0002" }
+    func changeMembership(to value: String = "0002") { membership = value }
     func delayMembership() { slowMembership = true }
     func omitProjections() { projectionsMissing = true }
     func failProjections(with error: MFLCoreError) { projectionError = error }
@@ -321,11 +321,14 @@ struct MutationRecoveryTests {
         #expect(scores.scorePrecision == 2)
     }
 
-    @Test("Restored sessions cannot silently move drafts to a different franchise")
-    func membershipChange() async throws {
+    @Test("Restored sessions cannot silently change franchise or become commissioner-only", arguments: ["0002", "0000"])
+    func membershipChange(franchise: String) async throws {
         let transport = MutationFixtureTransport()
-        await transport.changeMembership()
-        await #expect(throws: (any Error).self) { try await connected(transport) }
+        await transport.changeMembership(to: franchise)
+        do {
+            _ = try await connected(transport)
+            Issue.record("Changed membership unexpectedly restored")
+        } catch RepositoryError.missingSession { /* Expected: this is not an offline account. */ }
     }
 
     @Test("Clearing all bids explicitly clears and reads back every saved round")

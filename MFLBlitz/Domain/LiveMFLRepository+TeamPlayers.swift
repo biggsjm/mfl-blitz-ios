@@ -26,7 +26,7 @@ extension LiveMFLRepository {
         }
         let verifiedAt = refresh ? Date() : nil
         var issues: [DetailReadIssue] = []
-        let catalogByID = Dictionary(uniqueKeysWithValues: (catalog?.players ?? []).map { ($0.id, $0) })
+        let catalogByID = catalog?.playersByID ?? [:]
         if roster.players.contains(where: { catalogByID[$0.id] == nil }) { issues.append(.playerNames) }
 
         var assignments: [String: PlayerLineupAssignment] = [:]
@@ -113,8 +113,8 @@ extension LiveMFLRepository {
         let (league, catalog, details, statuses) = try await (leagueRead, catalogRead, bioRead, ownershipRead)
         try validateTeamPlayerSession(client: client, scope: workspace.storageScope)
         let teams = try TeamPlayerMapper.teams(in: league)
-        let basic = catalog?.players.first { $0.id == playerID }
-        let detailed = details?.players.first { $0.id == playerID }
+        let basic = catalog?.playersByID[playerID]
+        let detailed = details?.playersByID[playerID]
         var issues: [DetailReadIssue] = []
         if basic == nil && detailed == nil { issues.append(.playerNames) }
         if detailed == nil { issues.append(.biography) }

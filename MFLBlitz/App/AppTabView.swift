@@ -59,8 +59,9 @@ struct AppTabView: View {
         }
         .id(model.browseScope)
         .environment(model.seasonSchedule)
-        .task(id: model.browseScope) {
+        .task(id: "\(model.workspace?.storageScope ?? "none")|\(model.isUsingCachedSession)") {
             // Identity metadata is cacheable and must not hold up account entry.
+            guard !model.isUsingCachedSession else { return }
             _ = try? await model.loadTeams()
         }
         .task(id: artworkKey) {
@@ -73,6 +74,10 @@ struct AppTabView: View {
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             await model.refreshForForeground()
+        }
+        .task(id: "\(selection)|\(model.isLoadingScores)|\(model.isLoadingLineup)|\(model.isUsingCachedSession)|\(scenePhase)") {
+            guard scenePhase == .active, selection == .myTeam, !model.isUsingCachedSession,
+                  !model.isLoadingScores, !model.isLoadingLineup else { return }
             await model.transactions.refresh(ifNeeded: true)
         }
         .task(id: "\(scenePhase)-\(selection)-\(model.scopedScoreInspection?.uuidString ?? "scoreboard")") {

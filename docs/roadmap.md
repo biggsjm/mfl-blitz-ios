@@ -1,6 +1,6 @@
 # Execution plan and remaining work
 
-Updated September 6, 2026 for private build **0.5.3 (27)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records exact installation/test evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 7, 2026 for private build **0.5.3 (28)**. Checked items mean implemented, not universal live-league certification. [Current status](current-status.md) records exact installation/test evidence; [the changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 
@@ -15,7 +15,7 @@ Updated September 6, 2026 for private build **0.5.3 (27)**. Checked items mean i
 - [x] MFL standings/owner names, safe team artwork, native board threads/replies and exact-post verification.
 - [x] Approved [compact standings pattern](standings-pattern.md): numeric ordinals, division/overall ranks, shared linked team headers, real ties and conservative preseason/missing states. Authenticated read verified array order is not rank; supported configured criteria replace that assumption.
 - [x] Board Close/save/discard flow, visible Drafts and Resume reply, blank-draft filtering and storage-failure protection (0.4.1).
-- [x] Daily public player disk cache, stable league memory cache, decoded reuse, request sharing/spacing/cooldowns and no blind write retries.
+- [x] Daily public player disk cache and shared decoded index, protected daily league metadata and display-only cached startup, prioritized initial reads, request sharing/spacing/cooldowns and no blind write retries. See [performance review](performance-startup.md).
 - [x] Original icons, explicit Week N controls, adaptive layouts and accessibility foundations.
 - [x] Performance regressions, four synthetic managers across two accelerated weeks and native UI journeys; private build installed on the owner's phone.
 - [x] Initial My Team/shared team roster, Player Detail, team/league season schedules and canonical-ID navigation. Player tools 1–5 extend this in the installed build.
@@ -27,6 +27,7 @@ Josh wants to test personally in Week 1 and invite the league in Week 2 if it go
 | Remaining gate | Owner / action | Done when |
 | --- | --- | --- |
 | Live scoring and rollover | Josh, with developer triage | Week 1 totals, player points/FLEX, clocks, final corrections, offline recovery and Week 2 selection match MFL; record build/time/result in the [checklist](week-1-testing.md) |
+| Cached startup on phone | Josh + developer | Seed build 28 once; warm relaunch shows known content before reconnect, offline retains it, recovery updates it, and no cached lineup enables a submission. Record Wi-Fi/cellular time-to-content |
 | Live standings | Josh + developer | Completed-week division/overall places, H2H and true ties match the signed-in MFL report; identify any commissioner custom order not mirrored by the API |
 | Real write verification | Josh + consenting league/test owner | Intended lineup, $0/conditional queue and processing, trade proposal/each response, board thread/reply, watchlist changes, FCFS add/drop and eligible IR moves match MFL; ambiguous outcomes cause no duplicate writes. Exercise unwanted/destructive cases only in a disposable league |
 | Regression and usability | Developer + owner | Full core/app/UI suites green on candidate; small-screen/iPad, light/dark, large text, VoiceOver, Voice Control/Switch Control, contrast and deadline flows reviewed; release blockers resolved |
@@ -72,7 +73,8 @@ These are retained in the [approved plan](player-tools-plan.md) and are not impl
 - [ ] Broader rule rendering: superflex/IDP, duplicate-player ownership, best ball/total points, doubleheaders and unusual seasons. Keep unsupported capabilities explicit and non-actionable.
 - [ ] Broader non-conditional BBID and classic priority waivers. Conditional blind bidding and capability-gated FCFS are implemented; unsupported formats use MFL.
 - [ ] Taxi moves, broader IR formats, commissioner-on-behalf actions and richer salary/contracts. Basic Out/IR deactivation and activation with reviewed drops are implemented. Reading a field does not implement its management workflow.
-- [ ] Reviewed private-data offline/cold-start storage. Currently only the public player directory persists as a response cache.
+- [x] Bounded private display-only cached startup and daily league metadata with protection, account binding and fresh write checks (build 28). Full offline schedule/player browsing is not implemented.
+- [ ] Device Instruments launch/CPU traces and realistic p50/p95 measurements; evaluate further on-demand optional feeds based on evidence. See [performance follow-ups](performance-startup.md).
 - [ ] Rich board HTML/link handling beyond plain-text cleanup, optional standings columns and iPad split-view details.
 - [ ] Privacy-redacted diagnostics export and remaining manual accessibility work.
 - [x] Official injury/opponent/kickoff/bye and league-scored research integration. Actual game-week completeness remains under owner validation; licensed news/images/raw stats need separate sourcing.
