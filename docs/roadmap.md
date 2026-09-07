@@ -84,6 +84,7 @@ Items 6–7 are implemented in 0.6.0 (33–35), installed as build 35 and merged
 - [ ] Audit watchlist and research read cancellation on rapid navigation as a follow-up to shared availability reads; keep retry/empty/loading states distinct without relaxing mutation gates.
 - [ ] Manual VoiceOver review of missing-value announcements and full player-card comprehension; large-text screenshots and native tests do not substitute for assistive-technology use.
 - [ ] Device Instruments launch/CPU traces and realistic p50/p95 measurements; evaluate further on-demand optional feeds based on evidence. See [performance follow-ups](performance-startup.md).
+- [ ] Review native CI runtime/headroom without dropping coverage: build 36's passing GitHub iOS job took 39m35s against its 40-minute cap. Native journeys took 32m08s in CI versus 22m59s locally. Investigate runner variance and test orchestration before expanding the suite.
 - [ ] Rich board HTML/link handling beyond plain-text cleanup, optional standings columns and iPad split-view details.
 - [ ] Privacy-redacted diagnostics export and remaining manual accessibility work.
 - [x] Official injury/opponent/kickoff/bye and league-scored research integration. Actual game-week completeness remains under owner validation; licensed news/images/raw stats need separate sourcing.

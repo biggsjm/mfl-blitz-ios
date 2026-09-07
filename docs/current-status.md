@@ -2,11 +2,20 @@
 
 Audited September 7, 2026. [Roadmap](roadmap.md) is the remaining execution plan; [changelog](../CHANGELOG.md) records private-build history.
 
-## Build 0.6.0 (36) — matchup game-info candidate
+## Current installed private build — 0.6.0 (36), matchup opponent and kickoff
 
 Adds NFL opponent and device-local kickoff to matchup player rows, replacing “Yet to play” when the shared schedule is available. Live/Final uses the MFL player clock; only an explicit matching-week bye is called a bye. Starting lineups explains the time zone once. Scores and navigation remain visible while optional availability loads, without a per-player spinner or request. Scope/week checks, existing API caching and single-stack navigation are preserved.
 
-Verification, phone installation and GitHub delivery are in progress. The installed baseline remains build 35 below. Week 1 owner checks remain open, and TestFlight stays on hold until iOS 27 and macOS 27 leave beta and Josh approves distribution. No live league writes are part of this display-only change.
+- **Source:** final app/test source `1e423ae939bbb0608380a10e3ee4174813ee5ca9`; the change after `74d30f3` only adjusts screenshot/navigation order in a native test, not installed app code.
+- **Core:** all 107 tests / 13 suites pass (`mfl-build36-core-clean.log`). The first local attempt hit signing metadata in the existing build directory; a clean temporary scratch build passed without altering the package.
+- **Focused verification:** all 215 app unit functions plus three native journeys pass on iOS 27 and iOS 18.4: 218 functions / 272 executions per run, zero failures/skips/runtime warnings (`mfl-build36-verified27.xcresult`, `mfl-build36-final18.xcresult`). The final iOS 18 run includes the test-only screenshot adjustment; the full iOS 27 run is recorded separately below. Coverage includes local/DST time formatting, missing/wrong-week cache data, explicit byes, Live/Final boundaries, a held 20-second optional schedule, largest text and one-tap player/Back routing. Light/Dark screenshots and wrapped largest-text game captions were inspected.
+- **Development corrections:** early unit checks exposed nil-week being mistaken for a bye and an overly strict leading-zero expectation for localized time. Both were fixed. The first expanded iOS 18 screenshot test scrolled the player tap under the navigation bar; moving its navigation check before screenshot scrolling passed without changing app code.
+- **Phone:** signed **0.6.0 (36)** installed and successfully launched September 7 (`mfl-build36-installed.json`, `mfl-build36-launch.json`). Signature verification passed. No Preview launch arguments or live league mutations were used on the phone.
+- **Full local regression:** all 215 app unit functions and all 47 native journeys pass on exact source with iOS 27: 262 functions / 316 executions, zero failures/skips/runtime warnings (`mfl-build36-full27.xcresult`). Native journeys took 1,379 seconds and include the two-week offline simulation, Lineup/FLEX, draft recovery, player/Back, Watchlist, roster action safety, Trading Block and Calendar.
+- **GitHub:** exact-head [CI run 34165993833](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/34165993833) passed all 107 core tests, 215 app unit functions and all 47 native journeys. The iOS job completed in 39 minutes 35 seconds; native tests took 1,928 seconds with zero failures. Its proximity to the 40-minute job cap is recorded as a CI runtime/headroom follow-up in the roadmap, not an app-performance measurement.
+- **Merge:** [PR #11](https://github.com/biggsjm/mfl-blitz-ios/pull/11) squash-merged as [1a7983a](https://github.com/biggsjm/mfl-blitz-ios/commit/1a7983a61914c2a6510ba12976c4f43ef86dd837) September 7 at 5:55 PM Central. The final completion record changes documentation only; installed app source and the exact tested app/test source above remain unchanged.
+
+Week 1 owner opponent/kickoff and Live → Final checks remain open. Synthetic tests and successful launch are not live-week certification. TestFlight stays on hold until iOS 27 and macOS 27 leave beta and Josh approves distribution. No live league writes are part of this display-only change.
 
 ## Previous installed private build — 0.6.0 (35), remove the last trading-block player
 

@@ -18,6 +18,8 @@ An owner screenshot exposed URLSession cancellation being wrapped and shown as a
 
 ## Outcome
 
+Build 36 extends shared optional game-info loading to matchup rows. Opening a matchup reads the already-cached week when available and starts one model-owned availability load otherwise, without awaiting it before rendering scores or navigation. Every starter/bench cell uses the same scope/week-checked result; revisits share the memory and existing API caches. A synthetic 20-second schedule delay verifies that points appear first and the caption fills in without a spinner. No startup request, per-player schedule request, new persistence or claim of measured phone latency is added. See [current status](current-status.md) for final delivery evidence.
+
 A returning manager sees the last successfully loaded scores, lineup, standings, Board summaries and own-team season roster while the app reconnects. A small “Updating league…” status replaces the blocking reconnect overlay when an eligible cache exists. Offline, content remains with “Offline · Last update shown,” Retry and Sign in. Section timestamps use coarse relative wording, not a running seconds counter.
 
 The first-ever sign-in still needs a successful download: there is nothing truthful to cache before that. An update from build 27 also needs one successful load to seed these new screen snapshots. Missing, expired, corrupt or iOS-evicted caches fall back to the existing bounded/cancellable connection flow. Team logos remain memory-only; initials are the offline fallback. This is not a complete offline app or an offline write queue.
