@@ -50,6 +50,24 @@ struct StandingsRankingTests {
         #expect(result.places["c"] == .init(position: 3))
     }
 
+    @Test("Second, second, fourth requires known tiebreakers, not just matching records")
+    func secondPlaceTieRequiresEvidence() throws {
+        let leader = try row("leader", 2, 0, points: "300")
+        let a = try row("a", 1, 1, points: "250")
+        let b = try row("b", 1, 1, points: "250")
+        let fourth = try row("fourth", 1, 1, points: "230")
+        let known = MFLStandingsRanking.resolve([leader, a, b, fourth], criteria: "PCT,PTS", hasResults: true)
+        #expect(known.places["a"] == .init(position: 2, isTied: true))
+        #expect(known.places["b"] == .init(position: 2, isTied: true))
+        #expect(known.places["fourth"] == .init(position: 4))
+
+        let unknownPoints = try row("fourth", 1, 1, points: "")
+        let missingPoints = MFLStandingsRanking.resolve([leader, a, b, unknownPoints], criteria: "PCT,PTS", hasResults: true)
+        #expect(missingPoints.places.isEmpty && missingPoints.issue == .unavailable)
+        let missingH2H = MFLStandingsRanking.resolve([leader, a, b, fourth], criteria: "PCT,H2H,PTS", hasResults: true)
+        #expect(missingH2H.places.isEmpty && missingH2H.issue == .headToHeadUnavailable)
+    }
+
     @Test("Game ties count as half wins, not ranking ties")
     func halfWins() throws {
         let rows = try [row("a", 7, 2, 2, points: "200"), row("b", 8, 3, points: "201")]

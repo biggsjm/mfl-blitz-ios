@@ -10,7 +10,7 @@ A read-only authenticated request through the app's own session verified that Ch
 
 Verification so far:
 
-- **Core:** all **87 tests / 12 suites** pass (`mfl-standings-core-final3.log`), including 12 ranking tests plus the existing API/cache/mutation coverage.
+- **Core:** all **87 tests / 12 suites** passed (`mfl-standings-core-final3.log`), including 12 ranking tests plus the existing API/cache/mutation coverage. An additional owner-requested regression explicitly checks that T2/T2/4 cannot be inferred with missing points or H2H data; its final result is recorded with delivery below.
 - **Focused native/model checks:** **31 app model functions and 5 native UI journeys** pass on iOS 18.4 in Dark Mode (`mfl-build26-standings-verified.xcresult`). Covers header navigation, division/overall ranks, ties, no divisions, largest text, info popover, existing draft navigation and return to IR after player inspection.
 - **Full local regression / final GitHub checks / signed build 26 installation:** pending at this candidate checkpoint. Exact receipts will be recorded before declaring delivery complete.
 
