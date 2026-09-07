@@ -21,7 +21,7 @@ final class TradingBlockModel {
             try await repository.loadTradingBlock(refresh: $0)
         }
     }
-    var listing: MFLTradingBlockListing? { feed.snapshot?.listings.first { $0.id == workspace.franchiseID } }
+    var listing: MFLTradingBlockListing? { feed.snapshot?.listing(for: workspace.franchiseID) }
     var owner: TradeTeam? { feed.snapshot?.teams.first { $0.id == workspace.franchiseID } }
     var canEdit: Bool { feed.snapshot != nil && !isBusy && pending == nil && !feed.isLoading && feed.errorMessage == nil }
     var initialDraft: TradingBlockDraft {
@@ -79,9 +79,10 @@ final class TradingBlockModel {
         if let snapshot = receipt.snapshot { await feed.accept(snapshot) }
         if receipt.confirmed {
             do { try await store.remove("block.draft.\(workspace.storageScope)"); draft = nil }
-            catch { notice = "Published. The saved draft couldn’t be cleared yet."; return true }
+            catch { notice = "Saved. The draft couldn’t be cleared yet."; return true }
         }
-        notice = receipt.confirmed ? "Trading block published." : "Publication isn’t confirmed yet. Check status before trying again."
+        notice = receipt.confirmed ? (receipt.removed ? "Trading block removed." : "Trading block published.")
+            : "Change isn’t confirmed yet. Check status before trying again."
         return receipt.confirmed
     }
 

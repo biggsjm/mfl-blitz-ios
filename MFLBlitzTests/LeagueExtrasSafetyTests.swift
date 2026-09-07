@@ -61,6 +61,90 @@ struct LeagueExtrasSafetyTests {
         #expect(!TradingBlockDraft(codes: ["101"], lookingFor: "RB", baseline: baseline).canPublish)
         #expect(!TradingBlockDraft(codes: ["101"], lookingFor: String(repeating: "x", count: 257)).canPublish)
         #expect(TradingBlockDraft(codes: ["101"], lookingFor: "RB").canPublish)
+        let removal = TradingBlockDraft(baseline: baseline)
+        #expect(removal.canPublish && removal.isRemoval && removal.hasContent)
+        #expect(!TradingBlockDraft(lookingFor: "Only a note").canPublish)
+    }
+
+    @Test("Removing the last asset confirms absent or explicitly empty readback", arguments: [false, true])
+    func removeLastAsset(emptyRow: Bool) async throws {
+        let server = BlockFixtureTransport()
+        await server.keepEmptyRow(emptyRow)
+        let baseline = MFLTradingBlockListing(id: "0001", codes: ["201"], lookingFor: "RB wanted")
+        await server.setListing(baseline)
+        let repository = try await connected(server)
+        let before = try await repository.loadTradingBlock(refresh: true)
+        let receipt = try await repository.publishTradingBlock(TradingBlockDraft(lookingFor: baseline.lookingFor, baseline: baseline))
+        #expect(receipt.confirmed && receipt.removed)
+        #expect(receipt.snapshot?.listing(for: "0001") == nil)
+        #expect(receipt.snapshot?.teams == before.teams, "Listing removal never changes player/pick ownership")
+        #expect(try await repository.pendingTradingBlock() == nil)
+        #expect(await server.posts == 1)
+        // An empty owner row must not prevent making a subsequent new listing.
+        #expect(try await repository.publishTradingBlock(TradingBlockDraft(codes: ["201"])).confirmed)
+    }
+
+    @Test("Removal timeout survives relaunch and is reconciled without replay")
+    func ambiguousRemoval() async throws {
+        let server = BlockFixtureTransport()
+        let baseline = MFLTradingBlockListing(id: "0001", codes: ["201"], lookingFor: "Picks")
+        await server.setListing(baseline)
+        let store = MemoryPrivateStore()
+        let repository = try await connected(server, store: store)
+        await server.enableTimeout()
+        let draft = TradingBlockDraft(baseline: baseline)
+        #expect(try await !repository.publishTradingBlock(draft).confirmed)
+        #expect(try await repository.pendingTradingBlock()?.intended.codes.isEmpty == true)
+        await #expect(throws: (any Error).self) { try await repository.publishTradingBlock(draft) }
+        let restored = try await connected(server, store: store)
+        let receipt = try await restored.reconcileTradingBlock()
+        #expect(receipt.confirmed && receipt.removed)
+        #expect(await server.posts == 1)
+    }
+
+    @Test("An unchanged listing or a failed export never falsely confirms removal", arguments: [false, true])
+    func unconfirmedRemoval(failedExport: Bool) async throws {
+        let server = BlockFixtureTransport()
+        let baseline = MFLTradingBlockListing(id: "0001", codes: ["201"], lookingFor: "")
+        await server.setListing(baseline)
+        await server.ignoreRemoval(failRead: failedExport)
+        let repository = try await connected(server)
+        #expect(try await !repository.publishTradingBlock(TradingBlockDraft(baseline: baseline)).confirmed)
+        #expect(try await repository.pendingTradingBlock() != nil)
+        #expect(await server.posts == 1)
+    }
+
+    @Test("Removal still requires current permission and an unchanged baseline")
+    func removalPreflight() async throws {
+        let server = BlockFixtureTransport()
+        let baseline = MFLTradingBlockListing(id: "0001", codes: ["201"], lookingFor: "")
+        await server.setListing(baseline)
+        let repository = try await connected(server)
+        let draft = TradingBlockDraft(baseline: baseline)
+        await server.setListing(.init(id: "0001", codes: ["201"], lookingFor: "Changed elsewhere"))
+        await #expect(throws: (any Error).self) { try await repository.publishTradingBlock(draft) }
+        await server.setListing(baseline)
+        await server.denyTrading()
+        await #expect(throws: (any Error).self) { try await repository.publishTradingBlock(draft) }
+        #expect(await server.posts == 0)
+    }
+
+    @Test("An empty removal draft can be saved, restored and submitted")
+    @MainActor func removalDraftRecovery() async throws {
+        let repository = DemoLeagueRepository()
+        let store = ProtectedFeedStore(MemoryPrivateStore())
+        let model = TradingBlockModel(repository: repository, workspace: SampleData.workspace, store: store)
+        await model.refresh()
+        #expect(await model.publish(TradingBlockDraft(codes: ["12620"])))
+        let baseline = try #require(model.listing)
+        #expect(await model.saveDraft(TradingBlockDraft(baseline: baseline)))
+        let restored = TradingBlockModel(repository: repository, workspace: SampleData.workspace, store: store)
+        await restored.refresh()
+        #expect(restored.draft?.isRemoval == true)
+        #expect(await restored.publish(restored.initialDraft))
+        #expect(restored.notice == "Trading block removed.")
+        #expect(restored.listing == nil && restored.draft == nil)
+        #expect(!restored.initialDraft.canPublish)
     }
 
     @Test("Reminder plans span two weeks, respect overrides, and exclude past dates")
@@ -238,9 +322,15 @@ private actor BlockFixtureTransport: MFLHTTPTransport {
     var posts = 0
     var timeout = false
     var allowed = true
+    var retainsEmptyRow = false
+    var ignoresRemoval = false
+    var failsReadAfterRemoval = false
+    var removalAttempted = false
     func setListing(_ listing: MFLTradingBlockListing?) { self.listing = listing }
     func enableTimeout() { timeout = true }
     func denyTrading() { allowed = false }
+    func keepEmptyRow(_ value: Bool) { retainsEmptyRow = value }
+    func ignoreRemoval(failRead: Bool) { ignoresRemoval = true; failsReadAfterRemoval = failRead }
     func send(_ request: URLRequest) async throws -> MFLHTTPResponse {
         let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
         let type = query.first { $0.name == "TYPE" }?.value
@@ -254,11 +344,16 @@ private actor BlockFixtureTransport: MFLHTTPTransport {
                 var parts = URLComponents()
                 parts.percentEncodedQuery = String(data: request.httpBody ?? Data(), encoding: .utf8)?.replacingOccurrences(of: "+", with: "%20")
                 let fields = parts.queryItems ?? []
-                listing = .init(id: "0001", codes: Set((fields.first { $0.name == "WILL_GIVE_UP" }?.value ?? "").split(separator: ",").map(String.init)),
+                let next = MFLTradingBlockListing(id: "0001", codes: Set((fields.first { $0.name == "WILL_GIVE_UP" }?.value ?? "").split(separator: ",").map(String.init)),
                     lookingFor: fields.first { $0.name == "IN_EXCHANGE_FOR" }?.value ?? "")
+                removalAttempted = next.codes.isEmpty
+                if !removalAttempted || !ignoresRemoval {
+                    listing = removalAttempted && !retainsEmptyRow ? nil : next
+                }
                 if timeout { throw URLError(.timedOut) }
                 return MFLHTTPResponse(data: Data(#"{"status":"OK"}"#.utf8), statusCode: 200, url: request.url)
             }
+            if removalAttempted && failsReadAfterRemoval { throw URLError(.notConnectedToInternet) }
             struct Envelope: Encodable { let tradeBaits: MFLTradingBlock }
             let data = try JSONEncoder().encode(Envelope(tradeBaits: MFLTradingBlock(listings: listing.map { [$0] } ?? [])))
             return MFLHTTPResponse(data: data, statusCode: 200, url: request.url)

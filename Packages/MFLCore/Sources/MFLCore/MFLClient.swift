@@ -805,10 +805,22 @@ public actor MFLClient {
               lookingFor.count <= 256 else {
             throw MFLCoreError.invalidRequest("Choose players or draft picks and keep your note under 256 characters.")
         }
-        // Empty-list removal and listing new BB dollars are intentionally not
-        // accepted until MFL's undocumented import behavior is verified.
+        // Blank publication is not removal: the explicit removal entry point
+        // below must be selected by a confirmed existing-listing workflow.
         let result = try await performImport(endpoint: .tradeBait, parameters: [
             "WILL_GIVE_UP": codes.sorted().joined(separator: ","), "IN_EXCHANGE_FOR": lookingFor
+        ])
+        invalidate([.tradeBait])
+        return result
+    }
+
+    @discardableResult
+    public func removeTradingBlock() async throws -> MFLMutationResult {
+        // tradeBait replaces the owner's complete listing. Keep both fields
+        // present with empty values (not omitted, and no invented sentinel).
+        // The repository only confirms removal after a fresh export is empty.
+        let result = try await performImport(endpoint: .tradeBait, parameters: [
+            "WILL_GIVE_UP": "", "IN_EXCHANGE_FOR": ""
         ])
         invalidate([.tradeBait])
         return result

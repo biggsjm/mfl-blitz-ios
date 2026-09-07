@@ -2,6 +2,12 @@
 
 Implemented private-build history through September 7, 2026. The [roadmap](docs/roadmap.md) contains future work; design proposals are not releases. Some adjacent private builds were committed together.
 
+## 0.6.0 (35) — September 7, 2026 — last-player block removal
+
+- Allow demoting the last published player, saving/resuming the empty draft, then Review removal → Remove listing. Blank new drafts remain disabled.
+- Explicit removal clears the block and Looking for note, never roster membership or starters. Fresh owner/permission/baseline checks, a durable pending marker and absent/empty export confirmation prevent false success or automatic resend.
+- Keep provider acceptance separate from synthetic tests; no live listing is removed by automated QA. Settings remains on My Team.
+
 ## 0.6.0 (34) — September 7, 2026 — lineup-style block editor
 
 - Replace the block's asset-selection form with On the block / Your roster sections, position badges and green up/orange down actions; draft picks stay secondary.

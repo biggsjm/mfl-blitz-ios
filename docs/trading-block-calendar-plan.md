@@ -1,6 +1,6 @@
 # Trading Block, League Calendar and Deadline Reminders
 
-Status: **Approved and in verification**, September 7, 2026. Josh approved items 1–3 and added a current-matchup Live Activity. Build 0.6.0 (33) is installed and launched. His feedback is implemented in candidate 34: Lineup-style roster/block promotion/demotion with review/submit, and Settings relocated to My Team. No real league listing, personal calendar event or reminder has been created for automated QA.
+Status: **Implemented, final merge checks running**, September 7, 2026. Josh approved items 1–3 and added a current-matchup Live Activity. Build 0.6.0 (35) is installed with his feedback: Lineup-style roster/block promotion/demotion with review/submit, explicit last-player removal, and Settings relocated to My Team. Build 33 launched; build 35's automatic launch was blocked by the phone lock. No real league listing, personal calendar event or reminder has been created or removed for automated QA.
 
 ## Implementation checkpoint
 
@@ -10,7 +10,9 @@ Status: **Approved and in verification**, September 7, 2026. Josh approved items
 - [x] Live Activity extension and on-device lifecycle: current owner's matchup, actively playing starters, foreground updates, stale-state presentation, user dismissal and disconnect handling.
 - [ ] Final exact-source regression, signed phone delivery and GitHub merge/documentation completion.
 - [ ] Owner Week 1 validation of intended native publication, device reminders, Apple Calendar handoff and real Live Activity behavior.
-- [ ] Full block removal and listing new blind-bid dollars: still MFL-only until undocumented import semantics are verified. No speculative empty-list POST is enabled.
+- [x] Build 35: explicit last-player/full-block removal review, recoverable empty draft, owner/baseline preflight and exact empty readback; requested after Josh found the build-34 restriction.
+- [ ] Owner verification that MFL accepts the explicit empty-field replacement and shows the intended removal. Fixtures are not provider acceptance evidence.
+- [ ] Listing new blind-bid dollars remains MFL-only until its undocumented import semantics are verified.
 - [ ] Continuous background Live Activity updates need an APNs service; none is connected in this increment. Inferred lineup-review reminders remain deferred until a general league lock-rule interpretation is verified.
 
 See [implementation and test contract](league-extras-implementation.md) for precise behavior and limitations.
@@ -22,7 +24,7 @@ See [implementation and test contract](league-extras-implementation.md) for prec
 - Approved features: Trading Block and League Calendar/deadline reminders, plus the subsequently requested matchup Live Activity. Polls, playoff brackets, remote push, home-screen widgets and commissioner tools stay queued.
 - Josh confirmed the build-32 Scores cancellation fix works. That does not independently certify player-card speed or all game-week behavior.
 
-## Proposed navigation
+## Implemented navigation
 
 Keep the five main tabs and the six My Team shortcuts unchanged. Extend two existing destinations:
 
@@ -33,6 +35,8 @@ Keep the five main tabs and the six My Team shortcuts unchanged. Extend two exis
 | Calendar event → Remind me | Reminder timing | Choose an alert and return to the relevant task when it arrives |
 
 Offers and Matchups remain the default modes. Each mode preserves its scroll position. No additional bottom tab or competing Transactions/Manage roster umbrella. Existing direct season-schedule links still open matchups; the shared calendar is league-wide, not a second per-team download. New subnavigation must adapt at large text without clipping.
+
+Build 34 moves Settings to the top-left of My Team. Scores retains its Week selector at the top-right.
 
 ## 1. Trading Block
 
@@ -46,10 +50,10 @@ Offers and Matchups remain the default modes. Each mode preserves its scroll pos
 
 ### Editing my block
 
-- Select owned players and supported draft picks using the existing asset picker. The API's Looking for text is limited to **256 characters**; use a restrained counter near the limit.
+- Following Josh's build-34 feedback, use the Lineup pattern: **On the block** above **Your roster**, with green up arrows to list players and orange down arrows to remove them from the draft listing. Position badges identify players; supported owned draft picks live in a secondary disclosure. These controls never add/drop players or change starters. The API's Looking for text is limited to **256 characters**; use a restrained counter near the limit.
 - One concise publication hint: **Visible to your league.** A block advertises interest; it is not a trade offer and moves no assets.
 - **Close** follows the established draft pattern: ask Save draft / Discard / Keep editing only after meaningful changes. Empty/unchanged edits cannot publish. A saved block draft is accessible from My trading block as **Resume draft**, separate from an offer draft.
-- **Publish block** for the first listing; **Save changes** for an existing one. Removing the complete published block is a secondary, confirmed action, subject to the API verification gate below.
+- A pinned **Review & submit trading block** action opens a cancelable review of the exact assets and Looking for text. **Submit trading block** is the publication action. Blank new drafts and unchanged listings cannot submit. Clearing an existing listing instead offers **Review removal → Remove listing**; the review states that the listing/needs note will clear while every player remains on the roster. Empty removal drafts can be saved and resumed.
 - Refresh the current listing, ownership, supported assets and applicable capabilities before publishing. If the listing changed on MFL since editing began, preserve the draft and require review instead of overwriting the other version.
 - Store a scoped pending marker before the single write; read the full owner's block back and verify the requested asset set and text. A timeout offers Check status, not an automatic retry. Do not silently remove unknown or unsupported asset codes when editing an existing block.
 
@@ -57,7 +61,7 @@ Offers and Matchups remain the default modes. Each mode preserves its scroll pos
 
 The official [MFL request reference](https://api.myfantasyleague.com/2026/api_info?STATE=details) documents `tradeBait` export/import. Export with `INCLUDE_DRAFT_PICKS` includes additional asset codes. Import replaces the owner's existing block, accepts player/pick codes and a 256-character needs description. Export documents blind-bid dollars, but import does not explicitly document them: display existing dollar assets if recognized, but do not enable new dollar listings without verification.
 
-The league's unauthenticated export required sign-in on September 7. After approval, Josh supplied authenticated empty and nonempty singleton examples: `tradeBaits.tradeBait` uses `franchise_id`, `willGiveUp`, `inExchangeFor` and `timestamp`. Sanitized tests cover empty/singleton/array handling, assets, escaping, ownership conflicts and uncertain readback. Clearing semantics remain unverified and clearing is not enabled in the native client. Unknown assets are retained for display and prevent destructive replacement; use MFL for unsupported cases. No real import was sent by automated QA.
+The league's unauthenticated export required sign-in on September 7. After approval, Josh supplied authenticated empty and nonempty singleton examples: `tradeBaits.tradeBait` uses `franchise_id`, `willGiveUp`, `inExchangeFor` and `timestamp`. Sanitized tests cover empty/singleton/array handling, assets, escaping, ownership conflicts and uncertain readback. At Josh's subsequent request, build 35 implements explicit full-list removal through empty `WILL_GIVE_UP` and `IN_EXCHANGE_FOR` fields, with fresh absent/empty readback required. MFL's reference documents full replacement but not clearing semantics; live acceptance remains an owner validation item. Unknown assets remain visible and prevent silent partial replacement, but can be cleared in an explicit whole-list removal. No real import was sent by automated QA.
 
 ## 2. League Calendar
 
@@ -75,7 +79,7 @@ The league's unauthenticated export required sign-in on September 7. After appro
 
 MFL documents owner-only `calendar` and `ics` exports. Writing a league event uses commissioner-only `calendarEvent`; **creating/editing league events is outside this phase**. [MFL reference](https://api.myfantasyleague.com/2026/api_info?STATE=details).
 
-The app currently downloads raw calendar JSON for the next blind-bid processing date and only accepts explicit future occurrences. Replace this with one shared typed calendar snapshot used by Waivers, Calendar and reminders; do not add another independent polling stream.
+The previous raw calendar download for waiver timing is replaced with one shared typed calendar snapshot used by Waivers, Calendar and reminders. There is no additional independent polling stream.
 
 Josh supplied matching JSON and ICS exports after approval. JSON has epoch dates and `happens` counts; ICS provides the expanded occurrences, including November's DST shift. Its clock values lack `Z`/`TZID`, so Blitz accepts those UTC values only after every JSON event independently matches the same ICS UID/date. Additional occurrences must map unambiguously to their series and match the published count. Regenerated ICS child UIDs are not stable reminder IDs. Unknown recurrence/all-day/time-zone/exclusion formats remain partial rather than guessed. No full-calendar subscription is included.
 
@@ -84,10 +88,10 @@ Josh supplied matching JSON and ICS exports after approval. JSON has epoch dates
 ### Reminders
 
 - Put an accessible bell/Remind me control on dated events. First enablement presents a small timing sheet, then the system permission request in context—not at launch. [Apple permission guidance](https://developer.apple.com/documentation/usernotifications/asking-permission-to-use-notifications).
-- Proposed choices: **15 minutes**, **1 hour** (default), or **1 day** before. An event-specific override and Off remain easy to find.
-- Optional category preferences let a manager opt into future waiver events, trade deadlines and supported lineup-review prompts. All categories start off; no alert is inferred from merely opening Calendar.
+- Choices: **15 minutes**, **1 hour** (default), or **1 day** before. An event-specific override and Off remain easy to find.
+- Optional category preferences let a manager opt into future published waiver events and trade deadlines. All categories start off; no alert is inferred from merely opening Calendar. Inferred lineup-review prompts remain deferred.
 - Use on-device local notifications, not a push server. Deep links open the relevant league/event and workflow, with authentication/scope checks and preserved drafts. A reminder must not silently switch or overwrite an edited lineup week.
-- Schedule a bounded rolling window: proposed **next 14 days, at most 32 pending reminders**, with stable scoped identifiers and one notification per event occurrence. Refresh/reconcile when the app becomes active or the user refreshes/enables reminders; do not schedule an endless guessed weekly rule. The budget is an app policy, not a claim about Apple's maximum.
+- Schedule a bounded rolling window: **next 14 days, at most 32 pending reminders**, with stable scoped identifiers and one notification per event occurrence. Refresh/reconcile when the app becomes active or the user refreshes/enables reminders; do not schedule an endless guessed weekly rule. The budget is an app policy, not a claim about Apple's maximum.
 - Cancel/replace pending requests when a successful refresh confirms events were moved/removed; clear this app's scoped reminders on disconnect/account change. An ordinary failed refresh is not proof that all events were deleted.
 - Never create a late catch-up notification for an already-passed trigger. Explain unavailable lead times inside the timing sheet. Check current system authorization and offer Open Settings after denial without repeatedly prompting.
 - Keep alert copy short and nonsensitive. Do not put bid amounts, trade terms, credentials or unnecessary player information on the lock screen. No critical/time-sensitive bypass or badge clutter in the first version.
@@ -101,18 +105,18 @@ Offer **Add to Calendar** for a selected, verified dated event using Apple's eve
 ## Performance, security and implementation boundaries
 
 - New feeds are optional and on demand. They must not delay sign-in, Scores, Lineup or primary player cards.
-- Proposed ordinary TTLs: Trading Block 5 minutes, Calendar 15 minutes. Reuse one in-flight read, the daily catalog/team metadata and existing 1.25-second request spacing/host cooldowns. User-requested refresh and publication preflight/readback remain explicitly fresh.
+- Ordinary TTLs: Trading Block 5 minutes, Calendar 15 minutes. Reuse one in-flight read, the daily catalog/team metadata and existing 1.25-second request spacing/host cooldowns. User-requested refresh and publication preflight/readback remain explicitly fresh.
 - Replace the existing forced calendar fetch in ordinary waiver display with the shared reader. Calendar information remains descriptive; MFL and fresh existing preflight enforce actual waiver eligibility.
 - Persist bounded protected display snapshots and reminder preferences/identifiers only as needed, bound to season/league/franchise. Preserve original fetch dates; cancelled or failed reads must not overwrite valid snapshots with empty data. Fresh event verification is required before adding/changing reminders from stale display data.
 - Protect listing/offer draft independence, active week, selected player and navigation Back behavior. Keep writes behind existing fresh-auth and uncertainty protections.
-- Implementation must update privacy/storage/notification disclosures, deep-link handling, API docs, fixtures and the owner checklist. This proposal does not claim any of that new storage/permission behavior is already installed.
+- Privacy/storage/notification disclosures, deep-link handling, API docs, fixtures and the owner checklist are updated with the implementation. Installation and owner acceptance are recorded separately in [current status](current-status.md).
 
 ## Delivery sequence after approval
 
 | Stage | Deliverable | Acceptance gate |
 | --- | --- | --- |
 | 0 — Contracts and layout | Authenticated read-only wire validation, sanitized fixtures, reviewable native layout | Confirm listing round trip/clear behavior and precise calendar occurrences; unresolved cases get explicit read-only limits |
-| 1 — Trading Block | Browse, edit/publish/clear, draft recovery, Make offer handoff | Exact MFL readback, conflict/timeout handling, no lost offer draft or unintended roster change |
+| 1 — Trading Block | Browse, staged edit/publish/remove, draft recovery, Make offer handoff | Exact MFL readback, conflict/timeout handling, no lost offer draft or unintended roster change; owner verifies actual empty-list acceptance |
 | 2 — Calendar | Shared typed feed and agenda with correct event/action labels | Matches MFL dates/types, time-zone/DST correctness, cancellation and offline recovery |
 | 3 — Reminders | Opt-in local alerts, timing preferences, deep links, selected-event Apple Calendar handoff | No duplicate/wrong-league/past reminders; changed-event reconciliation and permission-denial paths work |
 | 4 — Owner trial | Signed development builds and updated documentation | Josh validates intended live actions on his dev device; TestFlight stays on hold |

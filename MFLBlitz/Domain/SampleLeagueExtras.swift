@@ -10,8 +10,10 @@ extension DemoLeagueRepository {
         let fresh = try await loadTradingBlock(refresh: true)
         try TradingBlockPolicy.validate(draft, fresh: fresh, ownerID: SampleData.workspace.franchiseID)
         demoBlockListings.removeAll { $0.id == SampleData.workspace.franchiseID }
-        demoBlockListings.append(MFLTradingBlockListing(id: SampleData.workspace.franchiseID, codes: draft.codes, lookingFor: draft.lookingFor))
-        return TradingBlockReceipt(confirmed: true, snapshot: try await loadTradingBlock(refresh: true))
+        if !draft.isRemoval {
+            demoBlockListings.append(MFLTradingBlockListing(id: SampleData.workspace.franchiseID, codes: draft.codes, lookingFor: draft.lookingFor))
+        }
+        return TradingBlockReceipt(confirmed: true, snapshot: try await loadTradingBlock(refresh: true), removed: draft.isRemoval)
     }
     func loadLeagueCalendar(refresh: Bool) async throws -> LeagueCalendarSnapshot {
         let now = Date()

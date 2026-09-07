@@ -12,6 +12,10 @@ struct TradingBlockSnapshot: LeagueFeedSnapshot {
     var teams: [TradeTeam]
     var fetchedAt: Date
     var publicationAvailable = true
+
+    func listing(for ownerID: String) -> MFLTradingBlockListing? {
+        listings.first { $0.id == ownerID && (!$0.codes.isEmpty || !$0.lookingFor.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
+    }
 }
 
 struct TradingBlockDraft: Codable, Equatable, Identifiable, Sendable {
@@ -19,9 +23,11 @@ struct TradingBlockDraft: Codable, Equatable, Identifiable, Sendable {
     var codes: Set<String> = []
     var lookingFor = ""
     var baseline: MFLTradingBlockListing?
-    var hasContent: Bool { !codes.isEmpty || !lookingFor.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    // An empty existing listing is a deliberate removal, not a blank new draft.
+    var isRemoval: Bool { codes.isEmpty && baseline != nil }
+    var hasContent: Bool { isRemoval || !codes.isEmpty || !lookingFor.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     var hasChanges: Bool { codes != (baseline?.codes ?? []) || lookingFor != (baseline?.lookingFor ?? "") }
-    var canPublish: Bool { hasChanges && !codes.isEmpty && lookingFor.count <= 256 }
+    var canPublish: Bool { isRemoval || (hasChanges && !codes.isEmpty && lookingFor.count <= 256) }
 }
 
 struct PendingTradingBlock: Codable, Sendable {
@@ -33,6 +39,7 @@ struct PendingTradingBlock: Codable, Sendable {
 struct TradingBlockReceipt: Sendable {
     var confirmed: Bool
     var snapshot: TradingBlockSnapshot?
+    var removed = false
 }
 
 enum LeagueEventKind: String, Codable, CaseIterable, Sendable {
@@ -109,9 +116,12 @@ enum TradingBlockPolicy {
     }
 
     static func validate(_ draft: TradingBlockDraft, fresh: TradingBlockSnapshot, ownerID: String) throws {
-        let current = fresh.listings.first { $0.id == ownerID }
+        let current = fresh.listing(for: ownerID)
         let same = draft.baseline.map { $0.sameTerms(as: current) } ?? (current == nil)
         guard same else { throw RepositoryError.server("Your trading block changed on MFL. Your draft is kept; review the latest listing before publishing.") }
+        // Explicit whole-list removal is allowed even for an old or unsupported
+        // asset. The matching baseline prevents silently deleting another edit.
+        if draft.isRemoval { return }
         guard draft.canPublish, let owner = fresh.teams.first(where: { $0.id == ownerID }),
               draft.codes.allSatisfy({ code in owner.assets.contains { $0.id == code && [.player, .pick].contains($0.kind) } }),
               (current?.codes ?? []).allSatisfy({ MFLTradeAssetCode.isSupported($0) && !$0.hasPrefix("BB_") }) else {

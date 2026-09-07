@@ -58,7 +58,7 @@ struct TradingBlockView: View {
                 }
             }
             if let snapshot = block.feed.snapshot {
-                let listings = snapshot.listings.filter { $0.id != block.workspace.franchiseID }.sorted {
+                let listings = snapshot.listings.filter { $0.id != block.workspace.franchiseID && snapshot.listing(for: $0.id) != nil }.sorted {
                     teamName($0.id).localizedStandardCompare(teamName($1.id)) == .orderedAscending
                 }
                 if listings.isEmpty {
@@ -94,8 +94,6 @@ struct TradingBlockView: View {
             Section {
                 Link("Open MFL", destination: block.workspace.leagueURL)
                     .font(.footnote).foregroundStyle(.secondary).listRowBackground(Color.clear)
-            } footer: {
-                if block.listing != nil { Text("To remove your entire listing, use MFL for now.") }
             }
         }
         .task { guard !app.isUsingCachedSession else { return }; await block.refresh() }
@@ -159,20 +157,20 @@ private struct TradingBlockEditor: View {
             List {
                 Section {
                     if listed.isEmpty {
-                        Text("Use ↑ to put players on the block.").font(.subheadline).foregroundStyle(.secondary)
+                        Text(draft.isRemoval ? "No players on the block." : "Use ↑ to put players on the block.").font(.subheadline).foregroundStyle(.secondary)
                     }
                     ForEach(listed) { asset in assetRow(asset, listed: true) }
                 } header: {
                     HStack { Text("On the block"); Spacer(); Text("\(draft.codes.count)").monospacedDigit() }
                 }
-                Section {
+                if !draft.isRemoval { Section {
                     TextField("Looking for · optional", text: $draft.lookingFor, axis: .vertical).lineLimit(1...3)
                         .accessibilityIdentifier("block-looking-for")
                     if draft.lookingFor.count > 200 {
                         Text("\(draft.lookingFor.count)/256").font(.caption)
                             .foregroundStyle(draft.lookingFor.count > 256 ? Color.orange : .secondary)
                     }
-                }
+                } }
                 if let notice = block.notice { Text(notice).font(.footnote).foregroundStyle(.secondary) }
                 Section("Your roster") {
                     if roster.isEmpty { Text("All available players are on the block.").foregroundStyle(.secondary) }
@@ -197,7 +195,7 @@ private struct TradingBlockEditor: View {
                     if let validationMessage {
                         Text(validationMessage).font(.caption).foregroundStyle(.orange)
                     }
-                    PrimaryActionButton(title: "Review & submit trading block", systemImage: "checkmark.circle.fill",
+                    PrimaryActionButton(title: draft.isRemoval ? "Review removal" : "Review & submit trading block", systemImage: "checkmark.circle.fill",
                         isBusy: block.isBusy, isDisabled: !draft.canPublish || !block.canEdit || validationMessage != nil) {
                         review = BlockReviewSelection(draft: draft, assets: listed)
                     }.accessibilityIdentifier("block-review")
@@ -235,7 +233,6 @@ private struct TradingBlockEditor: View {
         (block.owner?.assets ?? []).filter { $0.kind == .pick && !draft.codes.contains($0.id) }.sorted(by: BlockAssetSummary.precedes)
     }
     private var validationMessage: String? {
-        if draft.codes.isEmpty, draft.baseline != nil { return "Remove your entire listing on MFL for now." }
         guard draft.canPublish, let snapshot = block.feed.snapshot else { return nil }
         return (try? TradingBlockPolicy.validate(draft, fresh: snapshot, ownerID: block.workspace.franchiseID)) == nil
             ? "Review the latest listing and current ownership before submitting." : nil
@@ -273,6 +270,13 @@ private struct TradingBlockSubmissionReview: View {
     var body: some View {
         NavigationStack {
             List {
+                if selection.draft.isRemoval {
+                    Section {
+                        Label("Remove your trading block?", systemImage: "trash")
+                        Text("Your listing and Looking for note will be cleared. Every player stays on your roster.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    }
+                } else {
                 Section("On the block · \(selection.assets.count)") {
                     ForEach(selection.assets) { BlockAssetSummary(asset: $0).padding(.vertical, 4) }
                 }
@@ -281,13 +285,15 @@ private struct TradingBlockSubmissionReview: View {
                 }
                 Section {
                     Text("Visible to your league. Your roster and lineup won’t change.").font(.subheadline).foregroundStyle(.secondary)
-                    if let notice = block.notice { Text(notice).font(.footnote).foregroundStyle(.orange) }
                 }
+                }
+                if let notice = block.notice { Text(notice).font(.footnote).foregroundStyle(.orange) }
             }
             .navigationTitle("Review trading block").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(block.isBusy) } }
             .safeAreaInset(edge: .bottom) {
-                PrimaryActionButton(title: "Submit trading block", systemImage: "checkmark.circle.fill",
+                PrimaryActionButton(title: selection.draft.isRemoval ? "Remove listing" : "Submit trading block",
+                    systemImage: selection.draft.isRemoval ? "trash" : "checkmark.circle.fill",
                     isBusy: block.isBusy, isDisabled: !block.canEdit || !selection.draft.canPublish) {
                     Task { if await block.publish(selection.draft) { submitted() } }
                 }.accessibilityIdentifier("block-publish")

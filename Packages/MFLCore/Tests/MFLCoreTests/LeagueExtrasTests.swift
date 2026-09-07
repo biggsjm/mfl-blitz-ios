@@ -93,6 +93,22 @@ struct LeagueExtrasTests {
         #expect(await transport.requests.count == 1)
     }
 
+    @Test("Explicit removal sends both empty fields in one POST without a roster mutation")
+    func blockRemovalImport() async throws {
+        let transport = ExtrasCoreTransport()
+        let client = try client(transport)
+        try await client.removeTradingBlock()
+        let requests = await transport.requests
+        #expect(requests.count == 1)
+        let request = try #require(requests.first)
+        #expect(request.httpMethod == "POST")
+        #expect(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "TYPE" }?.value == "tradeBait")
+        var body = URLComponents()
+        body.percentEncodedQuery = String(data: request.httpBody ?? Data(), encoding: .utf8)
+        #expect(body.queryItems?.first { $0.name == "WILL_GIVE_UP" }?.value == "")
+        #expect(body.queryItems?.first { $0.name == "IN_EXCHANGE_FOR" }?.value == "")
+    }
+
     @Test("Calendar display, typed reader and refresh use one cached endpoint")
     func sharedCalendarRead() async throws {
         let transport = ExtrasCoreTransport()

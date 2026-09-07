@@ -55,10 +55,11 @@ extension LiveMFLRepository {
         }
         guard try requireSession().2.storageScope == workspace.storageScope else { throw RepositoryError.missingSession }
         let expected = MFLTradingBlockListing(id: workspace.franchiseID, codes: draft.codes,
-            lookingFor: draft.lookingFor.trimmingCharacters(in: .whitespacesAndNewlines))
+            lookingFor: draft.isRemoval ? "" : draft.lookingFor.trimmingCharacters(in: .whitespacesAndNewlines))
         try privateStore.encode(PendingTradingBlock(scope: workspace.storageScope, intended: expected), key: "block.pending.\(workspace.storageScope)")
         do {
-            try await client.publishTradingBlock(codes: expected.codes, lookingFor: expected.lookingFor)
+            if draft.isRemoval { try await client.removeTradingBlock() }
+            else { try await client.publishTradingBlock(codes: expected.codes, lookingFor: expected.lookingFor) }
             return try await reconcileTradingBlock()
         } catch {
             // The request may have reached MFL. Keep the durable marker and do
@@ -75,9 +76,12 @@ extension LiveMFLRepository {
         let fresh = try await loadTradingBlock(refresh: true)
         guard try requireSession().2.storageScope == workspace.storageScope else { throw RepositoryError.missingSession }
         let listing = fresh.listings.first { $0.id == workspace.franchiseID }
-        let confirmed = listing.map { $0.codes == pending.intended.codes && cleanText($0.lookingFor) == cleanText(pending.intended.lookingFor) } ?? false
+        let removing = pending.intended.codes.isEmpty && pending.intended.lookingFor.isEmpty
+        // MFL may omit an emptied owner or retain an explicitly empty row.
+        // Only a successful, fully parsed fresh export can confirm absence.
+        let confirmed = listing.map { $0.codes == pending.intended.codes && cleanText($0.lookingFor) == cleanText(pending.intended.lookingFor) } ?? removing
         if confirmed { try privateStore.remove("block.pending.\(workspace.storageScope)") }
-        return TradingBlockReceipt(confirmed: confirmed, snapshot: fresh)
+        return TradingBlockReceipt(confirmed: confirmed, snapshot: fresh, removed: confirmed && removing)
     }
 
     func loadLeagueCalendar(refresh: Bool) async throws -> LeagueCalendarSnapshot {

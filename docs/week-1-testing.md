@@ -26,11 +26,11 @@ These checks remain open unless explicitly marked with an observation. They are 
 
 ## Before kickoff
 
-### Build 33 league extras — after confirmed installation
+### Build 35 league extras — installed for owner validation
 
-Build 33 is installed/launched. Build 34 adds the requested lineup-style editor and moves the Settings gear to My Team; check [current status](current-status.md) before validating that revision. In the block editor, move a player up, move them back down, then review/cancel: your actual roster and starting lineup must stay unchanged. Submit only a block you intend to publish. Confirm Settings opens from My Team and is absent from Scores.
+Build 35 is installed with the requested lineup-style editor, last-player removal and Settings gear on My Team. Open Blitz after unlocking the phone; see [current status](current-status.md) for launch and verification evidence. In the block editor, move a player up, move them back down, then review/cancel: your actual roster and starting lineup must stay unchanged. Submit only a block you intend to publish or remove. Confirm Settings opens from My Team and is absent from Scores.
 
-- [ ] My Team → Trades → Trading Block matches intended MFL listings. Edit only a listing you want published; verify it on MFL, then relaunch and check it. Resume/discard a private block draft without changing the published list. Entire-list removal and cash listings use MFL.
+- [ ] My Team → Trades → Trading Block matches intended MFL listings. Edit only a listing you want published; verify it on MFL, then relaunch and check it. Resume/discard a private block draft without changing the published list. Build 35: if you intend to clear the block, demote the last player, review removal and confirm; verify the listing/needs note clears on MFL while roster and starters stay unchanged. Check status after uncertainty; do not resend. Cash listings still use MFL.
 - [ ] Make offer from a listing opens the right partner/assets without sending. With an existing trade draft, Cancel/Resume preserves it and Replace requires the explicit choice.
 - [ ] My Team → Schedule → Calendar matches MFL's waiver-processing, adds-open/closed and trade deadlines in local time. Compare September and November/DST occurrences. Calendar browsing must preserve the selected lineup week, edits and offers.
 - [ ] Opt into a deadline reminder deliberately. Confirm iOS permission appears only then, denial leaves it disabled, Off removes it, and a changed deadline replaces the old notification after a fresh calendar read. Check a chosen alert while Blitz is closed; Focus/system settings can affect delivery. Do not manufacture real deadlines for QA.

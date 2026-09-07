@@ -1,6 +1,6 @@
 # Execution plan and remaining work
 
-Updated September 7, 2026 for **0.6.0 (33–34)** implementation; installed baseline and exact delivery evidence are in [current status](current-status.md). Checked items mean implemented, not universal live-league certification. [The changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+Updated September 7, 2026 for **0.6.0 (33–35)** implementation; installed baseline and exact delivery evidence are in [current status](current-status.md). Checked items mean implemented, not universal live-league certification. [The changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
 
 ## Completed baseline
 
@@ -65,7 +65,7 @@ Implementation boundaries: team/player work owns roster/player surfaces; schedul
 
 ## Next feature queue — after player tools 1–5
 
-6. [x] Trading Block: browse listings, publish players/picks/needs with owner preflight and readback, resume drafts and safely start offers. [Approved plan](trading-block-calendar-plan.md); whole-list removal/cash publication remain MFL-only until verified.
+6. [x] Trading Block: browse listings, publish players/picks/needs with owner preflight and readback, resume drafts and safely start offers. [Approved plan](trading-block-calendar-plan.md); build 35 adds explicit whole-list removal with empty readback, pending owner provider acceptance. New cash publication remains MFL-only.
 7. [x] League Calendar, opt-in deadline reminders and selected-event Apple Calendar handoff. Exact recurring instances/DST verified from owner-provided MFL exports. Development-device validation only until the distribution hold is lifted.
    - [x] Build 34 owner feedback: Lineup-style block promotion/demotion and pinned review/submit; Settings gear relocated to My Team. Exact-source verification and device delivery are recorded separately.
 8. [ ] Board polls and voting.
