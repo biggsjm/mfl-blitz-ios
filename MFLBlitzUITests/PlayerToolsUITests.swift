@@ -266,9 +266,13 @@ final class PlayerToolsUITests: XCTestCase {
         let top = app.navigationBars.firstMatch.frame.maxY
         let bottom = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : app.frame.maxY
         let frame = menu.frame
-        return frame.width >= 44 && frame.height >= 44 &&
-            frame.minX >= app.frame.minX && frame.maxX <= app.frame.maxX &&
-            frame.minY >= top && frame.maxY <= bottom
+        // UIKit's fractional point conversion can report an exact 44-point
+        // target as 43.99999999999994. Tolerate only floating-point noise,
+        // not a smaller hit target or an obscured control.
+        let epsilon = 0.001
+        return frame.width + epsilon >= 44 && frame.height + epsilon >= 44 &&
+            frame.minX + epsilon >= app.frame.minX && frame.maxX <= app.frame.maxX + epsilon &&
+            frame.minY + epsilon >= top && frame.maxY <= bottom + epsilon
     }
 
     @MainActor private func tapAction(_ menu: XCUIElement, in app: XCUIApplication, useMeasuredTouch: Bool = false) {
