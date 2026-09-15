@@ -61,9 +61,6 @@ struct AppTabView: View {
         }
         .id(model.browseScope)
         .onChange(of: model.browseScope) { scoresPath = NavigationPath(); deepLink = nil }
-        #if DEBUG
-        .onChange(of: scoresPath.count) { LeagueDeepLinkRouter.shared.previewPathCount = scoresPath.count }
-        #endif
         .environment(model.seasonSchedule)
         .onChange(of: LeagueDeepLinkRouter.shared.pending) {
             guard let route = LeagueDeepLinkRouter.shared.pending, !model.isUsingCachedSession else { return }
@@ -139,9 +136,6 @@ struct AppTabView: View {
     }
 
     private func openDeepLink(_ route: LeagueDeepLink) {
-        #if DEBUG
-        LeagueDeepLinkRouter.shared.previewRouteState = "Route opened"
-        #endif
         switch route.destination {
         case .matchup(let week, let id):
             guard let scope = model.browseScope else { return }

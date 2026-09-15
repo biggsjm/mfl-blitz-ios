@@ -2,19 +2,32 @@ import XCTest
 
 final class ActivityDeepLinkUITests: XCTestCase {
     @MainActor func testColdLiveActivityLinkOpensScoresNavigationAndGameContext() {
-        let app = start(arguments: ["--deep-link-diagnostics"])
+        let app = start()
         // Explicitly terminate so every Xcode version exercises a cold URL
         // launch rather than reusing an already-running preview session.
         app.terminate()
-        app.open(URL(string: "mflblitz://matchup?scope=2026.41333.0001&week=1&id=0001-0008")!)
-        // Xcode opens URLs through a fresh launch. Preview is deliberately not
-        // persisted as a signed-in account; resume it to consume the pending URL.
+        // Open through Safari, as a visible external caller would.
+        // Xcode 16's XCUIApplication.open launches this app without delivering
+        // the URL to its SwiftUI handler on the CI simulator.
+        let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
+        safari.launch()
+        if safari.buttons["Continue"].exists { safari.buttons["Continue"].tap() }
+        let address = safari.textFields.matching(NSPredicate(format:
+            "identifier == %@ OR identifier == %@ OR label == %@", "URL", "TabBarItemTitle", "Address")).firstMatch
+        XCTAssertTrue(address.waitForExistence(timeout: 8), safari.debugDescription)
+        address.tap()
+        safari.textFields.firstMatch.typeText("mflblitz://matchup?scope=2026.41333.0001&week=1&id=0001-0008\n")
+        // Safari presents this confirmation as a sheet rather than an Alert.
+        let open = safari.buttons["Open"]
+        XCTAssertTrue(open.waitForExistence(timeout: 5), safari.debugDescription)
+        open.tap()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
+        // Preview is deliberately not persisted as a signed-in account;
+        // resume it to consume the URL queued during onboarding.
         let preview = app.buttons["Preview Champion Hall"]
-        let diagnostics = app.staticTexts["deep-link-diagnostics"]
-        print("Cold URL before preview: \(diagnostics.exists ? diagnostics.label : "diagnostics absent")")
-        if preview.waitForExistence(timeout: 3) { preview.tap() }
+        if preview.waitForExistence(timeout: 3) { enterPreview(in: app) }
         let opened = app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 8)
-        XCTAssertTrue(opened, "Cold URL after preview: \(diagnostics.exists ? diagnostics.label : "diagnostics absent")")
+        XCTAssertTrue(opened)
         guard opened else { return }
         XCTAssertTrue(app.tabBars.buttons["Scores"].isSelected)
         XCTAssertFalse(app.buttons["Close"].exists)
@@ -33,10 +46,20 @@ final class ActivityDeepLinkUITests: XCTestCase {
 
     @MainActor private func start(arguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication(); app.launchArguments = arguments; app.launch()
-        let preview = app.buttons["Preview Champion Hall"]
-        XCTAssertTrue(preview.waitForExistence(timeout: 8)); preview.tap()
+        enterPreview(in: app)
         XCTAssertTrue(app.buttons["matchup-0001-0008"].waitForExistence(timeout: 5))
         return app
+    }
+    @MainActor private func enterPreview(in app: XCUIApplication) {
+        let preview = app.buttons["Preview Champion Hall"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 8))
+        // Unsigned simulator builds can report unavailable secure storage.
+        let alert = app.alerts["Something went wrong"]
+        if alert.exists {
+            XCTAssertTrue(alert.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Couldn’t restore your MFL session")).firstMatch.exists)
+            alert.buttons["OK"].tap()
+        }
+        preview.tap()
     }
     @MainActor private func capture(_ app: XCUIApplication, _ name: String) {
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
