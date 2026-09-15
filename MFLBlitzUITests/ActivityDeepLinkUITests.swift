@@ -20,7 +20,12 @@ final class ActivityDeepLinkUITests: XCTestCase {
         // Safari presents this confirmation as a sheet rather than an Alert.
         let open = safari.buttons["Open"]
         XCTAssertTrue(open.waitForExistence(timeout: 5), safari.debugDescription)
-        open.tap()
+        // Safari's sheet can incorrectly ask XCTest to scroll this visible
+        // button. Tap its measured center without invoking that AX action.
+        let openFrame = open.frame
+        XCTAssertTrue(safari.frame.contains(openFrame))
+        safari.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: openFrame.midX, dy: openFrame.midY)).tap()
         // Preview is deliberately not persisted as a signed-in account;
         // verify the visible screen and resume it to consume the queued URL.
         // Querying UI also reconnects XCTest to the externally launched process.
