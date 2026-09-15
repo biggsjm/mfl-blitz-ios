@@ -134,7 +134,9 @@ actor LiveMFLRepository: LeagueRepository {
             baseURL: baseURL,
             week: status?.currentWeek ?? loadedLeague.startWeek ?? 1,
             lineupWeek: status?.lineupWeek,
-            weekIsConfirmed: status != nil
+            weekIsConfirmed: status != nil,
+            firstWeek: loadedLeague.startWeek,
+            lastWeek: loadedLeague.endWeek
         )
 
         guard let cookie = await newClient.authenticationCookie() else { throw RepositoryError.missingSession }
@@ -163,7 +165,8 @@ actor LiveMFLRepository: LeagueRepository {
         self.workspace = LeagueWorkspace(leagueID: workspace.leagueID, season: workspace.season,
             leagueName: workspace.leagueName, franchiseID: workspace.franchiseID,
             franchiseName: workspace.franchiseName, baseURL: workspace.baseURL,
-            week: status.currentWeek, lineupWeek: status.lineupWeek)
+            week: status.currentWeek, lineupWeek: status.lineupWeek,
+            firstWeek: workspace.firstWeek, lastWeek: workspace.lastWeek)
         return status.currentWeek
     }
 
@@ -199,14 +202,14 @@ actor LiveMFLRepository: LeagueRepository {
             statusUpdatedAt = Date()
         }
         let isCompleted = week <= (seasonStatus?.completedWeek ?? 0)
-        async let liveTask: MFLLiveScoring? = isCompleted
-            ? client.weeklyResults(week: week)
-            : liveScoringIfAvailable(from: client, week: week, includeBench: true, refreshPolicy: refreshPolicy)
+        async let liveTask: MFLScoringRead? = isCompleted
+            ? client.weeklyResultsRead(week: week)
+            : scoringReadIfAvailable(from: client, week: week, refreshPolicy: refreshPolicy)
         async let leagueTask = client.league()
-        let (live, refreshedLeague) = try await (liveTask, leagueTask)
+        let (receipt, refreshedLeague) = try await (liveTask, leagueTask)
         self.league = refreshedLeague
 
-        guard let live else {
+        guard let receipt else {
             return ScoresSnapshot(
                 week: week,
                 matchups: [],
@@ -215,6 +218,7 @@ actor LiveMFLRepository: LeagueRepository {
                 scorePrecision: scorePrecision(for: refreshedLeague)
             )
         }
+        let live = receipt.value
         guard live.week == nil || live.week == week else {
             throw RepositoryError.server("MFL returned a different scoring week. Your existing scores were kept.")
         }
@@ -273,9 +277,10 @@ actor LiveMFLRepository: LeagueRepository {
         return ScoresSnapshot(
             week: live.week ?? week,
             matchups: matchups,
-            lastUpdated: Date(),
+            lastUpdated: receipt.fetchedAt,
             isLive: matchups.contains(where: { $0.status.isLive }),
-            scorePrecision: scorePrecision(for: refreshedLeague)
+            scorePrecision: scorePrecision(for: refreshedLeague),
+            checkedAt: receipt.fetchedAt
         )
     }
 
@@ -508,6 +513,15 @@ actor LiveMFLRepository: LeagueRepository {
                 refreshPolicy: refreshPolicy
             )
         } catch {
+            guard Self.isPreseasonLiveScoringError(error) else { throw error }
+            return nil
+        }
+    }
+
+    private func scoringReadIfAvailable(from client: MFLClient, week: Int,
+        refreshPolicy: MFLRefreshPolicy) async throws -> MFLScoringRead? {
+        do { return try await client.liveScoringRead(week: week, includeBench: true, refreshPolicy: refreshPolicy) }
+        catch {
             guard Self.isPreseasonLiveScoringError(error) else { throw error }
             return nil
         }
@@ -915,7 +929,6 @@ actor LiveMFLRepository: LeagueRepository {
         let (client, league, workspace) = try requireSession()
         let loaded = try await client.messageBoardThread(id: id, refreshPolicy: .reloadIgnoringCache)
         let franchiseByID = Dictionary(uniqueKeysWithValues: league.franchises.map { ($0.id, cleanText($0.name)) })
-        let existing = try? await loadBoard().first(where: { $0.id == id })
         let posts = loaded.messages.map { message in
             BoardPost(
                 id: message.id,
@@ -927,10 +940,10 @@ actor LiveMFLRepository: LeagueRepository {
         }
         return BoardThread(
             id: id,
-            subject: cleanText(loaded.subject ?? existing?.subject ?? "Message board"),
-            author: posts.first?.author ?? existing?.author ?? "League member",
-            preview: posts.last?.body ?? existing?.preview ?? "",
-            lastActivity: posts.last?.postedAt ?? existing?.lastActivity ?? .distantPast,
+            subject: cleanText(loaded.subject ?? "Message board"),
+            author: posts.first?.author ?? "League member",
+            preview: posts.last?.body ?? "",
+            lastActivity: posts.last?.postedAt ?? .distantPast,
             replyCount: max(0, posts.count - 1),
             isUnread: false,
             posts: posts
@@ -1072,7 +1085,8 @@ actor LiveMFLRepository: LeagueRepository {
             starters: players.filter { $0.lineupStatus == .starter },
             bench: players.filter { $0.lineupStatus == .bench },
             unclassifiedPlayers: players.filter { $0.lineupStatus == .unknown },
-            artworkURLs: TeamArtworkURLPolicy.candidates(icon: franchise?.iconURL, logo: franchise?.logoURL)
+            artworkURLs: TeamArtworkURLPolicy.candidates(icon: franchise?.iconURL, logo: franchise?.logoURL),
+            hasReportedScore: value.hasReportedScore
         )
     }
 

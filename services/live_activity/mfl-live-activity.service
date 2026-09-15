@@ -1,0 +1,18 @@
+[Unit]
+Description=MFL Blitz private background scoring
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/.local/share/mfl-live-activity/server.py --config %h/.config/mfl-live-activity/config.json --state-dir %h/.local/share/mfl-live-activity/state
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=%h/.local/share/mfl-live-activity/state
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=default.target

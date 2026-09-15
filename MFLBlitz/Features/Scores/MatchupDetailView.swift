@@ -4,33 +4,56 @@ struct MatchupDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.locale) private var locale
     @Environment(\.timeZone) private var timeZone
+    @Environment(\.scenePhase) private var scenePhase
     let matchupID: String
     var snapshot: ScoresSnapshot? = nil
     var refreshError: String? = nil
     var isRefreshingSnapshot = false
     var refreshAction: (@MainActor () async -> Void)? = nil
 
+    var offline = false
+
     @State private var benchIsExpanded = false
+    @AppStorage("matchup-view-mode") private var viewMode = "lineups"
+    @State private var heroOffscreen = false
+    @State private var heroEnd: CGFloat = .infinity
+    @State private var scrollOffset: CGFloat = 0
 
     var body: some View {
+      TimelineView(.periodic(from: .now, by: 30)) { context in
         ScrollView {
             if let matchup {
-                LazyVStack(alignment: .leading, spacing: 16) {
-                    if let message = snapshot == nil ? model.scoreRefreshError : refreshError {
-                        Label(message, systemImage: "wifi.exclamationmark")
-                            .font(.footnote).foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 10) {
+                    if let receipt = liveReceipt {
+                        Text("Team totals from Live Activity · \(ScoreFreshness.age(receipt.state.updatedAt, now: context.date))")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("activity-score-receipt")
+                        Text(matchup.away.players.isEmpty && matchup.home.players.isEmpty ? "Loading player scores…" : "Player scores below are from the last app check.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
-                    MatchupFreshnessLabel(
-                        date: displayScores.lastUpdated,
-                        isRefreshing: snapshot == nil ? model.isLoadingScores : isRefreshingSnapshot
-                    )
-
-                    MatchupDetailHeader(
-                        matchup: matchup,
-                        isDemo: model.isDemo,
-                        scorePrecision: displayScores.scorePrecision
-                    )
-
+                    ScoreFreshnessLabel(snapshot: displayScores,
+                        refreshing: snapshot == nil ? model.isLoadingScores : isRefreshingSnapshot,
+                        failed: readFailed, offline: snapshot == nil ? model.scoresOffline : offline,
+                        saved: model.isUsingCachedSession, preview: model.isDemo)
+                    if viewMode != "matchup" {
+                    ScoringMatchupHero(matchup: matchup, snapshot: displayScores,
+                        failed: readFailed, saved: model.isUsingCachedSession, teamLinks: true)
+                        .onGeometryChange(for: CGFloat.self) { geometry in
+                            geometry.frame(in: .named("matchup-content")).maxY
+                        } action: { bottom in
+                            if bottom > 0 { heroEnd = bottom }
+                        }
+                    }
+                    if matchup.isUserMatchup,model.matchupActivity.enabled,model.matchupActivity.needsContinuation {
+                        Button("Continue Live Activity",systemImage:"arrow.clockwise") {
+                            Task { await model.restartMatchupActivity() }
+                        }.buttonStyle(.bordered).disabled(model.isDemo || model.isUsingCachedSession)
+                            .accessibilityIdentifier("continue-live-activity")
+                    }
+                    if viewMode == "matchup" {
+                        MatchupModeView(matchup: matchup, week: displayScores.week, precision: displayScores.scorePrecision,
+                            showLineups: { viewMode = "lineups" })
+                    } else {
                     sectionHeading(
                         title: "Starting lineups",
                         subtitle: MatchupGameInfo.timeZoneLabel(locale: locale, timeZone: timeZone)
@@ -38,7 +61,10 @@ struct MatchupDetailView: View {
 
                     if matchup.away.starters.isEmpty && matchup.home.starters.isEmpty {
                         Group {
-                            if matchup.away.players.isEmpty && matchup.home.players.isEmpty {
+                            if matchup.away.players.isEmpty && matchup.home.players.isEmpty,
+                               (snapshot == nil ? model.isLoadingScores : isRefreshingSnapshot) {
+                                ProgressView("Loading player scores…")
+                            } else if matchup.away.players.isEmpty && matchup.home.players.isEmpty {
                                 ContentUnavailableView(
                                     "Player scoring unavailable",
                                     systemImage: "figure.american.football",
@@ -55,7 +81,8 @@ struct MatchupDetailView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 24)
                     } else {
-                        ForEach(positions(for: matchup, showingBench: false), id: \.self) { position in
+                        VStack(spacing: 6) {
+                          ForEach(positions(for: matchup, showingBench: false), id: \.self) { position in
                             PositionComparisonCard(
                                 position: position,
                                 scorePrecision: displayScores.scorePrecision,
@@ -73,12 +100,16 @@ struct MatchupDetailView: View {
                                 ),
                                 footer: nil
                             )
+                          }
                         }
                     }
+                    }
 
+                    if viewMode != "matchup" {
                     if !matchup.away.bench.isEmpty || !matchup.home.bench.isEmpty {
+                      VStack(alignment: .leading, spacing: 8) {
                         DisclosureGroup(isExpanded: $benchIsExpanded) {
-                            LazyVStack(spacing: 12) {
+                            LazyVStack(spacing: 6) {
                                 ForEach(positions(for: matchup, showingBench: true), id: \.self) { position in
                                     PositionComparisonCard(
                                         position: position,
@@ -93,21 +124,24 @@ struct MatchupDetailView: View {
                                             in: matchup.home.bench,
                                             at: position
                                         ),
-                                        footer: "Bench points · not included in team totals"
+                                        footer: nil
                                     )
                                 }
                             }
-                            .padding(.top, 12)
+                            .padding(.top, 8)
                         } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Bench scoring")
-                                    .font(.title3.bold())
-                                Text("Bench points do not count toward the matchup total")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                            Text("Bench scoring").font(.title3.bold())
                         }
                         .tint(.primary)
+                        if !benchIsExpanded {
+                            HStack(alignment: .top, spacing: 20) {
+                                benchTotal(matchup.away, trailing: false)
+                                benchTotal(matchup.home, trailing: true)
+                            }
+                            .accessibilityElement(children: .contain)
+                            .accessibilityIdentifier("bench-score-summary")
+                        }
+                      }
                     }
 
                     if !matchup.away.unclassifiedPlayers.isEmpty
@@ -141,13 +175,16 @@ struct MatchupDetailView: View {
                     Label(
                         model.isDemo
                             ? "Sample scoring data for exploring this screen."
-                            : "Team and player totals come directly from MyFantasyLeague.",
+                            : "Scoring from MyFantasyLeague.",
                         systemImage: model.isDemo ? "sparkles" : "checkmark.seal"
                     )
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
+                .modifier(UniformMatchupPlayerAreas())
+                .coordinateSpace(name: "matchup-content")
                 .padding(.horizontal, BlitzMetrics.pagePadding)
                 .padding(.bottom, 28)
                 .readablePageWidth()
@@ -161,39 +198,128 @@ struct MatchupDetailView: View {
                 .padding(.top, 48)
             }
         }
+        .accessibilityIdentifier("matchup-detail")
+        .coordinateSpace(name: "matchup-scroll")
+        .modifier(MatchupScrollMemory(mode: viewMode))
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            max(0, geometry.contentOffset.y + geometry.contentInsets.top)
+        } action: { _, offset in
+            scrollOffset = offset
+            if !heroOffscreen && offset > heroEnd { heroOffscreen = true }
+            else if heroOffscreen && offset < heroEnd - 80 { heroOffscreen = false }
+        }
+        .onChange(of: heroEnd) { _, end in
+            if !heroOffscreen && scrollOffset > end { heroOffscreen = true }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let matchup {
+                VStack(spacing: 8) {
+                    if viewMode == "matchup" || heroOffscreen {
+                        CompactMatchupScore(matchup: liveReceipt?.matchup ?? matchup, precision: displayScores.scorePrecision,
+                            stale: ScoreFreshness(snapshot: liveReceipt?.snapshot ?? displayScores, failed: readFailed, saved: model.isUsingCachedSession, preview: model.isDemo).qualifiesGameState)
+                    }
+                    Picker("Scoring view", selection: $viewMode) {
+                        Text("Lineups").tag("lineups")
+                        Text("Live players").tag("matchup")
+                    }.pickerStyle(.segmented).accessibilityIdentifier("matchup-view-mode")
+                }.padding(.horizontal, BlitzMetrics.pagePadding).padding(.vertical, 8).background(.bar)
+            }
+        }
         .pageBackground()
         .navigationTitle("Week \(displayScores.week) Matchup")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if matchup?.status.isLive == true {
+            if let matchup {
                 ToolbarItem(placement: .topBarTrailing) {
-                    StatusPill(
-                        text: "Live",
-                        systemImage: "dot.radiowaves.left.and.right",
-                        tone: .live
-                    )
+                    NavigationLink {
+                        MatchupTimelineView(matchup: matchup, week: displayScores.week, precision: displayScores.scorePrecision)
+                    } label: {
+                        Label("Matchup timeline", systemImage: "clock.arrow.circlepath")
+                    }
+                    .labelStyle(.iconOnly)
+                    .accessibilityIdentifier("open-matchup-timeline")
                 }
             }
         }
         .refreshable {
+            async let nfl: Void = refreshNFL()
+            async let games: Void = model.refreshScoringGames(week: displayScores.week, force: true)
             if let refreshAction { await refreshAction() }
             else { await model.refreshScores() }
-            await model.loadPlayerAvailability(week: displayScores.week)
+            _ = await (nfl, games)
         }
         .task(id: "\(model.workspace?.storageScope ?? "none")|\(displayScores.week)|\(model.isUsingCachedSession)") {
             guard matchup != nil, !model.isUsingCachedSession else { return }
             // Shared, cached weekly data is optional; never gate scores or player navigation on it.
             await model.loadPlayerAvailability(week: displayScores.week)
         }
+        .task(id: scenePhase) {
+            guard scenePhase == .active, snapshot == nil, !model.isUsingCachedSession else { return }
+            await model.refreshScoresOnEntry()
+        }
+        .task(id: "games|\(scenePhase)|\(displayScores.week)") {
+            guard scenePhase == .active else { return }
+            await model.refreshScoringGames(week: displayScores.week)
+        }
+        .task(id: "nfl|\(scenePhase)|\(model.workspace?.season ?? 0)|\(displayScores.week)") {
+            guard scenePhase == .active, model.usesNFLStats, !model.isUsingCachedSession,
+                  let season = model.workspace?.season else { return }
+            await model.nflStats.poll(season: season, week: displayScores.week,
+                teams: nflPlayers.map(\.nflTeam), defenseTeams: nflPlayers.filter { NFLFeedGame.isDefense($0.position) }.map(\.nflTeam))
+        }
+        .task(id: displayScores.checkedAt) {
+            guard let scope=model.workspace?.storageScope,!model.isUsingCachedSession else { return }
+            await model.matchupTimeline.observe(displayScores,scope:scope,persist:!model.isDemo)
+        }
         .environment(\.browsedScoringWeek, displayScores.week)
-        .accessibilityIdentifier("matchup-detail")
+        .environment(\.scoringContext, ScoringDisplayContext(matchupID: matchupID,
+            freshness: ScoreFreshness(snapshot: displayScores, failed: readFailed,
+                offline: snapshot == nil ? model.scoresOffline : offline, saved: model.isUsingCachedSession,
+                preview: model.isDemo, now: context.date)))
+        .playerSearch()
+      }
     }
+
+    private var nflPlayers: [MatchupPlayer] { (matchup?.away.players ?? []) + (matchup?.home.players ?? []) }
+
+    private func refreshNFL() async {
+        guard model.usesNFLStats, let season = model.workspace?.season else { return }
+        await model.nflStats.refresh(season: season, week: displayScores.week, force: true, teams: nflPlayers.map(\.nflTeam), defenseTeams: nflPlayers.filter { NFLFeedGame.isDefense($0.position) }.map(\.nflTeam))
+    }
+
+    private var readFailed: Bool { (snapshot == nil ? model.scoreRefreshError : refreshError) != nil }
 
     private var matchup: Matchup? {
         displayScores.matchups.first(where: { $0.id == matchupID })
     }
 
-    private var displayScores: ScoresSnapshot { snapshot ?? model.scores }
+    private var displayScores: ScoresSnapshot {
+        let stored = snapshot ?? model.scores
+        if !stored.matchups.contains(where: { $0.id == matchupID }), stored.checkedAt == nil,
+           let preview = model.matchupActivity.scorePreview(scope: model.workspace?.storageScope, week: stored.week, matchupID: matchupID) {
+            return preview
+        }
+        return stored
+    }
+    private var liveReceipt: ScoringLiveReceipt? {
+        guard let matchup else { return nil }
+        return ScoringLiveReceipt(matchup: matchup, snapshot: displayScores,
+            state: model.matchupActivity.latestScoreState(matchup: matchup, scope: model.workspace?.storageScope, week: displayScores.week))
+    }
+
+    private func benchTotal(_ team: MatchupTeam, trailing: Bool) -> some View {
+        let points = ScoringGamePresentation.benchPoints(for: team)
+        return VStack(alignment: trailing ? .trailing : .leading, spacing: 3) {
+            Text(points.map { "\($0.pointsText(precision: displayScores.scorePrecision)) pts" } ?? "—")
+                .font(.title3.weight(.medium)).monospacedDigit()
+            Text(team.name).font(.caption).foregroundStyle(.secondary)
+        }
+        .multilineTextAlignment(trailing ? .trailing : .leading)
+        .frame(maxWidth: .infinity, alignment: trailing ? .trailing : .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(team.name), bench points, \(points.map { $0.pointsText(precision: displayScores.scorePrecision) } ?? "not fully reported")")
+        .accessibilityIdentifier("bench-total-\(team.id)")
+    }
 
     private func sectionHeading(title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -237,201 +363,6 @@ struct MatchupDetailView: View {
     }
 }
 
-private struct MatchupFreshnessLabel: View {
-    let date: Date
-    let isRefreshing: Bool
-
-    var body: some View {
-        HStack(spacing: 5) {
-            if isRefreshing {
-                ProgressView()
-                    .controlSize(.small)
-                Text("Updating scores")
-            } else {
-                Image(systemName: "arrow.clockwise.circle.fill")
-                    .foregroundStyle(Color.blitzGreen)
-                Text("Updated \(date, style: .relative)")
-            }
-        }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .frame(maxWidth: .infinity, alignment: .trailing)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-private struct MatchupDetailHeader: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    let matchup: Matchup
-    let isDemo: Bool
-    let scorePrecision: Int
-
-    var body: some View {
-        VStack(spacing: 16) {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 6) {
-                    statusLabel
-                    sourceLabel
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                HStack {
-                    statusLabel
-                    Spacer()
-                    sourceLabel
-                }
-            }
-
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 14) {
-                    MatchupHeaderTeam(
-                        team: matchup.away,
-                        isLeading: matchup.leaderID == matchup.away.id,
-                        scorePrecision: scorePrecision
-                    )
-                    Divider().overlay(.white.opacity(0.16))
-                    MatchupHeaderTeam(
-                        team: matchup.home,
-                        isLeading: matchup.leaderID == matchup.home.id,
-                        scorePrecision: scorePrecision
-                    )
-                }
-            } else {
-                HStack(alignment: .center, spacing: 10) {
-                    MatchupHeaderTeam(
-                        team: matchup.away,
-                        isLeading: matchup.leaderID == matchup.away.id,
-                        scorePrecision: scorePrecision
-                    )
-
-                    Text("–")
-                        .font(.title2.bold())
-                        .foregroundStyle(.white.opacity(0.42))
-
-                    MatchupHeaderTeam(
-                        team: matchup.home,
-                        isLeading: matchup.leaderID == matchup.home.id,
-                        scorePrecision: scorePrecision
-                    )
-                }
-            }
-        }
-        .padding(18)
-        .foregroundStyle(.white)
-        .background {
-            RoundedRectangle(cornerRadius: 25, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [.blitzNavy, Color(red: 0.05, green: 0.13, blue: 0.25)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        }
-        .overlay(alignment: .topTrailing) {
-            Image(systemName: "bolt.fill")
-                .font(.system(size: 88))
-                .foregroundStyle(Color.blitzGreen.opacity(0.065))
-                .offset(x: -10, y: 18)
-                .accessibilityHidden(true)
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(accessibilitySummary)
-    }
-
-    private var accessibilitySummary: String {
-        "\(matchup.away.name), \(matchup.away.score.pointsText(precision: scorePrecision)) points. \(matchup.home.name), \(matchup.home.score.pointsText(precision: scorePrecision)) points. \(matchup.status.label)."
-    }
-
-    private var statusLabel: some View {
-        Label(
-            matchup.status.label.uppercased(),
-            systemImage: statusSystemImage
-        )
-        .font(.caption.bold())
-        .foregroundStyle(.white.opacity(0.78))
-        .lineLimit(2)
-    }
-
-    private var sourceLabel: some View {
-        Text(isDemo ? "PREVIEW DATA" : "OFFICIAL MFL TOTALS")
-            .font(.caption2.bold())
-            .foregroundStyle(.white.opacity(0.54))
-            .lineLimit(2)
-    }
-
-    private var statusSystemImage: String {
-        switch matchup.status {
-        case .pregame: "clock"
-        case .live: "dot.radiowaves.left.and.right"
-        case .final: "checkmark.circle"
-        case .saved: "clock.arrow.circlepath"
-        }
-    }
-}
-
-private struct MatchupHeaderTeam: View {
-    @Environment(AppModel.self) private var model
-    let team: MatchupTeam
-    let isLeading: Bool
-    let scorePrecision: Int
-
-    var body: some View {
-        VStack(spacing: 7) {
-            teamIdentityLink {
-                VStack(spacing: 7) {
-                    TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 48, artworkURLs: team.artworkURLs)
-                    VStack(spacing: 3) {
-                        Text(team.name)
-                            .font(.subheadline.weight(.semibold))
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                        if let ownerName {
-                            Text(ownerName)
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.68))
-                                .multilineTextAlignment(.center)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .accessibilityIdentifier("matchup-owner-\(team.id)")
-                        }
-                    }
-                    .frame(minHeight: 52, alignment: .top)
-                }
-            }
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(team.score.pointsText(precision: scorePrecision))
-                    .font(.system(size: 32, weight: .black, design: .rounded))
-                    .monospacedDigit()
-                if isLeading {
-                    Image(systemName: "arrowtriangle.up.fill")
-                        .font(.caption2)
-                        .foregroundStyle(Color.blitzGreen)
-                        .accessibilityLabel("Leading")
-                }
-            }
-            Text("\(team.playersRemaining) remaining")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.62))
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    @ViewBuilder
-    private func teamIdentityLink<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        if let scope = model.browseScope {
-            NavigationLink(value: TeamRoute(scope: scope, franchiseID: team.id)) { content() }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(team.name)\(ownerName.map { ", \($0)" } ?? ""), roster and schedule")
-                .accessibilityIdentifier("matchup-team-\(team.id)")
-        } else { content() }
-    }
-
-    private var ownerName: String? {
-        TeamPlayerMapper.text(model.teams.first { $0.id == team.id }?.ownerName
-            ?? model.standings.first { $0.id == team.id }?.ownerName)
-    }
-}
-
 private struct PositionComparisonCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let position: String
@@ -445,19 +376,9 @@ private struct PositionComparisonCard: View {
     private var rowCount: Int { max(awayPlayers.count, homePlayers.count) }
 
     var body: some View {
-        SurfaceCard {
-            VStack(spacing: 13) {
-                HStack(alignment: .center, spacing: 8) {
-                    Spacer()
-                    PositionBadge(position: position, isAccessibilityHidden: false)
-                        .accessibilityLabel("\(position) position comparison")
-                        .accessibilityIdentifier("position-\(position)")
-                    Spacer()
-                }
-
-                Divider()
-
+            VStack(spacing: 0) {
                 if dynamicTypeSize.isAccessibilitySize {
+                    slotLabel().padding(.vertical, 8)
                     TeamPositionStack(
                         team: awayTeam,
                         players: awayPlayers,
@@ -473,31 +394,27 @@ private struct PositionComparisonCard: View {
                     )
                 } else {
                     ForEach(0 ..< rowCount, id: \.self) { index in
-                        HStack(alignment: .top, spacing: 8) {
+                        HStack(alignment: .center, spacing: 7) {
                             MatchupPlayerCell(
                                 player: awayPlayers.indices.contains(index) ? awayPlayers[index] : nil,
                                 teamName: awayTeam.name,
+                                teamID: awayTeam.id,
                                 side: .away,
                                 scorePrecision: scorePrecision
                             )
 
-                            Rectangle()
-                                .fill(Color.secondary.opacity(0.18))
-                                .frame(width: 1)
-                                .frame(minHeight: 74)
-                                .accessibilityHidden(true)
+                            slotLabel(index: index)
 
                             MatchupPlayerCell(
                                 player: homePlayers.indices.contains(index) ? homePlayers[index] : nil,
                                 teamName: homeTeam.name,
+                                teamID: homeTeam.id,
                                 side: .home,
                                 scorePrecision: scorePrecision
                             )
                         }
+                        .padding(.vertical, 3)
 
-                        if index < rowCount - 1 {
-                            Divider()
-                        }
                     }
                 }
 
@@ -508,9 +425,21 @@ private struct PositionComparisonCard: View {
                         .frame(maxWidth: .infinity)
                 }
             }
-        }
+            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 12 : 0)
     }
 
+    private func slotLabel(index: Int = 0) -> some View {
+        Text(position)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.65)
+            .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : 24)
+            .padding(.vertical, 3)
+            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 6 : 0)
+            .accessibilityLabel("\(position) position comparison")
+            .accessibilityIdentifier(index == 0 ? "position-\(position)" : "position-\(position)-\(index)")
+    }
 }
 
 private struct TeamPositionStack: View {
@@ -533,6 +462,7 @@ private struct TeamPositionStack: View {
                     MatchupPlayerCell(
                         player: player,
                         teamName: team.name,
+                        teamID: team.id,
                         side: side,
                         scorePrecision: scorePrecision
                     )
@@ -543,17 +473,22 @@ private struct TeamPositionStack: View {
     }
 }
 
-private enum MatchupSide { case away, home }
+enum MatchupSide { case away, home }
 
-private struct MatchupPlayerCell: View {
+struct MatchupPlayerCell: View {
     @Environment(AppModel.self) private var model
     @Environment(\.browsedScoringWeek) private var inspectedWeek
     @Environment(\.locale) private var locale
     @Environment(\.timeZone) private var timeZone
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.scoringContext) private var scoringContext
+    @ScaledMetric(relativeTo: .caption) private var scoreColumnWidth = 40
     let player: MatchupPlayer?
     let teamName: String
+    let teamID: String
     let side: MatchupSide
     let scorePrecision: Int
+    var showsGameDayStatus = false
 
     private var alignment: HorizontalAlignment { side == .away ? .leading : .trailing }
     private var frameAlignment: Alignment { side == .away ? .leading : .trailing }
@@ -562,44 +497,33 @@ private struct MatchupPlayerCell: View {
         Group {
             if let player {
                 playerIdentityLink(player) {
-                    VStack(alignment: alignment, spacing: 4) {
-                        Text(player.name)
-                            .font(.subheadline.weight(.semibold))
-                            .multilineTextAlignment(side == .away ? .leading : .trailing)
-                            .lineLimit(2)
-
-                        if let livePoints = player.livePoints {
-                            Text(livePoints.pointsText(precision: scorePrecision))
-                                .font(.title3.weight(.black).monospacedDigit())
-                                .contentTransition(.numericText())
+                    Group {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            VStack(alignment: alignment, spacing: 5) {
+                                playerName(player)
+                                score(player)
+                                playerContext(player)
+                            }
                         } else {
-                            Text("—")
-                                .font(.title3.weight(.black))
-                                .accessibilityLabel("Score unavailable")
-                        }
-
-                        let gameInfo = gameInfo(for: player)
-                        Label(gameInfo.label(locale: locale, timeZone: timeZone), systemImage: gameInfo.symbol)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(gameInfo.isLive ? Color.red : Color.secondary)
-                            .multilineTextAlignment(side == .away ? .leading : .trailing)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        Text("\(player.position) · \(player.nflTeam)")
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.secondary)
-
-                        if let statLine = player.statLine?.trimmingCharacters(in: .whitespacesAndNewlines),
-                           !statLine.isEmpty
-                        {
-                            Text(statLine)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(side == .away ? .leading : .trailing)
-                                .lineLimit(3)
+                            HStack(alignment: .top, spacing: 6) {
+                                if side == .home { Color.clear.frame(width: scoreColumnWidth, height: 1) }
+                                VStack(alignment: alignment, spacing: 3) {
+                                    playerName(player)
+                                    playerContext(player)
+                                }
+                                .frame(maxWidth: .infinity, alignment: frameAlignment)
+                                if side == .away { Color.clear.frame(width: scoreColumnWidth, height: 1) }
+                            }
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: frameAlignment)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, minHeight: 72, alignment: side == .away ? .topLeading : .topTrailing)
+                    .modifier(UniformMatchupPlayerArea())
+                    .overlay(alignment: side == .away ? .trailing : .leading) {
+                        if !dynamicTypeSize.isAccessibilitySize { score(player).padding(.horizontal, 8) }
+                    }
+                    .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+                    .contentShape(Rectangle())
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(accessibilityLabel(for: player))
                 }
@@ -607,17 +531,87 @@ private struct MatchupPlayerCell: View {
                 Text("—")
                     .font(.title3)
                     .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, minHeight: 74, alignment: frameAlignment)
+                    .frame(maxWidth: .infinity, minHeight: 72, alignment: frameAlignment)
                     .accessibilityHidden(true)
+                    .modifier(UniformMatchupPlayerArea())
+                    .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
             }
         }
+    }
+
+    private func healthLabel(_ player: MatchupPlayer) -> String? {
+        guard let week = inspectedWeek, let availability = model.playerTools.availability[week],
+              availability.scope == model.workspace?.storageScope, availability.week == week,
+              let health = availability.injuries[player.id], health.needsAttention else { return nil }
+        return health.shortLabel
+    }
+
+    private func playerName(_ player: MatchupPlayer) -> some View {
+        HStack(spacing: 4) {
+            if showsGameDayStatus { Text(player.position).font(.caption2.weight(.semibold)).foregroundStyle(Color.blitzAction) }
+            ViewThatFits(in: .horizontal) {
+                Text(player.name).fixedSize(horizontal: true, vertical: false)
+                Text(shortName(player)).lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1).minimumScaleFactor(0.8)
+            }
+            .font(.footnote.weight(.semibold))
+            .frame(maxWidth: .infinity, alignment: frameAlignment)
+            if !dynamicTypeSize.isAccessibilitySize {
+                Text(player.nflTeam).font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary).fixedSize()
+            }
+        }
+    }
+
+    private func shortName(_ player: MatchupPlayer) -> String {
+        guard !NFLFeedGame.isDefense(player.position) else { return player.name }
+        let parts = player.name.split(separator: " ")
+        guard parts.count > 1, let initial = parts.first?.first else { return player.name }
+        return "\(initial). " + parts.dropFirst().joined(separator: " ")
+    }
+
+    @ViewBuilder private func playerContext(_ player: MatchupPlayer) -> some View {
+        gameCaption(player)
+        if let stats = compactStatLine(player), !stats.isEmpty {
+            Text(stats).font(.caption2).foregroundStyle(.primary)
+                .multilineTextAlignment(side == .away ? .leading : .trailing)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        if showsGameDayStatus, let health = healthLabel(player) {
+            Label(health, systemImage: "exclamationmark.circle")
+                .font(.caption2).foregroundStyle(ScoringStyle.negative)
+        }
+    }
+
+    private func score(_ player: MatchupPlayer) -> some View {
+        VStack(alignment: side == .away ? .trailing : .leading, spacing: 2) {
+            Text(ScoringGamePresentation.actualPoints(player)?.pointsText(precision: scorePrecision) ?? "—")
+                .font(.title3.weight(.semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.65)
+                .accessibilityIdentifier("matchup-points-\(teamID)-\(player.id)")
+            if showsPregameProjection(player) {
+                Text("Proj.").font(.caption2).foregroundStyle(.secondary)
+                Text(player.projectedPoints.pointsText).font(.caption2).foregroundStyle(ScoringStyle.projection).monospacedDigit()
+            }
+        }
+        .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : scoreColumnWidth,
+            alignment: side == .away ? .trailing : .leading)
+    }
+
+    private func gameCaption(_ player: MatchupPlayer) -> some View {
+        let info = gameInfo(for: player)
+        let stale = info.gameCheckedAt == nil ? scoringContext.freshness.qualifiesGameState : info.gameIsStale
+        let context = [info.compactScoreLabel ?? info.opponent,
+            info.timingLabel(locale: locale, timeZone: timeZone) ?? "Status unavailable"].compactMap { $0 }.joined(separator: " · ")
+        return Text((stale && info.isLive ? "Last known: " : "") + context)
+            .font(.caption2).foregroundStyle(info.isLive && !stale ? Color.blitzAction : Color.secondary)
+            .multilineTextAlignment(side == .away ? .leading : .trailing)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     @ViewBuilder
     private func playerIdentityLink<Content: View>(_ player: MatchupPlayer, @ViewBuilder content: () -> Content) -> some View {
         if let scope = model.browseScope {
             NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: inspectedWeek,
-                previewIdentity: PlayerIdentity(id: player.id, name: player.name, position: player.position, nflTeam: player.nflTeam))) {
+                previewIdentity: PlayerIdentity(id: player.id, name: player.name, position: player.position, nflTeam: player.nflTeam),
+                scoring: scoringRoute(for: player))) {
                 content()
             }
             .buttonStyle(.plain)
@@ -628,15 +622,50 @@ private struct MatchupPlayerCell: View {
 
     private func gameInfo(for player: MatchupPlayer) -> MatchupGameInfo {
         MatchupGameInfo(player: player, availability: inspectedWeek.flatMap { model.playerTools.availability[$0] },
-            scope: model.workspace?.storageScope, week: inspectedWeek)
+            scope: model.workspace?.storageScope, week: inspectedWeek,
+            scoringGames: inspectedWeek.flatMap { model.scoringGames[$0] }, nflGame: nflGame(player))
+    }
+
+    private func nflGame(_ player: MatchupPlayer) -> NFLFeedGame? {
+        guard model.usesNFLStats, let season = model.workspace?.season, let week = inspectedWeek else { return nil }
+        return model.nflStats.feed(season: season, week: week)?.game(team: player.nflTeam)
+    }
+    private func displayedStatLine(_ player: MatchupPlayer) -> String? {
+        if let game = nflGame(player), let summary = game.player(matching: player)?.summary {
+            return (game.statsAreStale(for: player) ? "Last known: " : "") + summary
+        }
+        return player.statLine?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func compactStatLine(_ player: MatchupPlayer) -> String? {
+        guard let game = nflGame(player), let summary = game.player(matching: player)?.compactSummary else {
+            return displayedStatLine(player)
+        }
+        return (game.statsAreStale(for: player) ? "Last known: " : "") + summary
+    }
+
+    private func showsPregameProjection(_ player: MatchupPlayer) -> Bool {
+        if let game = nflGame(player) { return game.status == "NS" }
+        let info = gameInfo(for: player)
+        return player.gameState == .pregame && !info.isLive && info.status != "Final"
+    }
+
+    private func scoringRoute(for player: MatchupPlayer) -> PlayerScoringContext? {
+        guard let week = inspectedWeek, PlayerScoringContext.isEligible(player, game: gameInfo(for: player)) else { return nil }
+        return PlayerScoringContext(matchupID: scoringContext.matchupID, teamID: teamID, week: week,
+            player: player, checkedAt: scoringContext.freshness.checkedAt, precision: scorePrecision)
     }
 
     private func accessibilityLabel(for player: MatchupPlayer) -> String {
-        let points = player.livePoints.map {
+        let points = ScoringGamePresentation.actualPoints(player).map {
             "\($0.pointsText(precision: scorePrecision)) points"
         } ?? "score unavailable"
         var label = "\(teamName), \(player.name), \(player.position), \(player.nflTeam), \(points), \(gameInfo(for: player).label(locale: locale, timeZone: timeZone))"
-        if let statLine = player.statLine, !statLine.isEmpty { label += ", \(statLine)" }
+        if showsPregameProjection(player) { label += ", pregame projection \(player.projectedPoints.pointsText)" }
+        if scoringContext.freshness.qualifiesGameState { label += ", saved game state" }
+        if let change = model.scoringChanges.change(for: .init(matchupID: scoringContext.matchupID, teamID: teamID, playerID: player.id)), !scoringContext.freshness.qualifiesGameState { label += ", \(change.signedText) points since previous check" }
+        if let statLine = displayedStatLine(player), !statLine.isEmpty { label += ", \(statLine)" }
+        if showsGameDayStatus, let health = healthLabel(player) { label += ", \(health)" }
         return label
     }
 }

@@ -18,6 +18,14 @@ struct LeagueWorkspace: Codable, Equatable, Sendable {
     let week: Int
     var lineupWeek: Int? = nil
     var weekIsConfirmed: Bool = true
+    var firstWeek: Int? = nil
+    var lastWeek: Int? = nil
+
+    var configuredWeeks: ClosedRange<Int>? {
+        guard let firstWeek, let lastWeek, (1...99).contains(firstWeek),
+              (firstWeek...99).contains(lastWeek) else { return nil }
+        return firstWeek...lastWeek
+    }
 }
 
 struct ScoresSnapshot: Codable, Equatable, Sendable {
@@ -26,9 +34,12 @@ struct ScoresSnapshot: Codable, Equatable, Sendable {
     var lastUpdated: Date
     var isLive: Bool
     var scorePrecision: Int = 1
+    /// Source receipt, not the time the screen or saved snapshot was assembled.
+    /// Nil on older caches and unverified preview data.
+    var checkedAt: Date? = nil
 
     var featuredMatchup: Matchup? {
-        matchups.first(where: { $0.isUserMatchup }) ?? matchups.first
+        matchups.first(where: { $0.isUserMatchup })
     }
 }
 
@@ -40,8 +51,22 @@ struct Matchup: Codable, Identifiable, Equatable, Sendable {
     var status: GameStatus
 
     var leaderID: String? {
-        guard away.score != home.score else { return nil }
+        guard let awayScore = away.reportedScore, let homeScore = home.reportedScore,
+              awayScore != homeScore else { return nil }
         return away.score > home.score ? away.id : home.id
+    }
+
+    /// A points difference, never a probability or a share of combined points.
+    func projectedMargin(for franchiseID: String) -> Double? {
+        guard away.id != home.id, away.id == franchiseID || home.id == franchiseID,
+              let awayProjection = away.projectedScore, awayProjection.isFinite,
+              let homeProjection = home.projectedScore, homeProjection.isFinite else { return nil }
+        let difference = away.id == franchiseID
+            ? awayProjection - homeProjection : homeProjection - awayProjection
+        guard difference.isFinite else { return nil }
+        let rounded = (difference * 10).rounded() / 10
+        guard rounded.isFinite else { return nil }
+        return rounded == 0 ? 0 : rounded
     }
 }
 
@@ -57,6 +82,9 @@ struct MatchupTeam: Codable, Identifiable, Equatable, Sendable {
     var bench: [MatchupPlayer] = []
     var unclassifiedPlayers: [MatchupPlayer] = []
     var artworkURLs: [URL] = []
+    var hasReportedScore: Bool? = nil
+
+    var reportedScore: Double? { hasReportedScore != false && score.isFinite ? score : nil }
 
     var players: [MatchupPlayer] { starters + bench + unclassifiedPlayers }
 
@@ -67,7 +95,7 @@ struct MatchupTeam: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
-struct MatchupPlayer: Codable, Identifiable, Equatable, Sendable {
+struct MatchupPlayer: Codable, Identifiable, Hashable, Sendable {
     let id: String
     var name: String
     var position: String
@@ -99,7 +127,7 @@ struct MatchupPlayer: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
-enum MatchupLineupStatus: Codable, Equatable, Sendable {
+enum MatchupLineupStatus: Codable, Hashable, Sendable {
     case starter
     case bench
     case unknown

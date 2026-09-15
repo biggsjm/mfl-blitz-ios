@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
+    <key>NFLScoringURL</key><string>$(NFL_SCORING_URL)</string>
+    <key>NFLStatsTestURL</key><string>$(NFL_STATS_TEST_URL)</string>
+    <key>MFLBackgroundSyncURL</key><string>$(MFL_BACKGROUND_SYNC_URL)</string>
     <key>NSSupportsLiveActivities</key><true/>
     <key>CFBundleURLTypes</key><array><dict>
         <key>CFBundleURLName</key><string>com.biggsjm.MFLBlitz</string>

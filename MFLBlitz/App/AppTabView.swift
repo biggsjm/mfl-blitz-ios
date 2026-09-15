@@ -7,6 +7,7 @@ struct AppTabView: View {
     @State private var selection = initialTab
     @State private var teamTabImage: UIImage?
     @State private var deepLink: LeagueDeepLink?
+    @State private var scoresPath = NavigationPath()
 
     private static var initialTab: Tab {
         #if DEBUG
@@ -26,7 +27,7 @@ struct AppTabView: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            LeagueBrowseStack { ScoresView() }
+            LeagueBrowseStack(path: $scoresPath) { ScoresView() }
                 .tabItem { Label("Scores", systemImage: "sportscourt.fill") }
                 .tag(Tab.scores)
 
@@ -53,12 +54,13 @@ struct AppTabView: View {
                 .tabItem { Label("Standings", systemImage: "list.number") }
                 .tag(Tab.standings)
 
-            NavigationStack { BoardView() }
+            LeagueBrowseStack { BoardView() }
                 .tabItem { Label("Board", systemImage: "bubble.left.and.bubble.right.fill") }
                 .tag(Tab.board)
                 .badge(model.boardThreads.filter(\.isUnread).count)
         }
         .id(model.browseScope)
+        .onChange(of: model.browseScope) { scoresPath = NavigationPath(); deepLink = nil }
         .environment(model.seasonSchedule)
         .onChange(of: LeagueDeepLinkRouter.shared.pending) {
             guard let route = LeagueDeepLinkRouter.shared.pending, !model.isUsingCachedSession else { return }
@@ -66,12 +68,12 @@ struct AppTabView: View {
             guard route.scope == model.workspace?.storageScope else {
                 model.notice = .error("This link belongs to a different league or season. Open its league to view it."); return
             }
-            deepLink = route
+            openDeepLink(route)
         }
         .task(id: model.isUsingCachedSession) {
             if let route = LeagueDeepLinkRouter.shared.pending, !model.isUsingCachedSession {
                 LeagueDeepLinkRouter.shared.pending = nil
-                if route.scope == model.workspace?.storageScope { deepLink = route }
+                if route.scope == model.workspace?.storageScope { openDeepLink(route) }
             }
         }
         .sheet(item: $deepLink) { route in
@@ -91,6 +93,11 @@ struct AppTabView: View {
             guard !model.isUsingCachedSession else { return }
             _ = try? await model.loadTeams()
         }
+        .environment(\.scoreboardIsPolling, selection == .scores && model.scopedScoreInspection == nil)
+        .task(id: "alerts|\(scenePhase)|\(model.workspace?.storageScope ?? "")|\(model.lineup.week)|\(model.isLoadingLineup)|\(LineupPushToken.shared.token ?? "")|\(LineupPushToken.shared.failed)") {
+            guard scenePhase == .active else { return }
+            await model.lineupAlerts.reconcile(model:model)
+        }
         .task(id: artworkKey) {
             let key = artworkKey
             teamTabImage = TeamTabArtwork.image(abbreviation: key.abbreviation)
@@ -107,12 +114,15 @@ struct AppTabView: View {
                   !model.isLoadingScores, !model.isLoadingLineup else { return }
             await model.transactions.refresh(ifNeeded: true)
         }
-        .task(id: "\(scenePhase)-\(selection)-\(model.scopedScoreInspection?.uuidString ?? "scoreboard")") {
+        .task(id: "\(scenePhase)-\(selection)-\(model.selectedWeek)-\(model.scopedScoreInspection?.uuidString ?? "scoreboard")") {
             guard scenePhase == .active, !model.isDemo else { return }
             // One foreground-only poller serves the scoreboard and its drill-down.
             // Keep polling finals for MFL corrections; no background timer.
+            if selection == .scores, model.scopedScoreInspection == nil { await model.refreshScoresOnEntry() }
             while !Task.isCancelled {
-                do { try await Task.sleep(for: .seconds(90 + Double.random(in: 0...10))) } catch { return }
+                let interval = ScoringRefreshCadence.interval(live: model.scores.isLive,
+                    currentWeek: model.selectedWeek == model.currentWeek, failed: model.scoreRefreshError != nil)
+                do { try await Task.sleep(for: .seconds(interval + Double.random(in: 0...3))) } catch { return }
                 guard !Task.isCancelled else { return }
                 if selection == .scores, model.scopedScoreInspection == nil {
                     await model.refreshScores(silent: true)
@@ -122,6 +132,21 @@ struct AppTabView: View {
                     await model.refreshMatchupActivity()
                 }
             }
+        }
+    }
+
+    private func openDeepLink(_ route: LeagueDeepLink) {
+        switch route.destination {
+        case .matchup(let week, let id):
+            guard let scope = model.browseScope else { return }
+            deepLink = nil
+            selection = .scores
+            scoresPath = NavigationPath([LiveMatchupRoute(scope: scope, week: week, matchupID: id)])
+        case .lineup(let week):
+            deepLink=nil;selection = .lineup
+            Task { await model.changeWeek(to:week);await model.refreshLineup() }
+        case .calendar:
+            deepLink = route
         }
     }
 
@@ -149,6 +174,7 @@ private struct LeagueDeepLinkDestination: View {
             Group {
                 if route.scope == model.workspace?.storageScope, let scope = model.browseScope, !model.isUsingCachedSession {
                     switch route.destination {
+                    case .lineup: LineupView()
                     case .calendar(let id):
                         if let calendar = model.leagueCalendar { LeagueCalendarEventView(calendar: calendar, eventID: id) }
                     case .matchup(let week, let id):
@@ -184,6 +210,7 @@ private struct MyTeamRootView: View {
                     .accessibilityIdentifier("my-team-settings")
             }
         }
+        .playerSearch()
         .sheet(isPresented: $showingSettings) { SettingsView() }
         .task {
             guard !handledInitialDestination else { return }

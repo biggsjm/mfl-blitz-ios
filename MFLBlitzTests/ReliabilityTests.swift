@@ -17,12 +17,20 @@ actor ReliabilityRepository: LeagueRepository {
     var restoreGate: TestGate?
     var lineupGate: TestGate?
     var scoreGate: TestGate?
+    var threadGate: TestGate?
+    var threadFailure: (any Error)?
+    var testBoard = SampleData.board
+    var testThreadDetails = SampleData.board
+    var threadLoads = 0
     var scoreFailure: (any Error)?
     var restoreFailure: MFLCoreError?
     var testLineup = SampleData.lineup
     var testWaivers = SampleData.waivers
     var week = 1
     var expired = false
+    var scoringGameLoads = 0
+    var scoringGameGate: TestGate?
+    var scoringGameFailure = false
     var scoreLoads = 0
     var lineupLoads = 0
     var boardLoads = 0
@@ -46,6 +54,14 @@ actor ReliabilityRepository: LeagueRepository {
     func currentWeek() async throws -> Int {
         if expired { throw MFLCoreError.unauthorized("Expired") }
         return week
+    }
+    func configureScoringGames(gate: TestGate? = nil, failed: Bool = false) { scoringGameGate = gate; scoringGameFailure = failed }
+    func loadScoringGames(week: Int, refresh: Bool) async throws -> NFLScoringSnapshot {
+        scoringGameLoads += 1
+        let scope = testWorkspace.storageScope
+        if let scoringGameGate { await scoringGameGate.wait() }
+        if scoringGameFailure { throw MFLCoreError.offline }
+        return NFLScoringSnapshot(scope: scope, week: week, games: [:], checkedAt: Date())
     }
     func loadScores(week: Int) async throws -> ScoresSnapshot {
         scoreLoads += 1
@@ -79,8 +95,24 @@ actor ReliabilityRepository: LeagueRepository {
         submittedClaims = claims; testWaivers.claims = claims
     }
     func loadStandings() async throws -> [StandingRow] { standingsLoads += 1; return SampleData.standings }
-    func loadBoard() async throws -> [BoardThread] { boardLoads += 1; return SampleData.board }
-    func loadThread(id: String) async throws -> BoardThread { SampleData.board[0] }
+    func loadBoard() async throws -> [BoardThread] { boardLoads += 1; return testBoard }
+    func loadThread(id: String) async throws -> BoardThread {
+        threadLoads += 1
+        let snapshot = testThreadDetails.first(where: { $0.id == id })
+        if let threadGate { await threadGate.wait() }
+        if let threadFailure { throw threadFailure }
+        guard let thread = snapshot else {
+            throw RepositoryError.server("Unknown synthetic thread")
+        }
+        return thread
+    }
+    func setBoard(_ value: [BoardThread]) { testBoard = value }
+    func pauseThread(_ gate: TestGate) { threadGate = gate }
+    func failThread(_ error: (any Error)?) { threadFailure = error }
+    func resumeThreads() { threadGate = nil }
+    func setThreadDetails(_ value: [BoardThread]) { testThreadDetails = value }
+    func setWorkspace(_ value: LeagueWorkspace) { testWorkspace = value }
+    func resumeLineups() { lineupGate = nil }
     func postMessage(subject: String?, body: String, threadID: String?) async throws {}
     func signOut() async {}
     func failTradeReads() { tradeReadFailure = .rateLimited(retryAfter: 15) }

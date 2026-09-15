@@ -2,6 +2,32 @@ import Foundation
 import MFLCore
 
 extension LiveMFLRepository {
+    func loadScoringRules() async throws -> [MFLScoringRule] {
+        let (client, _, workspace) = try requireSession()
+        let rules = try await client.scoringRules()
+        try validatePlayerToolsSession(client, workspace.storageScope)
+        return rules
+    }
+    func loadScoringGames(week: Int, refresh: Bool) async throws -> NFLScoringSnapshot {
+        let (client, _, workspace) = try requireSession()
+        let read = try await client.nflScoringScheduleRead(week: week,
+            refreshPolicy: refresh ? .reloadIgnoringCache : .useCache)
+        try validatePlayerToolsSession(client, workspace.storageScope)
+        var candidates: [String: [NFLGameContext]] = [:]
+        for game in read.value.matchups where game.teams.count == 2 {
+            guard game.teams[0].id != game.teams[1].id else { continue }
+            for index in 0...1 {
+                let own = game.teams[index], opponent = game.teams[1-index]
+                candidates[own.id, default: []].append(NFLGameContext(opponent: opponent.id,
+                    isHome: own.isHome, kickoff: game.kickoff, score: own.score, opponentScore: opponent.score,
+                    gameSecondsRemaining: game.gameSecondsRemaining,
+                    hasPossession: own.hasPossession, inRedZone: own.inRedZone))
+            }
+        }
+        return NFLScoringSnapshot(scope: workspace.storageScope, week: week,
+            games: candidates.compactMapValues { $0.count == 1 ? $0.first : nil }, checkedAt: read.fetchedAt)
+    }
+
     private enum AvailabilitySource: Sendable {
         case injuries(MFLInjuries?), schedule(MFLNFLSchedule?), byes(MFLByeWeeks?)
     }

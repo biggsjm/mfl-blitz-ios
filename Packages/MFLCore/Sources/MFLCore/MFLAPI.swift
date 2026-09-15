@@ -14,6 +14,7 @@ public enum MFLCoreError: Error, Equatable, Sendable {
     case invalidResponse
     case unexpectedRedirect
     case transport(String)
+    case offline
     case httpStatus(code: Int, message: String?)
     case rateLimited(retryAfter: TimeInterval?)
     case unauthorized(String)
@@ -43,6 +44,7 @@ extension MFLCoreError: LocalizedError {
         case .invalidResponse: "The server did not return a valid HTTP response."
         case .unexpectedRedirect: "MFL redirected a sensitive request, so it was stopped."
         case .transport: "Couldn’t complete the MFL request. Please try again."
+        case .offline: "You’re offline. Your saved data is still available."
         case let .httpStatus(code, message): message ?? "MFL returned HTTP \(code)."
         case let .rateLimited(retryAfter):
             if let retryAfter { "MFL rate-limited the request. Try again in \(Int(retryAfter.rounded(.up))) seconds." }
@@ -202,7 +204,7 @@ public struct MFLCacheDurations: Equatable, Sendable {
         freeAgents: 60,
         rosters: 30,
         playerRosterStatus: 15,
-        liveScoring: 90,
+        liveScoring: 60,
         standings: 60,
         messageBoard: 30,
         messageThread: 15,
@@ -286,6 +288,8 @@ public enum MFLExportEndpoint: String, CaseIterable, Sendable {
     case pointsAllowed
     case myWatchList
     case abilities
+    case rules
+    case allRules
 }
 
 public enum MFLImportEndpoint: String, CaseIterable, Sendable {

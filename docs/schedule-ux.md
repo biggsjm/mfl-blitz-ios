@@ -43,7 +43,7 @@ This builds on Apple's [Tab API](https://developer.apple.com/documentation/swift
 - Unscheduled playoff rounds use one unset-matchups note and do not imply qualification.
 - No published head-to-head schedule has its own empty state; errors never become a confirmed empty league.
 
-The separate existing Scores/Lineup Week N menu still uses 1…18. This release changes schedule bounds, not that editor's range.
+The Scores/Lineup Week N menus now share authenticated league bounds with their model validation (build 37). Missing settings fall back to a loaded season-schedule range or confirmed/previously observed weeks with an explanation; the app no longer invents 1…18 choices. See [craft refinements](craft-refinements.md).
 
 ## Verified API and caching
 

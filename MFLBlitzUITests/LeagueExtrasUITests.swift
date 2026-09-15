@@ -198,9 +198,24 @@ final class LeagueExtrasUITests: XCTestCase {
     }
     @MainActor private func openTool(_ id: String, title: String, in app: XCUIApplication) {
         app.tabBars.buttons["My Team"].firstMatch.tap()
+        if app.navigationBars[title].exists { return }
+        for _ in 0..<5 where !app.navigationBars["My Team"].exists {
+            app.navigationBars.buttons.firstMatch.tap()
+        }
         let button = app.buttons["my-team-\(id)"]
-        XCTAssertTrue(button.waitForExistence(timeout: 5))
-        for _ in 0..<8 where !button.isHittable { app.swipeUp() }
+        if !["schedule", "adds-drops"].contains(id), !button.exists {
+            let more = app.buttons["my-team-more-tools"]
+            for _ in 0..<8 where !more.isHittable { app.swipeDown() }
+            XCTAssertTrue(more.isHittable); more.tap()
+        }
+        for _ in 0..<12 {
+            if button.isHittable && button.frame.minY >= app.navigationBars.firstMatch.frame.maxY &&
+                button.frame.maxY <= app.tabBars.firstMatch.frame.minY { break }
+            if button.exists && button.frame.minY < app.navigationBars.firstMatch.frame.maxY {
+                app.swipeDown()
+            } else { app.swipeUp() }
+        }
+        XCTAssertTrue(button.isHittable)
         button.tap()
         XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 5))
     }

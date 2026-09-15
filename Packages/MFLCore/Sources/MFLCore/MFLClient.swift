@@ -252,14 +252,18 @@ public actor MFLClient {
     }
 
     public func weeklyResults(week: Int) async throws -> MFLLiveScoring {
+        try await weeklyResultsRead(week: week).value
+    }
+
+    public func weeklyResultsRead(week: Int) async throws -> MFLScoringRead {
         try validateWeek(week)
-        let result: MFLWeeklyResultsResponse = try await export(
+        let result = try await exportRead(
             MFLWeeklyResultsResponse.self, endpoint: .weeklyResults,
             host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
             parameters: ["W": String(week)], ttl: 0, refreshPolicy: .reloadIgnoringCache
         )
-        guard result.weeklyResults.week == week else { throw MFLCoreError.invalidResponse }
-        return result.weeklyResults
+        guard result.value.weeklyResults.week == week else { throw MFLCoreError.invalidResponse }
+        return MFLScoringRead(value: result.value.weeklyResults, fetchedAt: result.fetchedAt)
     }
 
     /// One league/week request covers rostered players and free agents. Unlike
@@ -500,13 +504,23 @@ public actor MFLClient {
         includeBench: Bool = false,
         refreshPolicy: MFLRefreshPolicy = .useCache
     ) async throws -> MFLLiveScoring {
+        try await liveScoringRead(week: week, includeBench: includeBench, refreshPolicy: refreshPolicy).value
+    }
+
+    /// The receipt belongs to this exact response, including coalesced/cache reads.
+    /// Reading another endpoint or rebuilding UI never advances it.
+    public func liveScoringRead(
+        week: Int? = nil,
+        includeBench: Bool = false,
+        refreshPolicy: MFLRefreshPolicy = .useCache
+    ) async throws -> MFLScoringRead {
         var parameters: [String: String] = [:]
         if let week {
             try validateWeek(week)
             parameters["W"] = String(week)
         }
         if includeBench { parameters["DETAILS"] = "1" }
-        let response: MFLLiveScoringResponse = try await export(
+        let response = try await exportRead(
             MFLLiveScoringResponse.self,
             endpoint: .liveScoring,
             host: try await resolvedLeagueHost(),
@@ -515,7 +529,7 @@ public actor MFLClient {
             ttl: configuration.cacheDurations.liveScoring,
             refreshPolicy: refreshPolicy
         )
-        return response.liveScoring
+        return MFLScoringRead(value: response.value.liveScoring, fetchedAt: response.fetchedAt)
     }
 
     public func standings(
@@ -611,6 +625,17 @@ public actor MFLClient {
         return response.nflSchedule
     }
 
+    /// Game context uses its own short freshness limit, even if the schedule
+    /// endpoint was previously cached for six hours by roster research.
+    public func nflScoringScheduleRead(week: Int, refreshPolicy: MFLRefreshPolicy = .useCache)
+        async throws -> (value: MFLNFLSchedule, fetchedAt: Date) {
+        try validateWeek(week)
+        let response = try await exportRead(MFLNFLScheduleResponse.self, endpoint: .nflSchedule, host: .api,
+            leagueID: nil, parameters: ["W": String(week)], ttl: 90, refreshPolicy: refreshPolicy, maximumAge: 90)
+        guard response.value.nflSchedule.week == week else { throw MFLCoreError.invalidResponse }
+        return (response.value.nflSchedule, response.fetchedAt)
+    }
+
     public func nflSeasonSchedule(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLNFLSeasonSchedule {
         let response = try await export(MFLNFLSeasonScheduleResponse.self, endpoint: .nflSchedule, host: .api,
             leagueID: nil, parameters: ["W": "ALL"], ttl: 21_600, refreshPolicy: refreshPolicy)
@@ -641,6 +666,14 @@ public actor MFLClient {
             throw MFLCoreError.invalidResponse
         }
         return response.playerScores
+    }
+
+    public func scoringRules() async throws -> [MFLScoringRule] {
+        let rules = try await export(MFLJSONValue.self, endpoint: .rules, host: try await resolvedLeagueHost(),
+            leagueID: configuration.league.leagueID, parameters: [:], ttl: 86_400, refreshPolicy: .useCache)
+        let descriptions = try? await export(MFLJSONValue.self, endpoint: .allRules, host: .api, leagueID: nil,
+            parameters: [:], ttl: 604_800, refreshPolicy: .useCache)
+        return try MFLScoringRule.decode(rules, descriptions: descriptions)
     }
 
     public func pointsAllowed(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLJSONValue {
@@ -914,6 +947,20 @@ public actor MFLClient {
         refreshPolicy: MFLRefreshPolicy,
         maximumAge: TimeInterval? = nil
     ) async throws -> Value {
+        try await exportRead(type, endpoint: endpoint, host: host, leagueID: leagueID,
+            parameters: parameters, ttl: ttl, refreshPolicy: refreshPolicy, maximumAge: maximumAge).value
+    }
+
+    private func exportRead<Value: Decodable>(
+        _ type: Value.Type,
+        endpoint: MFLExportEndpoint,
+        host: MFLAPIHost,
+        leagueID: String?,
+        parameters: [String: String],
+        ttl: TimeInterval,
+        refreshPolicy: MFLRefreshPolicy,
+        maximumAge: TimeInterval? = nil
+    ) async throws -> (value: Value, fetchedAt: Date) {
         let key = CacheKey(
             endpoint: endpoint,
             leagueID: leagueID,
@@ -925,8 +972,8 @@ public actor MFLClient {
            cached.fetchedAt <= Date(),
            maximumAge.map({ Date().timeIntervalSince(cached.fetchedAt) < $0 }) ?? true
         {
-            if let players = cached.players as? Value { return players }
-            return try responseDecoder.decode(type, from: cached.data)
+            if let players = cached.players as? Value { return (players, cached.fetchedAt) }
+            return (try responseDecoder.decode(type, from: cached.data), cached.fetchedAt)
         }
 
         // Coalesce cacheable reads across tabs (notably the full player catalog
@@ -935,11 +982,11 @@ public actor MFLClient {
             let value = try await read.task.value
             try Task.checkCancellation()
             if let maximumAge, Date().timeIntervalSince(value.fetchedAt) >= maximumAge {
-                return try await export(type, endpoint: endpoint, host: host, leagueID: leagueID,
+                return try await exportRead(type, endpoint: endpoint, host: host, leagueID: leagueID,
                     parameters: parameters, ttl: ttl, refreshPolicy: .reloadIgnoringCache, maximumAge: maximumAge)
             }
-            if readVersions[key] == read.id, let players = cache[key]?.players as? Value { return players }
-            return try responseDecoder.decode(type, from: value.data)
+            if readVersions[key] == read.id, let players = cache[key]?.players as? Value { return (players, value.fetchedAt) }
+            return (try responseDecoder.decode(type, from: value.data), value.fetchedAt)
         }
         let request = try requestBuilder.makeExportRequest(
             endpoint: endpoint,
@@ -998,14 +1045,14 @@ public actor MFLClient {
         }
         try Task.checkCancellation()
         if refreshPolicy == .useCache, readVersions[key] == version,
-           let players = cache[key]?.players as? Value { return players }
+           let players = cache[key]?.players as? Value { return (players, value.fetchedAt) }
         let decoded = try responseDecoder.decode(type, from: value.data)
         if refreshPolicy == .reloadIgnoringCache, ttl > 0, readVersions[key] == version {
             cache[key] = CacheEntry(data: value.data, fetchedAt: value.fetchedAt,
                 expiresAt: value.fetchedAt.addingTimeInterval(ttl), players: decoded as? MFLPlayersResponse)
             await persistentStore?.write(value)
         }
-        return decoded
+        return (decoded, value.fetchedAt)
     }
 
     private func exportData(_ request: URLRequest) async throws -> Data {
@@ -1091,6 +1138,10 @@ public actor MFLClient {
         } catch {
             if MFLCoreError.isCancellation(error) { throw CancellationError() }
             if let error = error as? MFLCoreError { throw error }
+            let networkError = error as NSError
+            if networkError.domain == NSURLErrorDomain, networkError.code == NSURLErrorNotConnectedToInternet {
+                throw MFLCoreError.offline
+            }
             // NSError descriptions may include full URLs, query values and
             // session diagnostics. Retain only the numeric code, never UserInfo.
             throw MFLCoreError.transport("Network error \((error as NSError).code)")

@@ -7,6 +7,22 @@ import Testing
 
 @Suite("MFL actor client")
 struct ClientTests {
+    @Test("Scoring receipts retain the exact fetch time through cache reuse")
+    func scoringReceipt() async throws {
+        let data = Data(#"{"liveScoring":{"week":"1","matchup":{"franchise":[{"id":"1","score":"0"},{"id":"2"}]}}}"#.utf8)
+        let transport = StubTransport(responses: [.json(data), .json(data)])
+        let client = MFLClient(configuration: try configuration(host: "www45.myfantasyleague.com"), transport: transport)
+        let first = try await client.liveScoringRead(week: 1)
+        let cached = try await client.liveScoringRead(week: 1)
+        #expect(first.fetchedAt == cached.fetchedAt)
+        #expect(await transport.recordedRequests().count == 1)
+        #expect(first.value.matchups[0].franchises[0].hasReportedScore)
+        #expect(!first.value.matchups[0].franchises[1].hasReportedScore)
+        let refreshed = try await client.liveScoringRead(week: 1, refreshPolicy: .reloadIgnoringCache)
+        #expect(refreshed.fetchedAt >= cached.fetchedAt)
+        #expect(await transport.recordedRequests().count == 2)
+    }
+
     @Test("League projections send the selected week and cookie and reuse cached results")
     func projectedScores() async throws {
         let data = Data(#"{"projectedScores":{"week":"1","playerScore":{"id":"001","score":"17.5"}}}"#.utf8)

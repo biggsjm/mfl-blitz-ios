@@ -87,11 +87,11 @@ struct LeagueCalendarView: View {
         NavigationLink(value: CalendarEventRoute(id: event.id)) {
             HStack(spacing: 12) {
                 if !dynamicTypeSize.isAccessibilitySize {
-                    Image(systemName: event.kind.symbol).font(.system(size: 22)).foregroundStyle(Color.blitzGreen).frame(width: 28)
+                    Image(systemName: event.kind.symbol).font(.system(size: 22)).foregroundStyle(Color.blitzAction).frame(width: 28)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     if dynamicTypeSize.isAccessibilitySize {
-                        Image(systemName: event.kind.symbol).font(.system(size: 24)).foregroundStyle(Color.blitzGreen).accessibilityHidden(true)
+                        Image(systemName: event.kind.symbol).font(.system(size: 24)).foregroundStyle(Color.blitzAction).accessibilityHidden(true)
                     }
                     Text(event.displayTitle).font(.headline)
                     Text(event.start.formatted(date: .abbreviated, time: .shortened)).font(.subheadline).foregroundStyle(.secondary)

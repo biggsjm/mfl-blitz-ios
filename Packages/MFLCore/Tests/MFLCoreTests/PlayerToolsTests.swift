@@ -6,6 +6,29 @@ import Testing
 @testable import MFLCore
 
 struct PlayerToolsTests {
+    @Test func nflLiveFieldsPreserveZerosAndMissingValues() throws {
+        let text = #"{"nflSchedule":{"week":"1","matchup":{"kickoff":"1789345200","gameSecondsRemaining":"1404","team":[{"id":"DAL","score":"24","isHome":"0","hasPossession":"1","inRedZone":"0"},{"id":"NYG","score":"0","isHome":"1"}]}}}"#
+        let game = try #require(JSONDecoder().decode(MFLNFLScheduleResponse.self, from: Data(text.utf8)).nflSchedule.matchups.first)
+        #expect(game.gameSecondsRemaining == 1404)
+        #expect(game.teams[0].score == 24 && game.teams[0].hasPossession == true && game.teams[0].inRedZone == false)
+        #expect(game.teams[1].score == 0 && game.teams[1].hasPossession == nil)
+        #expect(try JSONDecoder().decode(MFLNFLMatchup.self, from: JSONEncoder().encode(game)) == game)
+        let missing = try JSONDecoder().decode(MFLNFLMatchup.self, from: Data(#"{"team":{"id":"DAL","score":"-1"},"gameSecondsRemaining":"3601"}"#.utf8))
+        #expect(missing.teams[0].score == nil && missing.gameSecondsRemaining == nil)
+    }
+
+    @Test func nflScoringReadReusesReceiptAndValidatesWeek() async throws {
+        let transport = PlayerToolsTransport()
+        let client = try makeClient(transport)
+        let first = try await client.nflScoringScheduleRead(week: 2)
+        let second = try await client.nflScoringScheduleRead(week: 2)
+        #expect(first.fetchedAt == second.fetchedAt)
+        #expect(await transport.requests.count == 1)
+        _ = try await client.nflScoringScheduleRead(week: 2, refreshPolicy: .reloadIgnoringCache)
+        #expect(await transport.requests.count == 2)
+        await #expect(throws: MFLCoreError.invalidResponse) { try await client.nflScoringScheduleRead(week: 3) }
+    }
+
     @Test("Only explicit free agents with absent or false restriction flags can be added")
     func acquisitionFlags() throws {
         func allowed(_ json: String) throws -> Bool {

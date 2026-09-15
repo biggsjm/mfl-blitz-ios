@@ -1,0 +1,189 @@
+{
+  "schema": 1,
+  "provider": "API-NFL",
+  "entries": [
+    {
+      "season": 2026,
+      "mflID": "14842",
+      "mflName": "Michael Pittman",
+      "providerID": 1501,
+      "providerName": "Michael Pittman Jr.",
+      "team": "PIT",
+      "position": "WR",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": []
+    },
+    {
+      "season": 2026,
+      "mflID": "15253",
+      "mflName": "Travis Etienne",
+      "providerID": 72,
+      "providerName": "Travis Etienne Jr.",
+      "team": "NOS",
+      "position": "RB",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": []
+    },
+    {
+      "season": 2026,
+      "mflID": "15716",
+      "mflName": "Brian Robinson",
+      "providerID": 1265,
+      "providerName": "Brian Robinson Jr.",
+      "team": "ATL",
+      "position": "RB",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": []
+    },
+    {
+      "season": 2026,
+      "mflID": "16174",
+      "mflName": "Chris Rodriguez",
+      "providerID": 16716,
+      "providerName": "Chris Rodriguez Jr.",
+      "team": "JAC",
+      "position": "RB",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": []
+    },
+    {
+      "season": 2026,
+      "mflID": "16387",
+      "mflName": "Chris Brooks",
+      "providerID": 17539,
+      "providerName": "Christopher Brooks",
+      "team": "GBP",
+      "position": "RB",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": [
+        "https://byucougars.com/running-backs"
+      ]
+    },
+    {
+      "season": 2026,
+      "mflID": "17030",
+      "mflName": "Cam Ward",
+      "providerID": 25074,
+      "providerName": "Cameron Ward",
+      "team": "TEN",
+      "position": "QB",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": [
+        "https://www.tennesseetitans.com/team/players-roster/cam-ward/career"
+      ]
+    },
+    {
+      "season": 2026,
+      "mflID": "17045",
+      "mflName": "Cam Skattebo",
+      "providerID": 31107,
+      "providerName": "Cameron Skattebo",
+      "team": "NYG",
+      "position": "RB",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": [
+        "https://hornetsports.com/sports/football/roster/cameron-skattebo/7450",
+        "https://www.giants.com/team/players-roster/cam-skattebo/"
+      ]
+    },
+    {
+      "season": 2026,
+      "mflID": "17053",
+      "mflName": "Woody Marks",
+      "providerID": 23362,
+      "providerName": "Jo'quavious Marks",
+      "team": "HOU",
+      "position": "RB",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": [
+        "https://www.houstontexans.com/team/players-roster/woody-marks/"
+      ]
+    },
+    {
+      "season": 2026,
+      "mflID": "17070",
+      "mflName": "Luther Burden",
+      "providerID": 11503,
+      "providerName": "Luther Burden III",
+      "team": "CHI",
+      "position": "WR",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": []
+    },
+    {
+      "season": 2026,
+      "mflID": "17099",
+      "mflName": "Oronde Gadsden",
+      "providerID": 24639,
+      "providerName": "Oronde Gadsden II",
+      "team": "LAC",
+      "position": "TE",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": []
+    },
+    {
+      "season": 2026,
+      "mflID": "17103",
+      "mflName": "Harold Fannin",
+      "providerID": 19667,
+      "providerName": "Harold Fannin Jr.",
+      "team": "CLE",
+      "position": "TE",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": []
+    },
+    {
+      "season": 2026,
+      "mflID": "17256",
+      "mflName": "Jacory Croskey-Merritt",
+      "providerID": 27317,
+      "providerName": "Jacory Merritt",
+      "team": "WAS",
+      "position": "RB",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": [
+        "https://www.commanders.com/team/players-roster/jacory-croskey-merritt/",
+        "https://bamastatesports.com/sports/football/roster/jacory-merritt/5698"
+      ]
+    },
+    {
+      "season": 2026,
+      "mflID": "17482",
+      "mflName": "Mike Washington Jr.",
+      "providerID": 18106,
+      "providerName": "Mike Washington",
+      "team": "LVR",
+      "position": "RB",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": []
+    },
+    {
+      "season": 2026,
+      "mflID": "17501",
+      "mflName": "KC Concepcion",
+      "providerID": 39201,
+      "providerName": "Kevin Concepcion",
+      "team": "CLE",
+      "position": "WR",
+      "reviewedAt": "2026-09-14",
+      "evidence": "Compared MFL catalog and API-NFL Week 1 box plus same-ID roster. Unique identity within team and position; reviewed name variant.",
+      "sources": [
+        "https://gopack.com/news/2022/12/20/football-pack23-signing-day-central",
+        "https://12thman.com/documents/download/2025/12/19/08_-_Miami_-_Flip_Card_Final.pdf"
+      ]
+    }
+  ]
+}

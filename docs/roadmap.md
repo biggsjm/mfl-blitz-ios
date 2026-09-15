@@ -1,14 +1,48 @@
 # Execution plan and remaining work
 
-Updated September 7, 2026 for **0.6.0 (33–36)** implementation; installed baseline and exact delivery evidence are in [current status](current-status.md). Checked items mean implemented, not universal live-league certification. [The changelog](../CHANGELOG.md) records release history. Earlier “read-only TestFlight” milestone headings are superseded: native write workflows exist, but distribution is still pending.
+## September 14 review priorities
+
+Three independent AI reviews and peer discussion produced the [agreed seven-package plan](reviews/2026-09-14-priorities.md): accessibility baseline; consistent weekly player scoring; lineup/alert readiness; persistent matchup context; grouped timeline observations; clearer Live Activity; and search/My Team polish. The owner approved implementation plus [Matchup mode](matchup-mode-plan.md); build 62 contains these changes. [Current status](current-status.md) records delivery, verification and remaining manual checks.
+
+The dated sections below retain earlier delivery plans. The live paid NFL feed, background scoring, points breakdown, alerts, timeline and player translations have since been implemented; consult Current status for their present verification and limits rather than treating those older pending descriptions as current.
+
+## Earlier plan — September 13
+
+Updated September 13, 2026 for installed/launched private build **0.6.3 (50)**: background push updates are visibly reaching the phone; the controller now retains activities through incomplete refreshes and breaks between games, with explicit restart/status in Settings. Sustained stability after the reported disappearance remains under observation. Includes the server Unicode fix, aligned owner/record rows and dynamic team estimates. Exact evidence is in [current status](current-status.md). Checked items mean implemented, not universal live-league certification. [The changelog](../CHANGELOG.md) records release history. Distribution remains pending.
+
+## Next: background Live Activity scoring
+
+- [x] Implement the [private MFL background service and native connection](background-scoring.md): bounded/coalesced polling, APNs payloads, token rotation, stale handling, access controls and durable cleanup. Deploy the service to Hephaestus without MFL credentials.
+- [x] Activate sandbox Apple push: approved explicit App ID/profile and app-restricted sandbox key, secure server storage, push-enabled phone build, real registration and accepted Apple updates.
+- [x] Owner observed the check time advancing from a background update; server Unicode transport is corrected and native retention/restart handling is implemented.
+- [ ] Verify sustained locked-phone visibility after the reported disappearance, then broaden device checks for real corrections, opt-out, dismissal and reconnection. The normal non-push build remains foreground-only.
+
+## In progress: optional NFL stats on Hephaestus
+
+Josh approved wiring the free plan, server-side key storage and private Tailscale HTTPS. The [historical test/service contract](nfl-stats-service.md) is implemented: a user-owned Hephaestus service caches permitted 2022–2024 NFL games/player stats, enforces a persistent 20-attempt daily cap and never polls. The DEBUG-only Settings browser is independent of MFL scores and current player cards; a real completed 2024 box score and zero-extra-request cached reread are verified. Josh confirmed the normal phone game list and player-stat breakdown both load, then confirmed his sample accuracy check. Build 43 adds manual reviewed ID mapping with cached provider profiles, provenance, duplicate/position/season guards, local persistence and removal; suggestions never auto-match by name. Build/test/phone evidence is recorded in Current status. Remaining: owner review of real pairs and broader identity coverage (not an authoritative crosswalk yet), broader accuracy/correction coverage, an explicitly authorized 2026/live upstream and display rights, then optional current-week enrichment and real-game latency tests. No subscription or continuous-background push service was added; TestFlight remains on hold.
 
 ## Completed baseline
+
+- [x] Build-46 Live Activity refinement: centered score/name columns, corner logos, stronger dominant hues with a softer blend and compact indexed logos that survive the full payload encoding. Phone verification is in [current status](current-status.md).
+- [x] Apple Sports-inspired Live Activity: logo/color blend, larger scores, current records and latest observed score-change batch; projections removed. Exact build-45 verification and phone delivery are tracked in [current status](current-status.md).
+- [x] Current team records beneath owner names in the featured Scores card and matchup detail, using shared standings data with ties and unknown-record handling. September 13 source change; verification and delivery are tracked in [current status](current-status.md).
+- [x] [Global player search](player-search.md) from all five primary tabs and matchup detail: cached local catalog, ownership in results, existing player cards, preserved navigation/query and session-scoped recent players. Verification/phone status is recorded separately.
+- [x] Team-aware search: full NFL names/nicknames and common/MFL codes; league-derived position filtering excludes unused team-unit records without adding API requests. Unknown-rule fallback and explicitly supported units are preserved.
+- [x] Approved [scoring visual system](scoring-visual-system.md): native SF type, fixed actual-point hierarchy, labeled projections, independent source freshness, bounded recent changes, and consistent Live Activity presentation. Verification/delivery tracked separately.
+- [x] Active/finished matchup players open Week N / Player segments with week points and supplied scoring text first; pregame players open their card. No new player-specific polling or invented box-score stats.
+- [x] Keep matchup day/time together below team/opponent, with adaptive stacking; signed build 40 installed/launched and focused iOS 18/27 scoring/navigation checks passed.
+- [x] Build-41 refinements: outward-mirrored hero halves with shared score baselines, centered league metrics, `ATL @ DAL` opponent captions and both teams' collapsed bench subtotals. Exact final checks and phone replacement are recorded separately in Current status.
+- [ ] Owner Week 1 search acceptance plus manual VoiceOver/iPad search-layout checks; no live writes are needed.
+- [ ] Owner acceptance of scoring density on the dev phone, including real long names, missing/game-time data and larger text. Local density checks do not promise one-screen fit for every league/device.
+
+- [x] Six [interface craft refinements](craft-refinements.md): retained Board detail/retry, truthful owner-specific scores, independently arriving week sections, adaptive score text, and shared league-derived week bounds. Actual build/test/installation evidence is separate in Current status.
 
 - [x] Native Scores / Lineup / My Team / Standings / Board and safe interactive preview; My Team has six direct tools with Schedule first.
 - [x] Account/franchise mapping, validated host discovery, Keychain restore, expiry UI, bounded reconnect and independent tab loading.
 - [x] Foreground live scores, positional matchup drill-down/FLEX, pregame projections and official completed results.
 - [x] Matchup rows show NFL opponent, local kickoff and MFL Live/Final/explicit Bye states; shared cached optional data does not block scores (build 36). Owner Week 1 opponent/time and state-transition checks remain open.
 - [x] League-derived lineup limits, bench/starter/FLEX replacements and rotations, scoped drafts, modal review and starter-set verification.
+- [x] Fix full-lineup Start overfilling and add explicit Bench recovery for saved invalid drafts; see [verification and delivery status](current-status.md).
 - [x] Compact [lineup projection comparison](lineup-projections.md): edited starters versus the same week's opponent, signed green/orange margin, status beside kickoff locks, no added API traffic and conservative missing-data behavior.
 - [ ] Follow up on Lineup player-row and Starting-header truncation at the largest accessibility text size; the redesigned summary card does not resolve the surrounding editor's layout.
 - [x] Conditional blind-bid queues, confirmed $0 league fallback, fresh preflight, round replacement/cancellation and partial-outcome recovery.
@@ -53,7 +87,7 @@ My Team is a separately verified product increment. It does not substitute for r
 
 **Earlier installed increment: [Player tools 1–5](player-tools-plan.md).** Josh approved injury/kickoff/bye context, richer league-scored player research, an MFL-synced watchlist, native first-come add/drop and IR management on September 6. All five were implemented by build 20. Trading Block and Calendar/reminders subsequently joined the implemented app in builds 33–35, as recorded below; polls and playoff brackets remain queued. Test/CI/device evidence and live-owner checks are recorded separately.
 
-**Initial slice implemented in 0.4.0 (17).** Tabs: **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. No Players tab and no new global search destination; reuse the existing available-player search in My Team → Adds / Drops.
+**Initial slice implemented in 0.4.0 (17).** Tabs: **Scores / Lineup / My Team / Standings / Board**. My Team replaces only Transactions. The original scope used only Adds / Drops search; September 9's approved [global search](player-search.md) supersedes that restriction without adding a sixth tab.
 
 1. [x] Implement canonical-ID routes and the shared read-only team shell. My Team exposes the six Schedule-first shortcuts above its roster; dedicated Lineup retains editing/submission. Other-team pages never present owner tools. Preserve the trade-specific badge on My Team and Trades.
 2. [x] Add team roster and truthful initial player detail: identity, authoritative ownership/status, available projection/current points and optional supplied bio/contracts. Keep identity taps separate from lineup/waiver/asset-selection actions. See [player-detail plan](player-detail-ux.md).
@@ -104,7 +138,7 @@ Fixtures cover selected normal/failure cases, not this entire matrix. Add dispos
 
 - [x] Foreground-updated current-matchup Live Activity and contextual local deadline reminders (build 33); actual game-week/device acceptance remains open.
 - [ ] Home Screen widgets, App Shortcuts and Spotlight.
-- [ ] Reviewed background/push architecture and required MFL coordination. No MFL Blitz APNs backend or webhook integration exists. Local reminders can fire while closed; matchup scores cannot promise continuous closed-app updates.
+- [x] Implement and activate the reviewed private MFL/APNs service for the owner’s development phone. Broader game-week validation and any multi-user or production distribution remain separate.
 - [ ] Optional strength-of-schedule, full calendar subscription, licensed news/player imagery and deeper research; selected-event Apple Calendar handoff is implemented, but these broader items are not prerequisites for the owner trial.
 
 MFL's documented API does not provide the webhook/APNs contract needed to promise real-time background delivery. Foreground polling is not a background guarantee; new providers require separate scope/privacy review.

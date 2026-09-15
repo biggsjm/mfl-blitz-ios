@@ -240,7 +240,7 @@ struct TradeAssetRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: asset.kind == .player ? "person.fill" : asset.kind == .pick ? "ticket.fill" : asset.kind == .budget ? "dollarsign.circle.fill" : "questionmark.circle")
-                .foregroundStyle(Color.blitzGreen).frame(width: 24)
+                .foregroundStyle(Color.blitzAction).frame(width: 24)
             VStack(alignment: .leading, spacing: 3) {
                 Text(asset.name).font(.body.weight(.semibold))
                 Text(asset.detail).font(.caption).foregroundStyle(.secondary)
