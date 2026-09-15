@@ -17,6 +17,17 @@ struct RootView: View {
         }
         .animation(reduceMotion ? nil : .snappy, value: model.phase)
         .task { await model.restoreSession() }
+        #if DEBUG
+        .overlay(alignment: .bottom) {
+            if ProcessInfo.processInfo.arguments.contains("--deep-link-diagnostics") {
+                let router = LeagueDeepLinkRouter.shared
+                Text("Received \(router.previewReceivedCount); pending \(router.pending == nil ? "none" : "yes"); path \(router.previewPathCount); \(router.previewRouteState)")
+                    .font(.caption2)
+                    .allowsHitTesting(false)
+                    .accessibilityIdentifier("deep-link-diagnostics")
+            }
+        }
+        #endif
         .overlay {
             if model.isRestoringSession && model.phase == .onboarding {
                 ZStack {

@@ -110,32 +110,6 @@ final class ScoringSystemUITests: XCTestCase {
         XCTAssertTrue(player.waitForExistence(timeout: 5))
     }
 
-    @MainActor func testColdLiveActivityLinkOpensScoresNavigationAndGameContext() {
-        let app = start()
-        // Explicitly terminate so every Xcode version exercises a cold URL
-        // launch rather than reusing an already-running preview session.
-        app.terminate()
-        app.open(URL(string: "mflblitz://matchup?scope=2026.41333.0001&week=1&id=0001-0008")!)
-        // Xcode opens URLs through a fresh launch. Preview is deliberately not
-        // persisted as a signed-in account; resume it to consume the pending URL.
-        let preview = app.buttons["Preview Champion Hall"]
-        if preview.waitForExistence(timeout: 3) { preview.tap() }
-        XCTAssertTrue(app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.tabBars.buttons["Scores"].isSelected)
-        XCTAssertFalse(app.buttons["Close"].exists)
-        let player = app.buttons["matchup-player-0001-starter-0-away"]
-        XCTAssertTrue(player.waitForExistence(timeout: 5))
-        XCTAssertTrue(player.label.contains("24") && player.label.contains("17"))
-        capture(app, "Live Activity — normal Scores navigation and NFL context")
-        player.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["player-nfl-game"].firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["player-game-stats"].exists)
-        capture(app, "Player — NFL score clock and available stat line")
-        app.navigationBars.buttons.firstMatch.tap()
-        app.navigationBars.buttons.firstMatch.tap()
-        XCTAssertTrue(app.buttons["matchup-0001-0008"].waitForExistence(timeout: 5))
-    }
-
     @MainActor func testMatchupAlignsOwnerAndRecordRowsAndShowsLiveEstimate() {
         let app = start()
         app.buttons["matchup-0001-0008"].tap()

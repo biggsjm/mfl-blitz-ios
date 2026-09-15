@@ -32,7 +32,18 @@ struct LeagueDeepLink: Equatable, Identifiable {
 final class LeagueDeepLinkRouter: NSObject, UNUserNotificationCenterDelegate {
     static let shared = LeagueDeepLinkRouter()
     var pending: LeagueDeepLink?
-    func receive(_ url: URL) { pending = LeagueDeepLink(url) }
+    #if DEBUG
+    var previewReceivedCount = 0
+    var previewPathCount = 0
+    var previewRouteState = "No URL received"
+    #endif
+    func receive(_ url: URL) {
+        pending = LeagueDeepLink(url)
+        #if DEBUG
+        previewReceivedCount += 1
+        previewRouteState = pending == nil ? "Invalid URL" : "URL queued"
+        #endif
+    }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                            withCompletionHandler completionHandler: @escaping () -> Void) {
         if response.actionIdentifier != UNNotificationDismissActionIdentifier,
