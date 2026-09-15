@@ -64,14 +64,15 @@ final class MFLBlitzUITests: XCTestCase {
     }
 
     @MainActor
-    func testCraftScoreMarginAtAccessibilityTextSize() {
+    func testLiveScoreEstimateAtAccessibilityTextSize() {
         let app = XCUIApplication()
         app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
         enterPreview(in: app)
         let matchup = app.buttons["matchup-0001-0008"]
         XCTAssertTrue(matchup.waitForExistence(timeout: 5))
-        XCTAssertTrue(matchup.label.contains("Pregame projection"))
+        XCTAssertTrue(matchup.label.contains("Estimated final score"))
+        XCTAssertFalse(matchup.label.contains("Pregame projection"))
         XCTAssertFalse(matchup.label.contains("%"))
         XCTAssertFalse(app.staticTexts["Win outlook"].exists)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
@@ -85,7 +86,7 @@ final class MFLBlitzUITests: XCTestCase {
         add(lower)
         app.swipeUp()
         let metrics = XCTAttachment(screenshot: app.screenshot())
-        metrics.name = "Craft — stacked projected margin at largest text"
+        metrics.name = "Scores — stacked live estimate at largest text"
         metrics.lifetime = .keepAlways
         add(metrics)
         app.terminate()
@@ -349,6 +350,9 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertFalse(app.segmentedControls["team-section-picker"].exists)
         XCTAssertFalse(app.buttons["Manage roster"].exists)
         XCTAssertFalse(app.buttons["my-team-transactions"].exists)
+        XCTAssertFalse(app.buttons["my-team-trades"].exists)
+        let moreTools = app.buttons["my-team-more-tools"]
+        XCTAssertTrue(moreTools.isHittable); moreTools.tap()
         let ids = ["schedule", "adds-drops", "trades", "watchlist", "injured-reserve", "activity"]
         let shortcuts = ids.map { app.buttons["my-team-\($0)"] }
         for shortcut in shortcuts {
@@ -365,7 +369,7 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertFalse(header.label.contains("League standing"))
         XCTAssertFalse(app.staticTexts["Current roster · Week 1 assignments"].exists)
         let home = XCTAttachment(screenshot: app.screenshot())
-        home.name = "My Team — six direct shortcuts and official standing"; home.lifetime = .keepAlways; add(home)
+        home.name = "My Team — expanded tools and official standing"; home.lifetime = .keepAlways; add(home)
         let rosterPlayer = app.buttons["roster-player-12620"]
         for _ in 0..<5 where !rosterPlayer.isHittable { app.swipeUp() }
         XCTAssertTrue(rosterPlayer.isHittable)

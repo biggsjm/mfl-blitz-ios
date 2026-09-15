@@ -233,9 +233,7 @@ final class PlayerToolsUITests: XCTestCase {
         bio.tap()
         XCTAssertTrue(app.staticTexts["Jersey"].waitForExistence(timeout: 3), "Reopening biography retains loaded details")
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        let watchlist = app.buttons["my-team-watchlist"]
-        for _ in 0..<8 where !watchlist.isHittable { app.swipeDown() }
-        watchlist.tap()
+        openTool("watchlist", title: "Watchlist", in: app)
         let saved = app.buttons["watchlist-player-12620"]
         XCTAssertTrue(saved.waitForExistence(timeout: 5))
         capture(app, "My Team — synced watchlist")
@@ -393,6 +391,11 @@ final class PlayerToolsUITests: XCTestCase {
         // Lazy List may remove the above-screen shortcut from the AX tree, so
         // absence here means scroll toward the header, not farther down-roster.
         let shortcut = app.buttons["my-team-\(id)"]
+        if !["schedule", "adds-drops"].contains(id), !shortcut.exists {
+            let more = app.buttons["my-team-more-tools"]
+            for _ in 0..<12 where !more.isHittable { app.swipeDown() }
+            XCTAssertTrue(more.isHittable); more.tap()
+        }
         for _ in 0..<12 where !shortcut.exists || shortcut.frame.minY < app.navigationBars.firstMatch.frame.maxY {
             app.swipeDown()
         }

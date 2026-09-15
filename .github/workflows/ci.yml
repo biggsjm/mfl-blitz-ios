@@ -23,8 +23,7 @@ jobs:
 
   ios:
     runs-on: macos-15
-    # The expanded model / native-journey run already takes about 28 minutes
-    # on this runner; leave room for completing every native flow.
+    # Keep model checks separate from the growing native UI suite.
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -35,7 +34,7 @@ jobs:
           -scheme MFLBlitz
           -destination 'generic/platform=iOS Simulator'
           CODE_SIGNING_ALLOWED=NO
-      - name: Run app and UI tests
+      - name: Run app tests
         run: >-
           xcodebuild test
           -project MFLBlitz.xcodeproj
@@ -43,4 +42,48 @@ jobs:
           -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
           -parallel-testing-enabled NO
           -collect-test-diagnostics never
+          -only-testing:MFLBlitzTests
           CODE_SIGNING_ALLOWED=NO
+
+  ui:
+    name: ui-${{ matrix.group }}
+    runs-on: macos-15
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [navigation, league-players, scoring]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Run native UI journeys
+        shell: bash
+        env:
+          UI_TEST_GROUP: ${{ matrix.group }}
+        run: |
+          case "$UI_TEST_GROUP" in
+            navigation)
+              selection=(-only-testing:MFLBlitzUITests/MFLBlitzUITests)
+              ;;
+            league-players)
+              selection=(-only-testing:MFLBlitzUITests/LeagueExtrasUITests
+                         -only-testing:MFLBlitzUITests/PlayerToolsUITests
+                         -only-testing:MFLBlitzUITests/PlayerSearchUITests)
+              ;;
+            scoring)
+              # The remainder includes every other UI class, including new ones.
+              selection=(-only-testing:MFLBlitzUITests
+                         -skip-testing:MFLBlitzUITests/MFLBlitzUITests
+                         -skip-testing:MFLBlitzUITests/LeagueExtrasUITests
+                         -skip-testing:MFLBlitzUITests/PlayerToolsUITests
+                         -skip-testing:MFLBlitzUITests/PlayerSearchUITests)
+              ;;
+            *) exit 1 ;;
+          esac
+          xcodebuild test \
+            -project MFLBlitz.xcodeproj \
+            -scheme MFLBlitz \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -parallel-testing-enabled NO \
+            -collect-test-diagnostics never \
+            "${selection[@]}" \
+            CODE_SIGNING_ALLOWED=NO

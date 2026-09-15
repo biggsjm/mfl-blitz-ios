@@ -23,7 +23,8 @@ final class CompactScoresUITests: XCTestCase {
             for _ in 0..<5 where !game.exists { app.swipeUp() }
             XCTAssertTrue(game.exists)
             guard game.exists else { continue }
-            XCTAssertLessThan(game.frame.height, 180)
+            XCTAssertLessThan(game.frame.height, hero.frame.height,
+                "League rows remain more compact than the featured matchup while allowing complete names and projections")
         }
         for _ in 0..<6 where !hero.isHittable { app.swipeDown() }
         capture(app, "Compact scores — featured matchup and the league")
@@ -32,7 +33,7 @@ final class CompactScoresUITests: XCTestCase {
         let first = app.buttons["matchup-player-0001-starter-0-away"]
         let last = app.buttons["matchup-player-0001-starter-8-away"]
         XCTAssertTrue(first.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["DAL vs CHI"].firstMatch.exists)
+        XCTAssertTrue(first.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "vs CHI")).firstMatch.exists)
         XCTAssertFalse(app.staticTexts["DAL · vs CHI"].exists)
         XCTAssertTrue(last.exists)
         XCTAssertLessThan(last.frame.maxY - first.frame.minY, 1100,
@@ -44,6 +45,8 @@ final class CompactScoresUITests: XCTestCase {
                 XCTAssertTrue(player.exists)
                 XCTAssertGreaterThanOrEqual(player.frame.height + 0.01, 44)
                 XCTAssertGreaterThanOrEqual(player.frame.width, 44)
+                XCTAssertEqual(player.frame.height, first.frame.height, accuracy: 1,
+                    "Every starter uses the same player area")
             }
         }
         capture(app, "Compact matchup — nine starter pairs")

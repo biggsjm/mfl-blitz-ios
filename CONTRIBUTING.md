@@ -2,6 +2,8 @@
 
 Use a toolchain supporting Swift 6, iOS 18 and macOS 15 package tests. The current local verification used Xcode 27 beta/iOS 27; CI uses `macos-15`. Deployment targets are not a claim of manual verification on every OS. Keep the app dependency-light, native, accessible and configuration-driven.
 
+CI runs core and app tests separately, plus three native UI groups: general navigation, league/player tools and search, and the remaining scoring/lineup journeys. The last group uses exclusions so new UI test classes remain covered automatically. Each group uses its own hosted simulator, retains serial execution within that simulator, and runs even if another group fails. Keep every journey covered when changing the grouping.
+
 Before a pull request, run the relevant suites and record the actual scope:
 
 ```sh
