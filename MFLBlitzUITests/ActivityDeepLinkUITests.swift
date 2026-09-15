@@ -21,11 +21,10 @@ final class ActivityDeepLinkUITests: XCTestCase {
         let open = safari.buttons["Open"]
         XCTAssertTrue(open.waitForExistence(timeout: 5), safari.debugDescription)
         open.tap()
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
         // Preview is deliberately not persisted as a signed-in account;
-        // resume it to consume the URL queued during onboarding.
-        let preview = app.buttons["Preview Champion Hall"]
-        if preview.waitForExistence(timeout: 3) { enterPreview(in: app) }
+        // verify the visible screen and resume it to consume the queued URL.
+        // Querying UI also reconnects XCTest to the externally launched process.
+        enterPreview(in: app)
         let opened = app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 8)
         XCTAssertTrue(opened)
         guard opened else { return }
