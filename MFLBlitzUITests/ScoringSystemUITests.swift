@@ -112,6 +112,9 @@ final class ScoringSystemUITests: XCTestCase {
 
     @MainActor func testColdLiveActivityLinkOpensScoresNavigationAndGameContext() {
         let app = start()
+        // Explicitly terminate so every Xcode version exercises a cold URL
+        // launch rather than reusing an already-running preview session.
+        app.terminate()
         app.open(URL(string: "mflblitz://matchup?scope=2026.41333.0001&week=1&id=0001-0008")!)
         // Xcode opens URLs through a fresh launch. Preview is deliberately not
         // persisted as a signed-in account; resume it to consume the pending URL.
