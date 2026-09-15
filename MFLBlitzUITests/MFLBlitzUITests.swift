@@ -324,7 +324,12 @@ final class MFLBlitzUITests: XCTestCase {
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Schedule matchup — independent Week 1 scoring"; screenshot.lifetime = .keepAlways; add(screenshot)
         player.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["player-owner-0001"].firstMatch.waitForExistence(timeout: 5))
+        let playerWeek = app.segmentedControls["player-scoring-segments"]
+        XCTAssertTrue(playerWeek.waitForExistence(timeout: 5))
+        XCTAssertTrue(playerWeek.buttons["Week 1"].isSelected)
+        let owner = app.staticTexts["player-week-owner"]
+        XCTAssertTrue(owner.waitForExistence(timeout: 5))
+        XCTAssertTrue(owner.label.contains("Rostered by Uber Beasts"))
         XCTAssertFalse(app.staticTexts["That preview player is unavailable."].exists)
         app.tabBars.buttons["Scores"].firstMatch.tap()
         XCTAssertEqual(app.buttons["week-picker"].label, "Week 2")

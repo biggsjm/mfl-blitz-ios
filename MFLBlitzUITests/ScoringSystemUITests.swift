@@ -173,9 +173,14 @@ final class ScoringSystemUITests: XCTestCase {
         let matchup = app.buttons["matchup-0003-0007"]
         for _ in 0..<6 where !matchup.isHittable { app.swipeUp() }
         matchup.tap()
-        let player = app.buttons["matchup-player-0003-starter-0-away"]
-        XCTAssertTrue(player.waitForExistence(timeout: 5)); player.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["player-detail-0003-starter-0"].firstMatch.waitForExistence(timeout: 8))
+        // DAL's synthetic NFL game is already live elsewhere in the league.
+        // GB's game is consistently upcoming in both scoring and schedule data.
+        let player = app.buttons["matchup-player-0003-starter-1-away"]
+        XCTAssertTrue(player.waitForExistence(timeout: 5))
+        for _ in 0..<8 where !player.isHittable { app.swipeUp() }
+        XCTAssertTrue(player.label.contains("pregame projection"))
+        player.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["player-detail-0003-starter-1"].firstMatch.waitForExistence(timeout: 8))
         XCTAssertFalse(app.segmentedControls["player-scoring-segments"].exists)
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 3))
