@@ -19,9 +19,13 @@ enum ActivityLogoPNG {
         guard drawn else { return nil }
         let pixels = stride(from: 0, to: bytes.count, by: 4).map { [Int(bytes[$0]), Int(bytes[$0 + 1]), Int(bytes[$0 + 2])] }
         func spread(_ group: [[Int]]) -> (channel: Int, range: Int) {
-            (0..<3).map { channel in
-                (channel, (group.map { $0[channel] }.max() ?? 0) - (group.map { $0[channel] }.min() ?? 0))
-            }.max(by: { $0.1 < $1.1 }) ?? (0, 0)
+            let ranges: [(channel: Int, range: Int)] = (0..<3).map { channel in
+                let values = group.map { $0[channel] }
+                let maximum = values.max() ?? 0
+                let minimum = values.min() ?? 0
+                return (channel, maximum - minimum)
+            }
+            return ranges.max(by: { $0.range < $1.range }) ?? (0, 0)
         }
         var groups = [pixels]
         while groups.count < 16 {
@@ -34,10 +38,17 @@ enum ActivityLogoPNG {
             groups.append(Array(sorted.suffix(sorted.count - sorted.count / 2)))
         }
         let palette = groups.map { group in (0..<3).map { channel in group.reduce(0) { $0 + $1[channel] } / group.count } }
-        let indexes = pixels.map { pixel in
+        func distance(_ pixel: [Int], _ color: [Int]) -> Int {
+            var total = 0
+            for channel in 0..<3 {
+                let difference = pixel[channel] - color[channel]
+                total += difference * difference
+            }
+            return total
+        }
+        let indexes: [Int] = pixels.map { pixel in
             palette.indices.min { left, right in
-                (0..<3).reduce(0) { $0 + (pixel[$1] - palette[left][$1]) * (pixel[$1] - palette[left][$1]) }
-                < (0..<3).reduce(0) { $0 + (pixel[$1] - palette[right][$1]) * (pixel[$1] - palette[right][$1]) }
+                distance(pixel, palette[left]) < distance(pixel, palette[right])
             } ?? 0
         }
         var rows = [UInt8]()

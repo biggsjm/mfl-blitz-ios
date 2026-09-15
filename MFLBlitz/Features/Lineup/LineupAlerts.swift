@@ -38,7 +38,15 @@ protocol LineupNotificationAccess {
 private struct SystemLineupNotificationAccess: LineupNotificationAccess {
     var token: String? { LineupPushToken.shared.token }
     var failed: Bool { LineupPushToken.shared.failed }
-    func authorization() async -> UNAuthorizationStatus { await UNUserNotificationCenter.current().notificationSettings().authorizationStatus }
+    func authorization() async -> UNAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                // Only the enum crosses isolation; older SDKs do not mark the
+                // notification-settings object as Sendable.
+                continuation.resume(returning: settings.authorizationStatus)
+            }
+        }
+    }
     func requestPermission() async throws { _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) }
     func register() { UIApplication.shared.registerForRemoteNotifications() }
 }
