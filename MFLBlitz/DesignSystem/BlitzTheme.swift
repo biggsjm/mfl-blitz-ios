@@ -3,6 +3,15 @@ import SwiftUI
 extension Color {
     static let blitzNavy = Color(red: 0.025, green: 0.055, blue: 0.13)
     static let blitzGreen = Color(red: 0.50, green: 0.84, blue: 0.05)
+    /// Brand lime remains a fill; actions need sufficient contrast on light surfaces.
+    static let blitzAction = Color(uiColor: UIColor { traits in
+        if traits.userInterfaceStyle == .dark {
+            return UIColor(red: 0.65, green: 0.89, blue: 0.32, alpha: 1)
+        }
+        return traits.accessibilityContrast == .high
+            ? UIColor(red: 0.12, green: 0.28, blue: 0.01, alpha: 1)
+            : UIColor(red: 0.19, green: 0.38, blue: 0.02, alpha: 1)
+    })
     static let blitzOrange = Color(red: 0.98, green: 0.45, blue: 0.16)
     static let blitzCream = Color(red: 0.97, green: 0.96, blue: 0.91)
     static let blitzSky = Color(red: 0.30, green: 0.67, blue: 0.98)
@@ -169,12 +178,12 @@ struct LiveWriteSafetyBanner: View {
 
 struct WeekPicker: View {
     @Binding var selection: Int
-    let range: ClosedRange<Int>
+    let weeks: [Int]
 
     var body: some View {
         Menu {
             Picker("Week", selection: $selection) {
-                ForEach(range, id: \.self) { week in
+                ForEach(weeks, id: \.self) { week in
                     Text("Week \(week)").tag(week)
                 }
             }

@@ -187,6 +187,7 @@ struct LeagueExtrasSafetyTests {
     func activityEligibility() throws {
         var scores = SampleData.scores
         scores.lastUpdated = Date()
+        scores.checkedAt = scores.lastUpdated
         let workspace = SampleData.workspace
         let now = scores.lastUpdated
         let index = try #require(scores.matchups.firstIndex { $0.isUserMatchup })
@@ -200,7 +201,7 @@ struct LeagueExtrasSafetyTests {
         scores.matchups[index].away.starters[0].gameSecondsRemaining = 1800
         #expect(MatchupActivityPolicy.matchup(in: scores, workspace: workspace, currentWeek: scores.week, now: now) != nil)
         #expect(MatchupActivityPolicy.matchup(in: scores, workspace: workspace, currentWeek: scores.week + 1, now: now) == nil)
-        #expect(MatchupActivityPolicy.matchup(in: scores, workspace: workspace, currentWeek: scores.week, now: now.addingTimeInterval(121)) == nil)
+        #expect(MatchupActivityPolicy.matchup(in: scores, workspace: workspace, currentWeek: scores.week, now: now.addingTimeInterval(211)) == nil)
         scores.matchups[index].away.starters[0].gameSecondsRemaining = 3600
         #expect(MatchupActivityPolicy.matchup(in: scores, workspace: workspace, currentWeek: scores.week, now: now) == nil)
         scores.matchups[index].away.bench[0].gameSecondsRemaining = 1800

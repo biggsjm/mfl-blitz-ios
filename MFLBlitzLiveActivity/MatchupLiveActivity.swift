@@ -10,48 +10,35 @@ struct BlitzActivityBundle: WidgetBundle {
 struct MatchupLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: MatchupActivityAttributes.self) { context in
-            VStack(spacing: 12) {
-                HStack {
-                    Label("Week \(context.attributes.week)", systemImage: "sportscourt")
-                    Spacer()
-                    status(context)
-                }.font(.caption).foregroundStyle(.secondary)
-                HStack(alignment: .top) {
-                    team(context.attributes.awayName, score: context.state.awayScore, alignment: .leading)
-                    Text("vs").font(.caption).foregroundStyle(.secondary).padding(.top, 7)
-                    team(context.attributes.homeName, score: context.state.homeScore, alignment: .trailing)
-                }
-                HStack {
-                    Text("Updated \(context.state.updatedAt, style: .time)")
-                    Spacer()
-                    Text(context.isStale ? "Open Blitz to update" : "MFL Blitz")
-                }.font(.caption2).foregroundStyle(.secondary)
-            }
-            .padding(16)
-            .activityBackgroundTint(Color(uiColor: .secondarySystemBackground))
-            .activitySystemActionForegroundColor(.primary)
-            .widgetURL(context.attributes.destination)
+            MatchupActivityScoreboard(attributes: context.attributes, state: context.state, isStale: context.isStale)
+                .activityBackgroundTint(MatchupActivityScoreboard.color(context.state.awayArtwork,
+                    fallback: Color(red: 0.04, green: 0.30, blue: 0.70)))
+                .activitySystemActionForegroundColor(.white)
+                .widgetURL(context.attributes.destination)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) {
-                    team(context.attributes.awayName, score: context.state.awayScore, alignment: .leading)
+                DynamicIslandExpandedRegion(.center) {
+                    VStack(spacing: 8) {
+                        Text("MFL Blitz - Week \(context.attributes.week)")
+                            .font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.85))
+                        MatchupActivityStatus(activePlayers: context.state.activePlayers, isStale: context.isStale, phase: context.state.phase,nextKickoff:context.state.nextKickoff, showAggregate: !context.state.hasTeamRemaining)
+                    }
                 }
-                DynamicIslandExpandedRegion(.trailing) {
-                    team(context.attributes.homeName, score: context.state.homeScore, alignment: .trailing)
-                }
+                DynamicIslandExpandedRegion(.leading) { islandTeam(context, home: false) }
+                DynamicIslandExpandedRegion(.trailing) { islandTeam(context, home: true) }
                 DynamicIslandExpandedRegion(.bottom) {
-                    HStack {
-                        Text("Week \(context.attributes.week)")
-                        Spacer()
-                        status(context)
-                    }.font(.caption).foregroundStyle(.secondary)
+                    MatchupActivityLatestChange(state: context.state, isStale: context.isStale)
                 }
             } compactLeading: {
                 HStack(spacing: 4) {
-                    Image(systemName: context.isStale ? "clock" : "sportscourt")
-                        .foregroundStyle(context.isStale ? Color.secondary : Color.green)
+                    if context.isStale { Image(systemName: "clock").foregroundStyle(.secondary) }
+                    else {
+                        MatchupActivityTeamMark(image: MatchupActivityScoreboard.image(context.state.awayArtwork),
+                            abbreviation: context.attributes.awayDisplayAbbreviation, size: 18)
+                    }
                     Text(context.state.awayScore).monospacedDigit()
-                }.accessibilityLabel("\(context.attributes.awayName), \(context.state.awayScore) points\(context.isStale ? ", update needed" : "")")
+                }
+                .accessibilityLabel("\(context.attributes.awayName), \(context.state.awayScore) points\(context.isStale ? ", update needed" : "")")
             } compactTrailing: {
                 Text(context.state.homeScore).monospacedDigit()
                     .accessibilityLabel("\(context.attributes.homeName), \(context.state.homeScore) points")
@@ -60,18 +47,28 @@ struct MatchupLiveActivity: Widget {
                     .accessibilityLabel(context.isStale ? "Matchup needs an update" : "Your fantasy matchup")
             }
             .widgetURL(context.attributes.destination)
-            .keylineTint(.green)
+            .keylineTint(MatchupActivityScoreboard.color(context.state.awayArtwork, fallback: .cyan))
         }
     }
 
-    private func team(_ name: String, score: String, alignment: HorizontalAlignment) -> some View {
-        VStack(alignment: alignment, spacing: 3) {
-            Text(score).font(.title2.bold()).monospacedDigit()
-            Text(name).font(.caption).lineLimit(2)
-        }.frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
-    }
-
-    private func status(_ context: ActivityViewContext<MatchupActivityAttributes>) -> some View {
-        Text(context.isStale ? "Update needed" : "\(context.state.activePlayers) playing")
+    private func islandTeam(_ context: ActivityViewContext<MatchupActivityAttributes>, home: Bool) -> some View {
+        let name = home ? context.attributes.homeName : context.attributes.awayName
+        let abbreviation = home ? context.attributes.homeDisplayAbbreviation : context.attributes.awayDisplayAbbreviation
+        let score = home ? context.state.homeScore : context.state.awayScore
+        let projection = context.state.projectionLabel(home: home, isStale: context.isStale)
+        let artwork = home ? context.state.homeArtwork : context.state.awayArtwork
+        return VStack(alignment: home ? .trailing : .leading, spacing: 3) {
+            MatchupActivityTeamMark(image: MatchupActivityScoreboard.image(artwork), abbreviation: abbreviation, size: 24)
+            Text(score).font(.system(size: 30, weight: .semibold))
+                .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+            Text(abbreviation).font(.caption2.weight(.medium))
+            if let projection { Text(projection).font(.caption2).lineLimit(1).minimumScaleFactor(0.75).foregroundStyle(.white.opacity(0.85)) }
+            if let remaining=context.state.remainingLabel(home:home,isStale:context.isStale) {
+                Text(remaining).font(.system(size:11)).lineLimit(2)
+            }
+        }
+        .foregroundStyle(.white)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(context.state.teamAccessibilityLabel(name: name, home: home, isStale: context.isStale))
     }
 }

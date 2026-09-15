@@ -33,9 +33,9 @@ struct RefreshCoordinationTests {
             _ = try await client.liveScoring(week: 1, refreshPolicy: .reloadIgnoringCache)
             Issue.record("Expected the genuine network error")
         } catch let error as MFLCoreError {
-            guard case .transport = error else { Issue.record("Expected a transport error"); return }
+            guard case .offline = error else { Issue.record("Expected a typed offline error"); return }
             #expect(!String(describing: error).contains("private-test-url"))
-            #expect(error.localizedDescription == "Couldn’t complete the MFL request. Please try again.")
+            #expect(error.localizedDescription == "You’re offline. Your saved data is still available.")
         }
         #expect(MFLCoreError.transport("private-test-url UserInfo raw diagnostics").localizedDescription ==
                 "Couldn’t complete the MFL request. Please try again.")

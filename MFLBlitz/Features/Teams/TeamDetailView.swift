@@ -6,6 +6,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
     @Environment(\.openTeamTool) private var openTeamTool
     @State private var detailModel = TeamDetailModel()
     @State private var section: TeamDetailSection
+    @State private var moreTools = false
     let franchiseID: String
     private let scheduleContent: (String) -> ScheduleContent
 
@@ -118,9 +119,19 @@ struct TeamDetailView<ScheduleContent: View>: View {
     }
 
     private var toolShortcuts: some View {
+      VStack(alignment: .leading, spacing: 8) {
+        if model.transactions.needsAttentionCount > 0, let scope = model.browseScope {
+            Button {
+                openTeamTool?(TeamToolsRoute(scope: scope, destination: .trades))
+            } label: {
+                Label("\(model.transactions.needsAttentionCount) trade \(model.transactions.needsAttentionCount == 1 ? "item needs" : "items need") attention", systemImage: "arrow.triangle.swap")
+                    .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
+            }.buttonStyle(.plain).accessibilityIdentifier("my-team-attention")
+                .disabled(openTeamTool == nil || model.isUsingCachedSession)
+        }
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10),
                                  count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), spacing: 10) {
-            ForEach(TeamToolsRoute.Destination.allCases) { destination in
+            ForEach(TeamToolsRoute.Destination.allCases.filter { moreTools || [.schedule, .addsDrops].contains($0) }) { destination in
                 if let scope = model.browseScope {
                     Button {
                         openTeamTool?(TeamToolsRoute(scope: scope, destination: destination))
@@ -129,7 +140,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
                             Image(systemName: destination.symbol)
                                 .font(.system(size: 20, weight: .medium))
                                 .frame(width: 26)
-                                .foregroundStyle(Color.blitzGreen)
+                                .foregroundStyle(Color.blitzAction)
                             Text(destination.title).font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 0)
@@ -140,7 +151,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
                             }
                         }
                         .padding(.horizontal, 12).padding(.vertical, 10)
-                        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .background(Color(uiColor: .secondarySystemGroupedBackground),
                                     in: RoundedRectangle(cornerRadius: 16))
                         .contentShape(Rectangle())
@@ -156,6 +167,11 @@ struct TeamDetailView<ScheduleContent: View>: View {
                 }
             }
         }
+        Button(moreTools ? "Fewer tools" : "Trades, Watchlist & more", systemImage: moreTools ? "chevron.up" : "chevron.down") {
+            moreTools.toggle()
+        }.buttonStyle(.plain).font(.subheadline).foregroundStyle(Color.blitzAction)
+            .frame(minHeight: 44).accessibilityIdentifier("my-team-more-tools")
+      }
         .accessibilityElement(children: .contain)
     }
 

@@ -32,7 +32,7 @@ struct BoardView: View {
                             } else { composerMode = .newThread }
                         } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: "doc.text").foregroundStyle(Color.blitzGreen)
+                                Image(systemName: "doc.text").foregroundStyle(Color.blitzAction)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(draftTitle(saved)).font(.body.weight(.semibold)).foregroundStyle(.primary)
                                     Text(saved.draft.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -73,11 +73,10 @@ struct BoardView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .playerSearch()
         .navigationTitle("Board")
         .navigationDestination(for: String.self) { threadID in
-            if let thread = model.boardThreads.first(where: { $0.id == threadID }) {
-                ThreadDetailView(threadID: thread.id)
-            }
+            ThreadDetailView(threadID: threadID)
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -150,51 +149,60 @@ private struct ThreadDetailView: View {
     @State private var showingReply = false
 
     private var thread: BoardThread? {
-        model.boardThreads.first(where: { $0.id == threadID })
+        model.boardThread(id: threadID)
     }
 
     var body: some View {
-        Group {
-            if let thread {
-                List {
-                    Section {
-                        ForEach(thread.posts) { post in
-                            PostRow(post: post)
-                        }
-                    }
+        List {
+            if let error = model.boardThreadErrors[threadID] {
+                Section {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .font(.subheadline)
+                    Button("Retry messages") { Task { await model.loadThread(id: threadID) } }
+                        .disabled(model.loadingBoardThreadIDs.contains(threadID))
                 }
-                .listStyle(.plain)
-                .refreshable { await model.loadThread(id: threadID) }
-                .navigationTitle(thread.subject)
-                .navigationBarTitleDisplayMode(.inline)
-                .safeAreaInset(edge: .bottom) {
-                    Button {
-                        showingReply = true
-                    } label: {
-                        Label(model.boardDraft(threadID: threadID).hasContent ? "Resume reply" : "Reply to thread",
-                              systemImage: "arrowshape.turn.up.left.fill")
-                            .font(.headline)
-                            .foregroundStyle(Color.blitzNavy)
-                            .frame(maxWidth: .infinity, minHeight: 50)
-                            .background(Color.blitzGreen, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("board-reply-\(threadID)")
-                    .disabled(!model.canPostToBoard)
-                    .opacity(model.canPostToBoard ? 1 : 0.45)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 9)
-                    .background(.ultraThinMaterial)
-                }
-                .sheet(isPresented: $showingReply) {
-                    MessageComposerView(mode: .reply(threadID: thread.id, subject: thread.subject))
-                }
-                .task(id: threadID) {
-                    await model.loadThread(id: threadID)
-                }
-            } else {
-                EmptyState(title: "Thread unavailable", message: "Pull to refresh the message board.", systemImage: "bubble.left")
             }
+            if model.loadingBoardThreadIDs.contains(threadID) {
+                ProgressView(thread?.posts.isEmpty == false ? "Updating messages…" : "Loading messages…")
+            }
+            Section {
+                ForEach(thread?.posts ?? []) { post in
+                    PostRow(post: post)
+                }
+                if model.boardThreadDetails[threadID]?.posts.isEmpty == true,
+                   !model.loadingBoardThreadIDs.contains(threadID), model.boardThreadErrors[threadID] == nil {
+                    Text("This thread has no messages.").foregroundStyle(.secondary)
+                }
+            }
+        }
+        .listStyle(.plain)
+        .refreshable { await model.loadThread(id: threadID) }
+        .navigationTitle(thread?.subject ?? "Message board")
+        .navigationBarTitleDisplayMode(.inline)
+        .safeAreaInset(edge: .bottom) {
+            Button {
+                showingReply = true
+            } label: {
+                Label(model.boardDraft(threadID: threadID).hasContent ? "Resume reply" : "Reply to thread",
+                      systemImage: "arrowshape.turn.up.left.fill")
+                    .font(.headline)
+                    .foregroundStyle(Color.blitzNavy)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(Color.blitzGreen, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("board-reply-\(threadID)")
+            .disabled(!model.canPostToBoard)
+            .opacity(model.canPostToBoard ? 1 : 0.45)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .background(.ultraThinMaterial)
+        }
+        .sheet(isPresented: $showingReply) {
+            MessageComposerView(mode: .reply(threadID: threadID, subject: thread?.subject ?? "Message board"))
+        }
+        .task(id: threadID) {
+            await model.loadThread(id: threadID)
         }
     }
 }
@@ -206,7 +214,7 @@ private struct PostRow: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: post.isUser ? "person.crop.circle.fill" : "person.crop.circle")
                 .font(.title2)
-                .foregroundStyle(post.isUser ? Color.blitzGreen : Color.secondary)
+                .foregroundStyle(post.isUser ? Color.blitzAction : Color.secondary)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 6) {
                 HStack {

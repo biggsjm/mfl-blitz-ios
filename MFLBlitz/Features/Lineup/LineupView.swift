@@ -4,6 +4,7 @@ struct LineupView: View {
     @Environment(AppModel.self) private var model
     @State private var reviewedLineup: LineupReviewRequest?
     @State private var replacementRequest: AppModel.LineupReplacementRequest?
+    @State private var startRequest: AppModel.LineupStartRequest?
 
     private struct LineupReviewRequest: Identifiable {
         let id = UUID()
@@ -11,16 +12,26 @@ struct LineupView: View {
     }
 
     var body: some View {
+      ScrollViewReader { proxy in
         List {
             if model.connectionMessage != nil {
                 ConnectionStatusBanner().listRowBackground(Color.clear)
             }
-            if !model.isDemo, let upcoming = model.workspace?.lineupWeek, upcoming != model.selectedWeek {
+            if !model.isDemo, let upcoming = model.workspace?.lineupWeek, upcoming != model.selectedWeek,
+               model.availableWeeks.contains(upcoming) {
                 Section {
                     Button("Open MFL’s lineup week · \(upcoming)") {
                         Task { await model.changeWeek(to: upcoming) }
                     }
                 }
+            }
+
+            if let error = model.lineupRefreshError {
+                Label(error, systemImage: "exclamationmark.triangle").font(.subheadline)
+            }
+            if model.configuredWeekRange == nil {
+                Text("League week range unavailable. Only known weeks are shown.")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
             if model.isDemo {
                 DemoBanner()
@@ -58,6 +69,13 @@ struct LineupView: View {
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 .listRowBackground(Color.clear)
             } else {
+                Section {
+                    LineupReadinessView(replace: { playerID in
+                        if let slot = model.lineup.startingSlots.first(where: { $0.player.id == playerID }) {
+                            replacementRequest = model.replacementRequest(for: slot.id)
+                        }
+                    }, reviewBench: { proxy.scrollTo("lineup-bench", anchor: .top) })
+                }
                 Section {
                     LineupSummaryCard(
                         lineup: model.lineup,
@@ -109,10 +127,14 @@ struct LineupView: View {
                             actionIcon: "arrow.up.circle.fill",
                             isEditable: model.canChangeLineupDraft
                         ) {
-                            withAnimation(.snappy) { model.toggleStarter(player.id) }
+                            if model.lineup.starters.count >= model.lineup.requiredStarterCount {
+                                startRequest = model.startRequest(for: player.id)
+                            } else {
+                                withAnimation(.snappy) { model.toggleStarter(player.id) }
+                            }
                         }
                     }
-                }
+                }.id("lineup-bench")
 
                 if model.lineup.requiredTiebreakerCount > 0 {
                     Section {
@@ -142,14 +164,15 @@ struct LineupView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .playerSearch()
         .navigationTitle("Lineup")
         .task(id: "\(model.workspace?.storageScope ?? "none")|\(model.selectedWeek)|\(model.isUsingCachedSession)") {
             await model.loadPlayerAvailability(week: model.selectedWeek)
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                WeekPicker(selection: weekBinding, range: 1...18)
-                    .disabled(model.isUsingCachedSession)
+                WeekPicker(selection: weekBinding, weeks: model.availableWeeks)
+                    .disabled(model.isUsingCachedSession || model.availableWeeks.isEmpty)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -163,9 +186,15 @@ struct LineupView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(item: $startRequest) { request in
+            LineupStartPicker(request: request)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
         .sheet(item: $reviewedLineup) { review in
             LineupSubmissionReview(lineup: review.lineup)
         }
+      }
     }
 
     private var isDirty: Bool {
@@ -273,6 +302,52 @@ private struct LineupSubmissionReview: View {
     }
 }
 
+private struct LineupStartPicker: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let request: AppModel.LineupStartRequest
+
+    var body: some View {
+        let candidates = model.startCandidates(for: request)
+        NavigationStack {
+            List {
+                Section {
+                    Text(request.player.name).font(.headline)
+                    Text("Choose a starter to move to the bench.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                Section("Replace") {
+                    if candidates.isEmpty {
+                        Text(model.lineup.starters.count > model.lineup.requiredStarterCount
+                            ? "Your lineup has too many starters. Close this picker, tap Replace on a starter, then Move to bench."
+                            : "No eligible starters can be replaced. A player may be locked, or the lineup has changed.")
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(candidates) { candidate in
+                        Button {
+                            if model.startPlayer(request, replacing: candidate.starter.id) { dismiss() }
+                        } label: {
+                            LineupReplacementCandidateRow(player: candidate.starter,
+                                detail: "\(candidate.slotLabel) → Bench",
+                                actionIcon: "arrow.down.circle.fill")
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Replace \(candidate.starter.name), \(candidate.slotLabel), with \(request.player.name)")
+                        .accessibilityHint("Moves \(candidate.starter.name) to the bench. Review and submit your lineup to save.")
+                        .accessibilityIdentifier("lineup-start-replacing-\(candidate.starter.id)")
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Choose a starter")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            }
+        }
+    }
+}
+
 private struct LineupReplacementPicker: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -302,6 +377,18 @@ private struct LineupReplacementPicker: View {
                     }
                 }
 
+                Section {
+                    Button {
+                        if model.benchStarter(request) { dismiss() }
+                    } label: {
+                        Label("Move to bench", systemImage: "arrow.down.circle")
+                    }
+                    .disabled(!model.canBenchStarter(request))
+                    .accessibilityLabel("Move \(request.starter.name) to bench")
+                    .accessibilityHint("Removes this starter from your draft. Fill the open spot before submitting.")
+                    .accessibilityIdentifier("lineup-bench-\(request.starter.id)")
+                }
+
                 if model.isLoadingLineup {
                     Section {
                         ProgressView("Updating eligible players…")
@@ -310,7 +397,9 @@ private struct LineupReplacementPicker: View {
                     Section {
                         Text("No eligible \(request.slotLabel) replacements")
                             .font(.headline)
-                        Text("No unlocked players meet this slot’s league rules, or the lineup has changed. No swap was made.")
+                        Text(model.lineup.starters.count > model.lineup.requiredStarterCount
+                            ? "Move a starter to the bench to bring your lineup back within the limit."
+                            : "No unlocked players meet this slot’s league rules, or the lineup has changed. No swap was made.")
                             .font(.subheadline).foregroundStyle(.secondary)
                     }
                 } else {
@@ -412,29 +501,37 @@ private struct LineupVacatedSlotPicker: View {
 
 private struct LineupReplacementCandidateRow: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let player: LineupPlayer
     let detail: String?
     let actionIcon: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 12))
+            layout {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(player.name).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("lineup-candidate-name-\(player.id)")
                     HStack(spacing: 6) {
                         Text("\(player.position) · \(player.nflTeam)")
                         if let injury = player.injuryStatus { Text(injury.rawValue).foregroundStyle(.orange) }
                     }
                     .font(.caption).foregroundStyle(.secondary)
                 }
-                Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(player.projectedPoints.pointsText)
-                        .font(.body.bold().monospacedDigit()).foregroundStyle(.primary)
-                    Text("proj").font(.caption2).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 12) {
+                    VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
+                        Text(player.projectedPoints.pointsText)
+                            .font(.body.bold().monospacedDigit()).foregroundStyle(.primary)
+                        Text("proj").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Image(systemName: actionIcon).font(.title3).foregroundStyle(Color.blitzAction)
                 }
                 .fixedSize(horizontal: true, vertical: false)
-                Image(systemName: actionIcon).font(.title3).foregroundStyle(Color.blitzGreen)
             }
             PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.nflTeam, week: model.lineup.week)
             if let detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
@@ -680,8 +777,11 @@ private struct LineupPlayerRow: View {
         if player.injuryStatus == .injuredReserve { return "Activate this player from injured reserve in My Team first" }
         if actionTitle == "Replace" {
             return slotLabel == "FLEX"
-                ? "Shows eligible bench players and starters allowed in FLEX by your league’s rules."
-                : "Shows eligible \(player.position) bench players and starters, including players in FLEX."
+                ? "Shows eligible FLEX replacements and an option to move this player to the bench."
+                : "Shows eligible \(player.position) replacements and an option to move this player to the bench."
+        }
+        if actionTitle == "Start", model.lineup.starters.count >= model.lineup.requiredStarterCount {
+            return "Choose an eligible starter to replace. Review and submit to save the swap."
         }
         let destination = actionTitle == "Start" ? "starting lineup" : "bench"
         return "Moves this player to the \(destination). Review and submit to send the change to MFL."

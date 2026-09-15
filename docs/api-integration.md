@@ -10,6 +10,12 @@ Ranking reuses cached league and standings exports. A tied earlier criterion req
 
 ## Authentication and routing
 
+### Optional NFL test service (September 9, build 42)
+
+The DEBUG-only Settings → NFL stats test uses a separate cookieless/credentialless HTTPS client and private Hephaestus service. It sends only a permitted historical season/game ID; MFL data and all authoritative points/writes stay on the existing direct path. API-NFL free access permits 2022–2024, not 2026/live. A season-only game list and one completed game box score are verified; the separate date-filter query hit a plan restriction. The service caches 24 hours, coalesces/spaces reads, persists a 20-attempt UTC-day budget and honors provider cooldowns. No per-player polling, ID mapping or fantasy-point recomputation. See the [service contract](nfl-stats-service.md) and [verification status](current-status.md).
+
+### MFL session
+
 MFL does not provide OAuth. Sign-in is an HTTPS `POST` to:
 
 ```text
@@ -175,6 +181,8 @@ The supplied ICS expands recurring events, rather than providing RRULE/TZID. Its
 Opt-in reminders use absolute, nonrepeating local notifications for verified future events, at most 32 over a rolling 14-day horizon. Disabled preferences remove alerts even offline; disconnect drains reads and removes app-owned pending/delivered alerts. No commissioner `calendarEvent` import, APNs registration or continuous background scoring is implemented. Apple Calendar handoff uses the system event editor without requesting access to read the user's calendars.
 
 ## Distribution and unimplemented data surfaces
+
+September 9 NFL enrichment test (build 42): the [private Hephaestus service](nfl-stats-service.md) and DEBUG Settings browser support manual 2022–2024 game/player-stat evaluation with shared cache/quota controls. They are separate from actual MFL player cards, points and writes. A permitted current-season source is still required for live raw stats; self-hosted nflverse would only cover scheduled post-game enrichment.
 
 The app currently supplies `MFL Blitz/0.1 (com.biggsjm.MFLBlitz)` on sign-in/restore. MFLCore separately defaults to `MFL Blitz/1.0`. Neither string proves registration; confirm production registration and configure the exact approved identity before distribution. Do not change it simply to match the marketing version without considering registered-client identity.
 

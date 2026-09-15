@@ -25,7 +25,24 @@ struct NFLGameContext: Equatable, Sendable {
     let opponent: String
     let isHome: Bool?
     let kickoff: Date?
+    var score: Int? = nil
+    var opponentScore: Int? = nil
+    var gameSecondsRemaining: Int? = nil
+    var hasPossession: Bool? = nil
+    var inRedZone: Bool? = nil
     var opponentLabel: String { isHome.map { "\($0 ? "vs" : "@") \(opponent)" } ?? opponent }
+}
+
+struct NFLScoringSnapshot: Equatable, Sendable {
+    let scope: String
+    let week: Int
+    var games: [String: NFLGameContext]
+    let checkedAt: Date
+    var failed = false
+
+    func isStale(now: Date = Date()) -> Bool {
+        failed || now.timeIntervalSince(checkedAt) < 0 || now.timeIntervalSince(checkedAt) >= 210
+    }
 }
 
 struct PlayerAvailabilitySnapshot: Equatable, Sendable {

@@ -246,7 +246,7 @@ private struct TradingBlockEditor: View {
                 else { draft.codes.insert(asset.id) }
             } label: {
                 Image(systemName: listed ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
-                    .font(.title3).foregroundStyle(listed ? Color.orange : Color.blitzGreen)
+                    .font(.title3).foregroundStyle(listed ? Color.orange : Color.blitzAction)
                     .frame(width: 44, height: 44).contentShape(Rectangle())
             }.buttonStyle(.borderless).disabled(block.isBusy)
                 .accessibilityLabel("\(listed ? "Remove from trading block" : "Add to trading block"): \(asset.name)")
@@ -321,7 +321,7 @@ private struct BlockAssetSummary: View {
     var body: some View {
         HStack(spacing: 12) {
             if let position { PositionBadge(position: position) }
-            else { Image(systemName: asset.kind == .pick ? "ticket" : "person.crop.circle").foregroundStyle(Color.blitzGreen).frame(width: 40) }
+            else { Image(systemName: asset.kind == .pick ? "ticket" : "person.crop.circle").foregroundStyle(Color.blitzAction).frame(width: 40) }
             VStack(alignment: .leading, spacing: 3) {
                 Text(asset.name).font(.body.weight(.semibold)).foregroundStyle(.primary)
                 Text(asset.detail).font(.caption).foregroundStyle(.secondary)

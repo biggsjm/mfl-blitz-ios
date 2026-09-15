@@ -173,7 +173,7 @@ struct TradeAssetPicker: View {
                                     TradeAssetRow(asset: asset)
                                     Spacer()
                                     Image(systemName: selected.contains(asset.id) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(selected.contains(asset.id) ? Color.blitzGreen : .secondary)
+                                        .foregroundStyle(selected.contains(asset.id) ? Color.blitzAction : .secondary)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .contentShape(Rectangle())

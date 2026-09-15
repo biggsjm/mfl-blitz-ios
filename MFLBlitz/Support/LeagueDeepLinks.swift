@@ -3,7 +3,7 @@ import Observation
 import UserNotifications
 
 struct LeagueDeepLink: Equatable, Identifiable {
-    enum Destination: Equatable { case calendar(String), matchup(week: Int, id: String) }
+    enum Destination: Equatable { case lineup(week:Int), calendar(String), matchup(week: Int, id: String) }
     let scope: String
     let destination: Destination
     var id: String { "\(scope)|\(destination)" }
@@ -17,6 +17,9 @@ struct LeagueDeepLink: Equatable, Identifiable {
         self.scope = scope
         switch url.host {
         case "calendar": destination = .calendar(id)
+        case "lineup":
+            guard let text=query.first(where: { $0.name == "week" })?.value,let week=Int(text),(1...18).contains(week) else { return nil }
+            destination = .lineup(week:week)
         case "matchup":
             guard let text = query.first(where: { $0.name == "week" })?.value, let week = Int(text), (1...22).contains(week) else { return nil }
             destination = .matchup(week: week, id: id)

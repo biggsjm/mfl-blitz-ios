@@ -2,6 +2,96 @@ import XCTest
 
 final class MFLBlitzUITests: XCTestCase {
     @MainActor
+    func testLineupDraftAndReviewSurviveHeightChanges() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait; app.terminate() }
+        app.launchArguments = ["--preview-current-lineup"]
+        app.launch()
+        enterPreview(in: app)
+        app.tabBars.buttons["Lineup"].firstMatch.tap()
+        let flex = app.buttons["lineup-replace-15256"]
+        for _ in 0..<10 where !flex.isHittable { app.swipeUp() }
+        XCTAssertTrue(flex.isHittable)
+        flex.tap()
+        let replacement = app.buttons["lineup-replacement-15757"]
+        XCTAssertTrue(replacement.waitForExistence(timeout: 5))
+        replacement.tap()
+
+        let review = app.buttons["Review & submit lineup"]
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertTrue(review.isEnabled)
+        let week = app.buttons["week-picker"].label
+        let projectedMargin = app.descendants(matching: .any)["lineup-projected-margin"].firstMatch
+        for _ in 0..<10 where !projectedMargin.isHittable { app.swipeDown() }
+        XCTAssertTrue(projectedMargin.exists)
+        let margin = app.descendants(matching: .any)["lineup-projected-margin"].firstMatch.label
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let landscape = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in app.frame.width > app.frame.height }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 5), .completed)
+        XCTAssertTrue(review.isHittable)
+        XCTAssertGreaterThanOrEqual(review.frame.minX, app.frame.minX)
+        XCTAssertLessThanOrEqual(review.frame.maxX, app.frame.maxX)
+        XCTAssertGreaterThanOrEqual(review.frame.minY, app.frame.minY)
+        XCTAssertLessThanOrEqual(review.frame.maxY, app.frame.maxY)
+        XCTAssertEqual(app.buttons["week-picker"].label, week)
+        XCTAssertEqual(app.descendants(matching: .any)["lineup-projected-margin"].firstMatch.label, margin)
+        let compact = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        compact.name = "Resizing — lineup draft and review action in short landscape"
+        compact.lifetime = .keepAlways
+        add(compact)
+
+        review.tap()
+        let submit = app.buttons["lineup-confirm-submit"]
+        XCTAssertTrue(submit.waitForExistence(timeout: 5))
+        XCTAssertTrue(submit.isHittable)
+        XCUIDevice.shared.orientation = .portrait
+        let portrait = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in app.frame.height > app.frame.width }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [portrait], timeout: 5), .completed)
+        XCTAssertTrue(submit.isHittable)
+        XCTAssertTrue(submit.label.contains("Submit 9 starters"))
+        let confirmation = XCTAttachment(screenshot: app.screenshot())
+        confirmation.name = "Resizing — same lineup review after returning to portrait"
+        confirmation.lifetime = .keepAlways
+        add(confirmation)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["week-picker"].label, week)
+        XCTAssertEqual(app.descendants(matching: .any)["lineup-summary-status"].firstMatch.label, "Unsaved changes")
+    }
+
+    @MainActor
+    func testCraftScoreMarginAtAccessibilityTextSize() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        enterPreview(in: app)
+        let matchup = app.buttons["matchup-0001-0008"]
+        XCTAssertTrue(matchup.waitForExistence(timeout: 5))
+        XCTAssertTrue(matchup.label.contains("Pregame projection"))
+        XCTAssertFalse(matchup.label.contains("%"))
+        XCTAssertFalse(app.staticTexts["Win outlook"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Craft — semantic score text and stacked matchup at largest text"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.swipeUp()
+        let lower = XCTAttachment(screenshot: app.screenshot())
+        lower.name = "Craft — readable score comparison at largest text"
+        lower.lifetime = .keepAlways
+        add(lower)
+        app.swipeUp()
+        let metrics = XCTAttachment(screenshot: app.screenshot())
+        metrics.name = "Craft — stacked projected margin at largest text"
+        metrics.lifetime = .keepAlways
+        add(metrics)
+        app.terminate()
+    }
+
+    @MainActor
     func testCachedStartupShowsScreensWhileAuthenticationIsDelayed() {
         let app = XCUIApplication()
         app.launchArguments = ["--synthetic-cached-startup"]
@@ -188,6 +278,11 @@ final class MFLBlitzUITests: XCTestCase {
             app.navigationBars.buttons.firstMatch.tap()
         }
         let entry = app.buttons["my-team-\(id)"]
+        if !["schedule", "adds-drops"].contains(id), !entry.exists {
+            let more = app.buttons["my-team-more-tools"]
+            for _ in 0..<8 where !more.isHittable { app.swipeDown() }
+            if more.isHittable { more.tap() }
+        }
         for _ in 0..<12 {
             if entry.exists && entry.isHittable &&
                 entry.frame.minY >= app.navigationBars.firstMatch.frame.maxY &&
@@ -969,6 +1064,8 @@ final class MFLBlitzUITests: XCTestCase {
         let body = app.textViews["Message body"]
         XCTAssertTrue(body.waitForExistence(timeout: 3))
         body.tap(); body.typeText("Unsent reply draft")
+        let entered = expectation(for: NSPredicate(format: "value == %@", "Unsent reply draft"), evaluatedWith: body)
+        wait(for: [entered], timeout: 3)
         app.buttons["board-composer-close"].tap()
         app.alerts.buttons["Save draft"].tap()
         let composerClosed = expectation(for: NSPredicate(format: "exists == false"),
@@ -1077,12 +1174,15 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 3))
         let player = app.buttons["matchup-player-0003-starter-0-away"]
         XCTAssertTrue(player.waitForExistence(timeout: 2))
-        XCTAssertTrue(player.label.contains("0.0 points"))
+        XCTAssertTrue(player.label.contains("score unavailable"), "Pregame player points use a dash, not a fabricated zero")
         XCTAssertTrue(player.label.contains("Yet to play"), "Scores render before the deliberately held optional schedule")
         XCTAssertFalse(app.progressIndicators.firstMatch.exists)
         let updated = expectation(for: NSPredicate(format: "label CONTAINS %@", "vs CHI ·"), evaluatedWith: player)
         wait(for: [updated], timeout: 25)
         XCTAssertFalse(player.label.contains("Yet to play"))
+        let kickoff = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) [0-9].*")).firstMatch
+        XCTAssertTrue(kickoff.exists, "Day and time form one standalone caption")
+        XCTAssertLessThan(kickoff.frame.height, 24, "The day must not wrap onto a different line from the time")
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Times in ")).firstMatch.exists)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Matchup — opponent and local kickoff without blocking scores"
@@ -1197,6 +1297,11 @@ final class MFLBlitzUITests: XCTestCase {
 
         XCTAssertFalse(app.buttons["Review & submit lineup"].exists)
         startButtons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Choose a starter"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Review & submit lineup"].exists)
+        let candidates = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "lineup-start-replacing-"))
+        XCTAssertTrue(candidates.firstMatch.waitForExistence(timeout: 3))
+        candidates.firstMatch.tap()
         XCTAssertTrue(app.buttons["Review & submit lineup"].waitForExistence(timeout: 3))
     }
 

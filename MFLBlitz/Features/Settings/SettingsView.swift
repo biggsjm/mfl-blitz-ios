@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var showingSignOutConfirmation = false
+    @State private var isRestartingActivity = false
 
     var body: some View {
         NavigationStack {
@@ -20,6 +21,7 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink("Lineup alerts") { LineupAlertSettings() }
                     Toggle("Matchup Live Activity", isOn: Binding(get: { model.matchupActivity.enabled }, set: { enabled in
                         model.matchupActivity.enabled = enabled
                         Task {
@@ -27,10 +29,37 @@ struct SettingsView: View {
                             else { await model.matchupActivity.end() }
                         }
                     }))
+                    NavigationLink("Background scoring") {
+                        MatchupBackgroundSyncSettings(sync: model.matchupActivity.backgroundSync)
+                    }
+                    if model.matchupActivity.enabled {
+                        Text(model.matchupActivity.statusMessage).font(.footnote).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("live-activity-status")
+                        Button(isRestartingActivity ? "Restarting…" : model.matchupActivity.needsContinuation ? "Continue Live Activity" : "Restart Live Activity") {
+                            isRestartingActivity = true
+                            Task {
+                                await model.restartMatchupActivity()
+                                isRestartingActivity = false
+                            }
+                        }
+                        .disabled(isRestartingActivity || model.isDemo || model.isUsingCachedSession)
+                        .accessibilityIdentifier("restart-live-activity")
+                    }
                     if let error = model.matchupActivity.errorMessage { Text(error).font(.footnote).foregroundStyle(.secondary) }
                 } header: { Text("Game day") } footer: {
-                    Text("Shows your current matchup while starters are playing. Scores update while Blitz is open; older scores are marked Update needed. No background push service is connected.")
+                    Text("Shows your current matchup while starters are playing. Background scoring can update it while your phone is locked. Delayed scores keep their last checked time.")
                 }
+
+                #if DEBUG
+                Section("Testing") {
+                    NavigationLink {
+                        NFLStatsTestView(isDemo: model.isDemo)
+                    } label: {
+                        Label("NFL stats test", systemImage: "flask")
+                    }
+                    .accessibilityIdentifier("nfl-stats-test")
+                }
+                #endif
 
                 Section("Privacy") {
                     Label("No ads or cross-app tracking", systemImage: "hand.raised.fill")

@@ -4,6 +4,18 @@ Still implemented in **0.4.0 (17)**. The versioned evidence below records when t
 
 The replacement picker includes eligible bench players and other starters. It separates them into **Bench** and **Already starting**, sorts each group by projection, and labels each starter's current slot.
 
+## September 10 lineup recovery fix — 0.6.3 (44)
+
+Tapping **Start** with a full lineup now opens **Choose a starter**, showing the fixed/FLEX starters that the selected bench player can legally replace. Cancel or dismissal leaves the draft intact; selecting a starter applies both moves together and retains the required starter count. Start still fills an open lineup spot directly. The model also rejects direct promotions above the starter limit.
+
+Every **Replace** picker includes **Move to bench**, independent of replacement availability. This recovers an overfilled draft from earlier builds even when it reports **No eligible FLEX replacements**. Benching from a full lineup creates an open spot and disables submission until it is filled. Both paths preserve the existing private draft, review, tiebreaker, lock, session/week and MFL readback rules.
+
+At accessibility text sizes, replacement rows put the name and identity above the projection/action so scores cannot squeeze names into narrow columns. Ordinary text sizes retain the horizontal layout.
+
+`LineupBenchFlowTests` and `LineupBenchFlowUITests` cover full-lineup Start, cancel/reopen, cross-position FLEX swaps, overfilled-draft recovery, bench/fill persistence, stale requests and locked players. Automated verification and delivery status are recorded in [current status](current-status.md). The historical evidence below predates this fix.
+
+## Existing starter swaps
+
 Keep visible copy minimal: short titles and player/slot arrows. Per-option arrows show the actual destinations instead of a paragraph explaining every possible outcome. VoiceOver retains explicit move descriptions. Storage and API details belong in developer documentation, not in the lineup picker.
 
 - Fixed QB/RB/WR/TE slots offer players at that NFL position, including eligible FLEX starters.

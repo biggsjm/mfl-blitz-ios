@@ -38,6 +38,21 @@ extension DemoLeagueRepository {
         return RosterActionReceipt(confirmed: true, message: "Preview roster updated")
     }
 
+    func loadScoringGames(week: Int, refresh: Bool) async throws -> NFLScoringSnapshot {
+        var games: [String: NFLGameContext] = [:]
+        for match in SampleData.scores.matchups {
+            for player in match.away.players + match.home.players {
+                guard games[player.nflTeam] == nil else { continue }
+                let seconds = player.gameSecondsRemaining
+                games[player.nflTeam] = NFLGameContext(opponent: "CHI", isHome: true,
+                    kickoff: Date().addingTimeInterval(seconds == 3600 ? 3600 : -7200),
+                    score: seconds == 3600 ? nil : 24, opponentScore: seconds == 3600 ? nil : 17,
+                    gameSecondsRemaining: seconds, hasPossession: seconds == 0 ? nil : true)
+            }
+        }
+        return NFLScoringSnapshot(scope: SampleData.workspace.storageScope, week: week, games: games, checkedAt: Date())
+    }
+
     func loadPlayerAvailability(week: Int, refresh: Bool) async throws -> PlayerAvailabilitySnapshot {
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--synthetic-slow-matchup-schedule") {
@@ -48,8 +63,12 @@ extension DemoLeagueRepository {
         let roster = SampleData.lineup.players
         let matchupTeams = SampleData.scores.matchups.flatMap { ($0.away.players + $0.home.players).map(\.nflTeam) }
         for team in Set(roster.map(\.nflTeam) + matchupTeams) {
+            var kickoff = Calendar.current.nextDate(after: Date(), matching: DateComponents(hour: 12), matchingPolicy: .nextTime)
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--synthetic-final-game") { kickoff = Date().addingTimeInterval(-14_400) }
+            #endif
             value.games[team] = NFLGameContext(opponent: "CHI", isHome: true,
-                kickoff: Calendar.current.nextDate(after: Date(), matching: DateComponents(hour: 12), matchingPolicy: .nextTime))
+                kickoff: kickoff)
             value.byeWeeks[team] = 8
         }
         if let player = roster.last { value.injuries[player.id] = PlayerHealth(status: "Questionable", details: "Knee") }

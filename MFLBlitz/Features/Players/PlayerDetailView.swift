@@ -11,14 +11,69 @@ struct PlayerDetailView: View {
     let playerID: String
     let inspectedWeek: Int?
     let previewIdentity: PlayerIdentity?
+    let scoring: PlayerScoringContext?
+    @State private var showWeek: Bool?
+    @State private var weeklyScores: ScoresSnapshot?
+    @State private var weeklyScope: String?
 
-    init(playerID: String, inspectedWeek: Int? = nil, previewIdentity: PlayerIdentity? = nil) {
+    init(playerID: String, inspectedWeek: Int? = nil, previewIdentity: PlayerIdentity? = nil,
+         scoring: PlayerScoringContext? = nil) {
         self.playerID = playerID
         self.inspectedWeek = inspectedWeek
         self.previewIdentity = previewIdentity
+        self.scoring = scoring
+        _showWeek = State(initialValue: nil)
     }
 
     var body: some View {
+        Group {
+            if let scoring = resolvedScoring, showWeek ?? true {
+                PlayerScoringWeekView(context: scoring, ownershipSummary: scoringOwnership,
+                    ownershipLoading: detailModel.isLoading, refreshOwnership: { await load(refresh: true) })
+            }
+            else { playerCard }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let scoring = resolvedScoring {
+                Picker("Player view", selection: Binding(get: { showWeek ?? true }, set: { showWeek = $0 })) {
+                    Text("Week \(scoring.week)").tag(true)
+                    Text("Player").tag(false)
+                }
+                .pickerStyle(.segmented).padding(.horizontal, BlitzMetrics.pagePadding).padding(.vertical, 8)
+                .background(Color(uiColor: .systemGroupedBackground))
+                .accessibilityIdentifier("player-scoring-segments")
+            }
+        }
+        .task(id: "\(model.workspace?.storageScope ?? "none")|\(playerID)|\(model.rosterRevision)|\(model.isUsingCachedSession)") { await load(refresh: false) }
+        .task(id: "week-context|\(model.workspace?.storageScope ?? "")|\(contextWeek)") {
+            guard let scope = model.workspace?.storageScope, !model.isUsingCachedSession else { return }
+            if model.scores.week != contextWeek {
+                let value = try? await model.loadMatchupScores(week: contextWeek)
+                guard !Task.isCancelled, model.workspace?.storageScope == scope else { return }
+                weeklyScores = value; weeklyScope = scope
+            }
+        }
+        .task(id: "week-nfl|\(model.workspace?.storageScope ?? "")|\(contextWeek)|\(displayedIdentity?.nflTeam ?? "")") {
+            guard model.usesNFLStats, !model.isUsingCachedSession, let season = model.workspace?.season,
+                  let team = displayedIdentity?.nflTeam else { return }
+            await model.nflStats.refresh(season: season, week: contextWeek, teams: [team],
+                defenseTeams: NFLFeedGame.isDefense(displayedIdentity?.position ?? "") ? [team] : [])
+        }
+    }
+
+    private var resolvedScoring: PlayerScoringContext? {
+        if let scoring { return scoring }
+        guard let identity = displayedIdentity else { return nil }
+        let snapshot = model.scores.week == contextWeek ? model.scores :
+            (weeklyScope == model.workspace?.storageScope ? weeklyScores : nil)
+        let game = model.workspace.flatMap { workspace in
+            identity.nflTeam.flatMap { model.nflStats.feed(season: workspace.season, week: contextWeek)?.game(team: $0) }
+        }
+        return PlayerScoringContext.resolve(identity: identity, week: contextWeek, scores: snapshot,
+            availability: model.playerTools.availability[contextWeek], scope: model.workspace?.storageScope, nflGame: game)
+    }
+
+    private var playerCard: some View {
         List {
             if model.isUsingCachedSession {
                 ConnectionStatusBanner().listRowBackground(Color.clear)
@@ -146,7 +201,6 @@ struct PlayerDetailView: View {
                     model.playerTools.isChangingWatchList || model.playerTools.unconfirmedWatch != nil)
             }
         }
-        .task(id: "\(model.workspace?.storageScope ?? "none")|\(playerID)|\(model.rosterRevision)|\(model.isUsingCachedSession)") { await load(refresh: false) }
         .task(id: "biography|\(readKey)|\(detail != nil)|\(showingBiography)") {
             if showingBiography, detail != nil { await loadBiography() }
         }
@@ -177,7 +231,7 @@ struct PlayerDetailView: View {
         }
     }
 
-    private var contextWeek: Int { inspectedWeek ?? model.workspace?.lineupWeek ?? model.currentWeek }
+    private var contextWeek: Int { inspectedWeek ?? model.currentWeek }
     private var readKey: String {
         "\(model.workspace?.storageScope ?? "none")|\(playerID)|\(displayedIdentity != nil)|\(model.isUsingCachedSession)"
     }
@@ -219,6 +273,28 @@ struct PlayerDetailView: View {
         guard let value = detailModel.detail, value.scope == model.workspace?.storageScope,
               value.identity.id == playerID else { return nil }
         return value
+    }
+
+    private var scoringOwnership: String? {
+        if let ownership = detail?.ownership {
+            let summary: String
+            if ownership.assignments.isEmpty {
+                summary = ownership.isFreeAgent == true ? "Free agent" : "Ownership not provided"
+            } else {
+                summary = ownership.assignments.map { assignment in
+                    let owner = assignment.team.ownerName.flatMap { $0.isEmpty ? nil : $0 }
+                    return "Rostered by " + [assignment.team.name, owner].compactMap { $0 }.joined(separator: " · ")
+                }.joined(separator: "\n")
+            }
+            return detailModel.errorMessage == nil ? summary : "Last known: \(summary)"
+        }
+        if let ownership = model.playerSearch.ownership, ownership.scope == model.workspace?.storageScope {
+            let summary = ownership.summary(for: playerID, scores: nil, currentWeek: model.currentWeek)
+            let label = (ownership.assignments[playerID]?.isEmpty == false ? "Rostered by " : "") + summary
+            let stale = model.playerSearch.ownershipError != nil || Date().timeIntervalSince(ownership.checkedAt) > 120
+            return stale ? "Last known: \(label)" : label
+        }
+        return nil
     }
 
     private var displayedIdentity: PlayerIdentity? {
@@ -269,6 +345,9 @@ struct PlayerDetailView: View {
                      size: 36, artworkURLs: assignment.team.artworkURLs)
             VStack(alignment: .leading, spacing: 3) {
                 Text(assignment.team.name).font(.subheadline.weight(.semibold))
+                if let owner = assignment.team.ownerName, !owner.isEmpty {
+                    Text(owner).font(.subheadline).foregroundStyle(.secondary)
+                }
                 Text(assignment.status.label).font(.caption).foregroundStyle(.secondary)
             }
             .fixedSize(horizontal: false, vertical: true)

@@ -4,7 +4,20 @@ private struct OpenTeamToolKey: EnvironmentKey {
     static let defaultValue: (@MainActor (TeamToolsRoute) -> Void)? = nil
 }
 
+private struct OpenPlayerRouteKey: EnvironmentKey {
+    static let defaultValue: (@MainActor (PlayerRoute) -> Void)? = nil
+}
+private struct ScoreboardPollingKey: EnvironmentKey { static let defaultValue = false }
+
 extension EnvironmentValues {
+    var scoreboardIsPolling: Bool {
+        get { self[ScoreboardPollingKey.self] }
+        set { self[ScoreboardPollingKey.self] = newValue }
+    }
+    var openPlayerRoute: (@MainActor (PlayerRoute) -> Void)? {
+        get { self[OpenPlayerRouteKey.self] }
+        set { self[OpenPlayerRouteKey.self] = newValue }
+    }
     var openTeamTool: (@MainActor (TeamToolsRoute) -> Void)? {
         get { self[OpenTeamToolKey.self] }
         set { self[OpenTeamToolKey.self] = newValue }
@@ -15,16 +28,24 @@ extension EnvironmentValues {
 /// Each tab or modal owns its path; browsing never changes a
 /// different stack behind a sheet.
 struct LeagueBrowseStack<Content: View>: View {
-    @State private var path = NavigationPath()
-    @ViewBuilder let content: () -> Content
+    @State private var localPath = NavigationPath()
+    private let externalPath: Binding<NavigationPath>?
+    private let content: () -> Content
+
+    init(path: Binding<NavigationPath>? = nil, @ViewBuilder content: @escaping () -> Content) {
+        externalPath = path; self.content = content
+    }
+
+    private var path: Binding<NavigationPath> { externalPath ?? $localPath }
 
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack(path: path) {
             content().leagueBrowseDestinations()
         }
         // Scope this to the stack, not just its root content. Pushed team
         // destinations and sheet-owned browse stacks need the same router.
-        .environment(\.openTeamTool, { path.append($0) })
+        .environment(\.openTeamTool, { path.wrappedValue.append($0) })
+        .environment(\.openPlayerRoute, { path.wrappedValue.append($0) })
     }
 }
 
@@ -53,6 +74,7 @@ struct PlayerRoute: Hashable, Sendable {
     var inspectedWeek: Int? = nil
     /// Display-only identity from the tapped row, never ownership or permission.
     var previewIdentity: PlayerIdentity? = nil
+    var scoring: PlayerScoringContext? = nil
 
     func identityPreview(in activeScope: LeagueBrowseScope?) -> PlayerIdentity? {
         guard scope == activeScope, previewIdentity?.id == playerID else { return nil }
@@ -169,8 +191,7 @@ private struct LeagueBrowseDestinations: ViewModifier {
                 else if route.week == model.scores.week {
                     MatchupDetailView(matchupID: route.matchupID).id(route)
                 } else {
-                    ContentUnavailableView("Scoring week changed", systemImage: "calendar",
-                        description: Text("Go back to open a matchup for the selected week."))
+                    LiveMatchupDestination(route: route).id(route)
                 }
             }
             .navigationDestination(for: StandingsRoute.self) { route in
@@ -193,7 +214,7 @@ private struct LeagueBrowseDestinations: ViewModifier {
             .navigationDestination(for: PlayerRoute.self) { route in
                 if route.scope == model.browseScope {
                     PlayerDetailView(playerID: route.playerID, inspectedWeek: route.inspectedWeek,
-                        previewIdentity: route.identityPreview(in: model.browseScope))
+                        previewIdentity: route.identityPreview(in: model.browseScope), scoring: route.scoring)
                         .id(route)
                 } else { unavailableSession }
             }

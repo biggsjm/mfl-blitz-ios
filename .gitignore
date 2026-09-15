@@ -29,3 +29,12 @@ Secrets.xcconfig
 *.xcresult
 *.ipa
 *.dSYM
+
+# Local Python evaluation tools
+__pycache__/
+*.pyc
+
+# Apple push credentials and private scoring state
+*.p8
+services/live_activity/config.json
+services/live_activity/state/

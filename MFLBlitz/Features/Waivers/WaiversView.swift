@@ -427,7 +427,7 @@ private struct WaiverCandidateRow: View {
     private var acquisitionLabel: some View {
         Image(systemName: "person.badge.plus")
             .font(.system(size: 20, weight: .semibold))
-            .foregroundStyle(Color.blitzGreen)
+            .foregroundStyle(Color.blitzAction)
             .frame(width: BlitzMetrics.minimumTapTarget, height: BlitzMetrics.minimumTapTarget)
     }
 

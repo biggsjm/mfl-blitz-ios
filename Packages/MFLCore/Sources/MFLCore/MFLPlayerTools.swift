@@ -82,28 +82,37 @@ public struct MFLNFLSchedule: Decodable, Equatable, Sendable {
 public struct MFLNFLMatchup: Codable, Equatable, Sendable {
     public let kickoff: Date?
     public let teams: [MFLNFLTeam]
-    private enum CodingKeys: String, CodingKey { case kickoff, team }
+    public let gameSecondsRemaining: Int?
+    private enum CodingKeys: String, CodingKey { case kickoff, team, gameSecondsRemaining }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         kickoff = try c.mflStringIfPresent(forKey: .kickoff).flatMap(Double.init)
             .flatMap { $0.isFinite && $0 > 0 && $0 < 32_503_680_000 ? Date(timeIntervalSince1970: $0) : nil }
         teams = try c.mflArray(of: MFLNFLTeam.self, forKey: .team)
+        gameSecondsRemaining = try c.mflIntIfPresent(forKey: .gameSecondsRemaining).flatMap { (0...3600).contains($0) ? $0 : nil }
     }
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encodeIfPresent(kickoff?.timeIntervalSince1970, forKey: .kickoff)
         try c.encode(teams, forKey: .team)
+        try c.encodeIfPresent(gameSecondsRemaining, forKey: .gameSecondsRemaining)
     }
 }
 
 public struct MFLNFLTeam: Codable, Equatable, Sendable, Identifiable {
     public let id: String
     public let isHome: Bool?
-    private enum CodingKeys: String, CodingKey { case id, isHome }
+    public let score: Int?
+    public let hasPossession: Bool?
+    public let inRedZone: Bool?
+    private enum CodingKeys: String, CodingKey { case id, isHome, score, hasPossession, inRedZone }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.mflRequiredString(forKey: .id)
         isHome = try c.mflBoolIfPresent(forKey: .isHome)
+        score = try c.mflIntIfPresent(forKey: .score).flatMap { $0 >= 0 ? $0 : nil }
+        hasPossession = try c.mflBoolIfPresent(forKey: .hasPossession)
+        inRedZone = try c.mflBoolIfPresent(forKey: .inRedZone)
     }
 }
 

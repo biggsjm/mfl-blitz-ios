@@ -19,6 +19,10 @@ Meaningful edits remain autosaved to the existing device-only Keychain for inter
 
 Discard removes only that draft, never an MFL post or an unconfirmed-post marker. Confirmed posting removes the matching draft. Session guards and a completed-editor guard prevent late field changes from recreating discarded drafts or writing into another team's scope. Unconfirmed outcomes still block duplicate sends until resolved.
 
+## Thread continuity
+
+Build 37 keeps loaded conversation details separate from refreshable Board summaries. Messages remain visible through summary refreshes, first-page changes and failed thread reloads. Inline loading and Retry explain progress without replacing the conversation. Details are cleared on session reset. See [craft refinements](craft-refinements.md).
+
 ## Verification and remaining checks
 
 Model coverage includes blank filtering, independent new-thread/reply restoration, team isolation, selective discard, storage failures and post cleanup. Native synthetic journeys cover immediate empty close, Keep editing, Save draft, visible resume, reply resume and discard/reopen without resurrecting text.

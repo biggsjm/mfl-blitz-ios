@@ -28,9 +28,40 @@ final class AppModel {
         fileprivate let requiredStarterCount: Int
     }
 
+    struct LineupStartRequest: Identifiable {
+        let id = UUID()
+        let player: LineupPlayer
+        fileprivate let replacements: [LineupReplacementRequest]
+    }
+
     var phase: Phase = .onboarding
     var workspace: LeagueWorkspace?
-    var scores = ScoresSnapshot(week: 1, matchups: [], lastUpdated: .distantPast, isLive: false)
+    let scoringChanges = ScoringChangeTracker()
+    let lineupAlerts = LineupAlertController()
+    let matchupTimeline = MatchupTimelineStore()
+    let nflStats = NFLScoringStore()
+    private var ruleBook: (scope: String, rules: [MFLScoringRule], checkedAt: Date)?
+    @ObservationIgnored private var ruleBookRead: (scope: String, task: Task<[MFLScoringRule], Error>)?
+    var visibleScoringRules: [MFLScoringRule]? {
+        if isDemo { return ScoringBreakdown.previewRules }
+        return ruleBook?.scope == workspace?.storageScope ? ruleBook?.rules : nil
+    }
+    var usesNFLStats: Bool { !isDemo || nflStats.isPreview }
+    var scores = ScoresSnapshot(week: 1, matchups: [], lastUpdated: .distantPast, isLive: false) {
+        didSet {
+            if !isUsingCachedSession, let scope = workspace?.storageScope {
+                scoringChanges.observe(scores, scope: scope)
+                let snapshot = scores, persist = !isDemo
+                Task {
+                    guard workspace?.storageScope == scope, !isUsingCachedSession else { return }
+                    await matchupTimeline.observe(snapshot, scope: scope, persist: persist)
+                }
+            }
+            if scores.lastUpdated != .distantPast, (1...99).contains(scores.week),
+               !observedScoreWeeks.contains(scores.week) { observedScoreWeeks.insert(scores.week) }
+        }
+    }
+    private var observedScoreWeeks: Set<Int> = []
     var lineup = LineupSnapshot(
         week: 1,
         players: [],
@@ -52,12 +83,19 @@ final class AppModel {
     var standings: [StandingRow] = []
     var teams: [TeamSummary] = []
     var boardThreads: [BoardThread] = []
+    private(set) var boardThreadDetails: [String: BoardThread] = [:]
+    private(set) var loadingBoardThreadIDs: Set<String> = []
+    private(set) var boardThreadErrors: [String: String] = [:]
+    private var boardThreadReadGenerations: [String: Int] = [:]
     var transactions = TransactionsModel()
     var seasonSchedule = SeasonScheduleModel()
     var tradingBlock: TradingBlockModel?
     var leagueCalendar: LeagueCalendarModel?
     let matchupActivity = MatchupActivityController()
     var playerTools = PlayerToolsModel()
+    private(set) var scoringGames: [Int: NFLScoringSnapshot] = [:]
+    private var scoringGameRequests: [Int: UUID] = [:]
+    var playerSearch = PlayerSearchModel()
     var pendingRosterChange: PendingRosterAction?
     var rosterChangeError: String?
     var rosterRevision = 0
@@ -69,7 +107,20 @@ final class AppModel {
     var notice: AppNotice?
     var lineupRevision = 0
     var currentWeek = 1
-    var scoreRefreshError: String?
+    var scoreRefreshError: String? {
+        didSet {
+            if scoreRefreshError != nil {
+                scoringChanges.invalidate()
+                if let scope = workspace?.storageScope {
+                    let week = scores.week
+                    Task { await matchupActivity.markStale(week: week, scope: scope) }
+                }
+            }
+            else { scoresOffline = false }
+        }
+    }
+    var scoresOffline = false
+    var lineupRefreshError: String?
     var lineupConflict: String?
     var waiverConflict: String?
     var waiverServerReadFailed = false
@@ -95,6 +146,7 @@ final class AppModel {
     private var didAttemptRestore = false
     private var followsCurrentWeek = true
     private var scoreRequestInFlight = false
+    private var lastScoreAttempt: (week: Int, generation: Int, date: Date)?
     private var fullRefreshInFlight = false
     private var fullRefreshSession = -1
     private var drafts = LeagueDrafts()
@@ -116,6 +168,29 @@ final class AppModel {
     var canPostToBoard: Bool { !isUsingCachedSession && (isDemo || LiveWritePolicy.boardEnabled) }
     var hasRestrictedLiveActions: Bool {
         !canEditLineup || !canSubmitWaivers || !canPostToBoard
+    }
+
+    var configuredWeekRange: ClosedRange<Int>? {
+        if let range = workspace?.configuredWeeks { return range }
+        if let snapshot = seasonSchedule.snapshot, !snapshot.weeks.isEmpty { return snapshot.startWeek...snapshot.endWeek }
+        return nil
+    }
+
+    var availableWeeks: [Int] {
+        if let configuredWeekRange { return Array(configuredWeekRange) }
+        // Missing league settings are not permission to invent an 18-week season.
+        var known = observedScoreWeeks
+        if let workspace, workspace.weekIsConfirmed { known.insert(workspace.week) }
+        if let week = workspace?.lineupWeek { known.insert(week) }
+        // A published endpoint is still a known week when the other bound is absent.
+        if let week = workspace?.firstWeek { known.insert(week) }
+        if let week = workspace?.lastWeek { known.insert(week) }
+        if scores.lastUpdated != .distantPast { known.insert(scores.week) }
+        return known.filter { (1...99).contains($0) }.sorted()
+    }
+
+    func boardThread(id: String) -> BoardThread? {
+        boardThreadDetails[id] ?? boardThreads.first { $0.id == id }
     }
 
     private var repository: any LeagueRepository
@@ -408,10 +483,13 @@ final class AppModel {
                     guard selectedWeek == requestedWeek, weekLoadGeneration == requestedWeekGeneration else { continue }
                     isLoadingScores = false
                     if let value = result.value { scores = value; cachedScoresDate = nil; scoreRefreshError = nil; await saveDisplay(.scores(value)) }
-                    else { scoreRefreshError = "Scores may be out of date. Pull to retry."; failures.append("scores") }
+                    else {
+                        scoresOffline = (result.error as? MFLCoreError) == .offline
+                        scoreRefreshError = "Scores may be out of date. Pull to retry."; failures.append("scores")
+                    }
                 case .lineup(let result):
                     guard selectedWeek == requestedWeek, weekLoadGeneration == requestedWeekGeneration else { continue }
-                    if let value = result.value { cachedLineupDate = nil; mergeLineup(value); lineupRevision &+= 1; await saveDisplay(.lineup(value)) }
+                    if let value = result.value { cachedLineupDate = nil; lineupRefreshError = nil; mergeLineup(value); lineupRevision &+= 1; await saveDisplay(.lineup(value)) }
                     else { failures.append("lineup") }
                     guard generation == sessionGeneration, weekLoadGeneration == requestedWeekGeneration else { continue }
                     isLoadingLineup = false
@@ -446,6 +524,7 @@ final class AppModel {
             let fresh = try await repository.loadLineup(week: requestedWeek)
             guard generation == sessionGeneration, revision == weekLoadGeneration, selectedWeek == requestedWeek else { return }
             cachedLineupDate = nil
+            lineupRefreshError = nil
             mergeLineup(fresh); lineupRevision &+= 1
             await saveDisplay(.lineup(fresh))
         } catch {
@@ -505,8 +584,40 @@ final class AppModel {
         }
     }
 
+    func refreshScoresOnEntry() async {
+        guard !isUsingCachedSession, !isDemo else { return }
+        let enteredAt = Date(), generation = sessionGeneration, week = selectedWeek
+        // An in-flight startup read must finish before deciding whether another
+        // read is needed. A guard-only refresh silently dropped this request.
+        while scoreRequestInFlight || isLoadingScores || isBusy {
+            do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+            guard generation == sessionGeneration, selectedWeek == week else { return }
+        }
+        guard !Task.isCancelled, generation == sessionGeneration, selectedWeek == week else { return }
+        if let checked = scores.checkedAt, checked >= enteredAt { return }
+        if let checked = scores.checkedAt, (0..<15).contains(Date().timeIntervalSince(checked)) { return }
+        await refreshScores(silent: true)
+    }
+
     func refreshScores(silent: Bool = false) async {
-        guard !isUsingCachedSession, !scoreRequestInFlight, !isLoadingScores, !isBusy else { return }
+        guard !isUsingCachedSession, !isBusy else { return }
+        if scoreRequestInFlight || isLoadingScores {
+            // A manual refresh joins the visible request instead of dismissing
+            // its spinner while that request is still running.
+            if !silent {
+                let generation = sessionGeneration, week = selectedWeek
+                while scoreRequestInFlight || isLoadingScores {
+                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+                    if generation != sessionGeneration || week != selectedWeek { return }
+                }
+            }
+            return
+        }
+        if silent, let prior = lastScoreAttempt, prior.week == selectedWeek, prior.generation == sessionGeneration,
+           (0..<10).contains(Date().timeIntervalSince(prior.date)) { return }
+        lastScoreAttempt = (selectedWeek, sessionGeneration, Date())
+        let gameWeek = selectedWeek
+        Task { await refreshScoringGames(week: gameWeek) }
         scoreRequestInFlight = true
         defer { scoreRequestInFlight = false }
         let refreshID = beginRefreshing()
@@ -534,13 +645,14 @@ final class AppModel {
                   requestedWeekGeneration == weekLoadGeneration, !Task.isCancelled,
                   !MFLCoreError.isCancellation(error) else { return }
             handleSessionError(error)
+            scoresOffline = (error as? MFLCoreError) == .offline
             scoreRefreshError = "Scores may be out of date. Pull to retry."
             if !silent { notice = .error(error.localizedDescription) }
         }
     }
 
     func changeWeek(to week: Int, followingCurrent: Bool = false) async {
-        guard !isUsingCachedSession, !isBusy, (1...21).contains(week), week != selectedWeek else { return }
+        guard !isUsingCachedSession, !isBusy, availableWeeks.contains(week), week != selectedWeek else { return }
         followsCurrentWeek = followingCurrent
         selectedWeek = week
         lineup = emptyLineup(for: week)
@@ -561,34 +673,39 @@ final class AppModel {
             }
         }
 
-        async let newScores: ScoresSnapshot? = try? await activeRepository.loadScores(week: week)
-        async let newLineup: LineupSnapshot? = try? await activeRepository.loadLineup(week: week)
-        let values = await (newScores, newLineup)
-
-        guard generation == sessionGeneration,
-              requestGeneration == weekLoadGeneration,
-              selectedWeek == week else { return }
-
-        var failures: [String] = []
-        if let scores = values.0 {
-            self.scores = scores
-        } else {
-            self.scores = emptyScores(for: week)
-            failures.append("scores")
-        }
-        if let lineup = values.1 {
-            cachedLineupDate = nil
-            mergeLineup(lineup)
-        } else {
-            self.lineup = emptyLineup(for: week)
-            failures.append("lineup")
-        }
-        lineupRevision &+= 1
-        if let scores = values.0 { await saveDisplay(.scores(scores)) }
-        if generation == sessionGeneration, let lineup = values.1 { await saveDisplay(.lineup(lineup)) }
-
-        if !failures.isEmpty {
-            notice = .error("Couldn’t load Week \(week) \(failures.joined(separator: " and ")).")
+        scoreRefreshError = nil
+        lineupRefreshError = nil
+        cachedLineupDate = nil
+        await withTaskGroup(of: RefreshedSection.self) { group in
+            group.addTask { .scores(await Self.capture { try await activeRepository.loadScores(week: week) }) }
+            group.addTask { .lineup(await Self.capture { try await activeRepository.loadLineup(week: week) }) }
+            for await section in group {
+                guard generation == sessionGeneration, requestGeneration == weekLoadGeneration,
+                      selectedWeek == week, !Task.isCancelled else { group.cancelAll(); continue }
+                if let error = section.error { handleSessionError(error) }
+                guard generation == sessionGeneration else { group.cancelAll(); continue }
+                let cancelled = section.error.map(MFLCoreError.isCancellation) ?? false
+                switch section {
+                case .scores(let result):
+                    isLoadingScores = false
+                    if let fresh = result.value, fresh.week == week {
+                        scores = fresh
+                        await saveDisplay(.scores(fresh))
+                    } else if !cancelled {
+                        scoreRefreshError = "Week \(week) scores couldn’t be loaded. Pull to retry."
+                    }
+                case .lineup(let result):
+                    isLoadingLineup = false
+                    if let fresh = result.value, fresh.week == week {
+                        mergeLineup(fresh)
+                        lineupRevision &+= 1
+                        await saveDisplay(.lineup(fresh))
+                    } else if !cancelled {
+                        lineupRefreshError = "Week \(week) lineup couldn’t be loaded. Pull to retry."
+                    }
+                default: break
+                }
+            }
         }
     }
 
@@ -597,11 +714,50 @@ final class AppModel {
               let index = lineup.players.firstIndex(where: { $0.id == playerID }),
               !lineup.players[index].isLocked,
               lineup.players[index].injuryStatus != .injuredReserve else { return }
+        // A full lineup needs an atomic replacement. Never persist an extra
+        // starter that would make every FLEX replacement ineligible.
+        guard lineup.players[index].isStarter || lineup.starters.count < lineup.requiredStarterCount else { return }
         lineup.players[index].isStarter.toggle()
         if lineup.players[index].isStarter {
             lineup.tiebreakerPlayerIDs.removeAll(where: { $0 == playerID })
         }
         saveLineupDraft()
+        lineupRevision &+= 1
+    }
+
+    func startRequest(for playerID: String) -> LineupStartRequest? {
+        let matches = lineup.players.filter { $0.id == playerID }
+        guard canChangeLineupDraft, lineup.starters.count >= lineup.requiredStarterCount,
+              matches.count == 1, let player = matches.first,
+              !player.isStarter, !player.isLocked, player.injuryStatus != .injuredReserve else { return nil }
+        return LineupStartRequest(player: player,
+            replacements: lineup.startingSlots.compactMap { replacementRequest(for: $0.id) })
+    }
+
+    func startCandidates(for request: LineupStartRequest) -> [LineupReplacementRequest] {
+        guard lineup.hasValidStarterPositions,
+              lineup.players.contains(where: { $0.id == request.player.id && !$0.isStarter
+                  && $0.position == request.player.position }) else { return [] }
+        return request.replacements.filter {
+            replacementCandidates(for: $0).contains { $0.id == request.player.id && !$0.isStarter }
+        }
+    }
+
+    @discardableResult
+    func startPlayer(_ request: LineupStartRequest, replacing starterID: String) -> Bool {
+        guard let replacement = startCandidates(for: request).first(where: { $0.starter.id == starterID }) else { return false }
+        return replaceStarter(replacement, with: request.player.id)
+    }
+
+    func canBenchStarter(_ request: LineupReplacementRequest) -> Bool {
+        replaceableStarter(for: request) != nil
+    }
+
+    @discardableResult
+    func benchStarter(_ request: LineupReplacementRequest) -> Bool {
+        guard canBenchStarter(request) else { return false }
+        toggleStarter(request.starter.id)
+        return true
     }
 
     func replacementRequest(for starterID: String) -> LineupReplacementRequest? {
@@ -997,13 +1153,15 @@ final class AppModel {
             var refreshedAfterPost = true
             if isDemo {
                 applyDemoPost(subject: trimmedSubject, body: trimmedBody, threadID: threadID)
+                if let threadID, let updated = boardThreads.first(where: { $0.id == threadID }) {
+                    installThread(updated, supersedingReads: true)
+                }
             } else if let threadID {
                 do {
                     let loadedThread = try await activeRepository.loadThread(id: threadID)
                     guard generation == sessionGeneration else { return false }
-                    if let index = boardThreads.firstIndex(where: { $0.id == threadID }) {
-                        boardThreads[index] = loadedThread
-                    }
+                    guard loadedThread.id == threadID else { throw RepositoryError.server("The requested thread could not be verified.") }
+                    installThread(loadedThread, supersedingReads: true)
                 } catch {
                     refreshedAfterPost = false
                 }
@@ -1035,18 +1193,43 @@ final class AppModel {
     }
 
     func loadThread(id: String) async {
-        guard !isUsingCachedSession else { return }
+        guard !isUsingCachedSession, !loadingBoardThreadIDs.contains(id) else { return }
         if isDemo, id.hasPrefix("demo-local-thread-") { return }
 
         let generation = sessionGeneration
+        boardThreadReadGenerations[id, default: 0] &+= 1
+        let requestGeneration = boardThreadReadGenerations[id]
+        loadingBoardThreadIDs.insert(id)
+        boardThreadErrors[id] = nil
+        defer {
+            if generation == sessionGeneration, requestGeneration == boardThreadReadGenerations[id] {
+                loadingBoardThreadIDs.remove(id)
+            }
+        }
         do {
             let loaded = try await repository.loadThread(id: id)
-            guard generation == sessionGeneration else { return }
-            if let index = boardThreads.firstIndex(where: { $0.id == id }) {
-                boardThreads[index] = loaded
-            }
+            guard generation == sessionGeneration, requestGeneration == boardThreadReadGenerations[id],
+                  !Task.isCancelled else { return }
+            guard loaded.id == id else { throw RepositoryError.server("The requested thread could not be verified.") }
+            installThread(loaded)
         } catch {
-            notice = .error(error.localizedDescription)
+            guard generation == sessionGeneration, requestGeneration == boardThreadReadGenerations[id],
+                  !Task.isCancelled, !MFLCoreError.isCancellation(error) else { return }
+            handleSessionError(error)
+            guard generation == sessionGeneration else { return }
+            boardThreadErrors[id] = "Messages couldn’t be refreshed. Any previously loaded messages are kept."
+        }
+    }
+
+    private func installThread(_ thread: BoardThread, supersedingReads: Bool = false) {
+        if supersedingReads {
+            boardThreadReadGenerations[thread.id, default: 0] &+= 1
+            loadingBoardThreadIDs.remove(thread.id)
+        }
+        boardThreadDetails[thread.id] = thread
+        boardThreadErrors[thread.id] = nil
+        if let index = boardThreads.firstIndex(where: { $0.id == thread.id }) {
+            boardThreads[index] = thread
         }
     }
 
@@ -1072,7 +1255,10 @@ final class AppModel {
             } catch { configureTransactions(); notice = .error(error.localizedDescription); return }
         }
         let signedInRepository = repository
+        ruleBookRead?.task.cancel(); ruleBookRead = nil; ruleBook = nil
         await matchupActivity.disconnect()
+        await matchupTimeline.clear()
+        await lineupAlerts.disconnect()
         sessionGeneration &+= 1
         weekLoadGeneration &+= 1
         workspace = nil
@@ -1121,13 +1307,16 @@ final class AppModel {
     }
 
     private func resetContent(for week: Int) {
+        scoringChanges.reset()
         isUsingCachedSession = false
         connectionMessage = nil
         cachedLineupDate = nil; cachedStandingsDate = nil; cachedBoardDate = nil
         cachedScoresDate = nil; cachedRosterDate = nil
         cachedOwnerRoster = nil
         pendingRosterChange = nil; rosterChangeError = nil; rosterRevision += 1
+        scoringGames = [:]; scoringGameRequests = [:]
         playerTools.reset(scope: workspace?.storageScope)
+        playerSearch.reset(scope: workspace?.storageScope)
         transactions = TransactionsModel()
         seasonSchedule.invalidateSession()
         seasonSchedule = SeasonScheduleModel()
@@ -1138,6 +1327,7 @@ final class AppModel {
         isLoadingScores = false; isLoadingLineup = false
         isLoadingWaivers = false; isLoadingBoard = false
         lineupConflict = nil
+        lineupRefreshError = nil
         waiverConflict = nil
         serverWaivers = []
         latestServerLineup = nil
@@ -1154,6 +1344,11 @@ final class AppModel {
         standings = []
         teams = []
         boardThreads = []
+        boardThreadDetails = [:]
+        loadingBoardThreadIDs = []
+        boardThreadErrors = [:]
+        boardThreadReadGenerations = [:]
+        observedScoreWeeks = []
         lineupRevision &+= 1
     }
 
@@ -1166,9 +1361,31 @@ final class AppModel {
         scores = SampleData.scores
         lineup = SampleData.lineup
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--unified-player-preview") {
+            var snapshot = scores
+            let old = snapshot.matchups[0].away.starters[0]
+            snapshot.matchups[0].away.starters[0] = MatchupPlayer(id: "12620", name: "Dak Prescott", position: "QB", nflTeam: "DAL",
+                livePoints: old.livePoints, lineupStatus: .starter, gameSecondsRemaining: 1500, statLine: nil, projectedPoints: old.projectedPoints)
+            snapshot.checkedAt = Date(); scores = snapshot
+        }
+        if ProcessInfo.processInfo.arguments.contains("--synthetic-scoring-change") {
+            var baseline = scores
+            baseline.checkedAt = Date().addingTimeInterval(-10)
+            scores = baseline
+            var changed = baseline
+            changed.checkedAt = Date()
+            changed.lastUpdated = changed.checkedAt!
+            changed.matchups[0].away.starters[0].livePoints? += 2.4
+            changed.matchups[0].away.score += 2.4
+            scores = changed
+        }
         if ProcessInfo.processInfo.arguments.contains("--preview-current-lineup") {
             lineup.deadline = nil
             lineup.lastSubmitted = nil
+        }
+        if ProcessInfo.processInfo.arguments.contains("--synthetic-overfilled-lineup"),
+           let incoming = lineup.players.firstIndex(where: { $0.id == "15757" }) {
+            lineup.players[incoming].isStarter = true
         }
         #endif
         lineup.serverStarterPlayerIDs = Set(lineup.starters.map(\.id))
@@ -1205,18 +1422,46 @@ final class AppModel {
 
     var browseScope: LeagueBrowseScope? { workspace.map(LeagueBrowseScope.init(workspace:)) }
 
+    func loadScoringRules() async throws -> [MFLScoringRule] {
+        if isDemo { return ScoringBreakdown.previewRules }
+        if let rules = visibleScoringRules, let checkedAt = ruleBook?.checkedAt,
+           Date().timeIntervalSince(checkedAt) < 3_600 { return rules }
+        guard let scope = workspace?.storageScope else { throw CancellationError() }
+        if let read = ruleBookRead, read.scope == scope { return try await read.task.value }
+        let task = Task { try await self.readForBrowsing { try await $0.loadScoringRules() } }
+        ruleBookRead = (scope, task)
+        defer { if ruleBookRead?.scope == scope { ruleBookRead = nil } }
+        let rules = try await task.value
+        guard workspace?.storageScope == scope else { throw CancellationError() }
+        ruleBook = (scope, rules, Date())
+        return rules
+    }
+
     func updateMatchupActivity(using snapshot: ScoresSnapshot? = nil) async {
         guard let workspace else { return }
         await matchupActivity.synchronize(scores: snapshot ?? scores, workspace: workspace, currentWeek: currentWeek,
-            isDemo: isDemo, isCached: isUsingCachedSession)
+            isDemo: isDemo, isCached: isUsingCachedSession, standings: standings,
+            nflFeed:usesNFLStats ? nflStats.feed(season:workspace.season,week:(snapshot ?? scores).week) : nil)
     }
 
     func refreshMatchupActivity() async {
         guard matchupActivity.enabled, !isDemo, !isUsingCachedSession else { return }
         let week = currentWeek
-        if let snapshot = try? await readForBrowsing({ try await $0.loadScores(week: week) }) {
+        do {
+            let snapshot = try await readForBrowsing { try await $0.loadScores(week: week) }
             await updateMatchupActivity(using: snapshot)
+        } catch {
+            if !MFLCoreError.isCancellation(error), let scope = workspace?.storageScope {
+                await matchupActivity.markStale(week: week, scope: scope)
+            }
         }
+    }
+
+    func restartMatchupActivity() async {
+        guard matchupActivity.enabled, !isDemo, !isUsingCachedSession else { return }
+        await matchupActivity.end()
+        matchupActivity.resume(allowWaiting:true)
+        await refreshMatchupActivity()
     }
 
     // Destination-local reads must never change selectedWeek, scores or a draft.
@@ -1270,8 +1515,38 @@ final class AppModel {
         try await readForBrowsing { try await $0.loadPlayerDetail(playerID: playerID, refresh: refresh) }
     }
 
+    func loadPlayerSearchCatalog() async throws -> PlayerSearchCatalog {
+        try await readForBrowsing { try await $0.loadPlayerSearchCatalog() }
+    }
+
+    func loadPlayerSearchOwnership(refresh: Bool = false) async throws -> PlayerSearchOwnership {
+        try await readForBrowsing { try await $0.loadPlayerSearchOwnership(refresh: refresh) }
+    }
+
     func loadPlayerBiography(playerID: String) async throws -> PlayerBio? {
         try await readForBrowsing { try await $0.loadPlayerBiography(playerID: playerID) }
+    }
+
+    func refreshScoringGames(week: Int, force: Bool = false) async {
+        guard !isUsingCachedSession, scoringGameRequests[week] == nil else { return }
+        if !force, let saved = scoringGames[week], !saved.failed,
+           (0..<90).contains(Date().timeIntervalSince(saved.checkedAt)) { return }
+        let request = UUID()
+        scoringGameRequests[week] = request
+        defer { if scoringGameRequests[week] == request { scoringGameRequests[week] = nil } }
+        do {
+            let result = try await readForBrowsing { try await $0.loadScoringGames(week: week, refresh: force) }
+            guard result.scope == workspace?.storageScope, result.week == week,
+                  scoringGameRequests[week] == request else { return }
+            scoringGames[week] = result
+            if scoringGames.count > 3,
+               let oldest = scoringGames.filter({ $0.key != week }).min(by: { $0.value.checkedAt < $1.value.checkedAt })?.key {
+                scoringGames[oldest] = nil
+            }
+        } catch {
+            guard !Task.isCancelled, !MFLCoreError.isCancellation(error), scoringGameRequests[week] == request else { return }
+            scoringGames[week]?.failed = true
+        }
     }
 
     func loadPlayerAvailability(week: Int, refresh: Bool = false) async {
@@ -1384,10 +1659,12 @@ final class AppModel {
     }
 
     func loadMatchupScores(week: Int, refresh: Bool = false) async throws -> ScoresSnapshot {
-        try await readForBrowsing {
+        let snapshot = try await readForBrowsing {
             if refresh { return try await $0.refreshScores(week: week) }
             return try await $0.loadScores(week: week)
         }
+        if let scope = workspace?.storageScope { scoringChanges.observe(snapshot, scope: scope) }
+        return snapshot
     }
 
     private func beginRefreshing() -> Int {

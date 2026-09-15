@@ -11,7 +11,9 @@ enum SampleData {
         franchiseID: "0001",
         franchiseName: "Uber Beasts",
         baseURL: URL(string: "https://www45.myfantasyleague.com")!,
-        week: 1
+        week: 1,
+        firstWeek: 1,
+        lastWeek: 18
     )
 
     static let scores = ScoresSnapshot(
@@ -270,6 +272,7 @@ enum SampleData {
                 statLine: gameSecondsRemaining > 0 && gameSecondsRemaining < 3_600
                     ? demoStatLine(for: slot.0)
                     : nil,
+                projectedPoints: (128.4 * slot.3 * 10).rounded() / 10,
                 lineupSlot: index >= 7 ? "FLEX" : slot.0
             )
         }

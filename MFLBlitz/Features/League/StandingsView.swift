@@ -103,6 +103,7 @@ struct StandingsView: View {
             }
         }
         .pageBackground()
+        .playerSearch()
     }
 
     private var standingsOrderInfo: some View {

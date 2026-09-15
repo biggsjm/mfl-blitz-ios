@@ -1,4 +1,5 @@
 import Foundation
+import MFLCore
 
 enum LiveWritePolicy {
     // Lineups have a review step and exact saved-starter verification.
@@ -11,6 +12,9 @@ enum LiveWritePolicy {
 }
 
 protocol LeagueRepository: Sendable {
+    func loadScoringRules() async throws -> [MFLCore.MFLScoringRule]
+    func loadPlayerSearchCatalog() async throws -> PlayerSearchCatalog
+    func loadPlayerSearchOwnership(refresh: Bool) async throws -> PlayerSearchOwnership
     func loadTradingBlock(refresh: Bool) async throws -> TradingBlockSnapshot
     func publishTradingBlock(_ draft: TradingBlockDraft) async throws -> TradingBlockReceipt
     func pendingTradingBlock() async throws -> PendingTradingBlock?
@@ -44,6 +48,7 @@ protocol LeagueRepository: Sendable {
     func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot
     func loadPlayerBiography(playerID: String) async throws -> PlayerBio?
     func loadSeasonSchedule() async throws -> SeasonScheduleSnapshot
+    func loadScoringGames(week: Int, refresh: Bool) async throws -> NFLScoringSnapshot
     func loadPlayerAvailability(week: Int, refresh: Bool) async throws -> PlayerAvailabilitySnapshot
     func loadPlayerSeasonSummary(playerID: String) async throws -> PlayerSeasonSummary
     func loadPlayerResearch(playerID: String, beforeWeek: Int?, contextWeek: Int) async throws -> PlayerResearchPage
@@ -60,6 +65,12 @@ protocol LeagueRepository: Sendable {
 }
 
 extension LeagueRepository {
+    func loadScoringRules() async throws -> [MFLCore.MFLScoringRule] { throw RepositoryError.server("League scoring rules are unavailable.") }
+    func loadScoringGames(week: Int, refresh: Bool) async throws -> NFLScoringSnapshot {
+        throw RepositoryError.server("NFL game scores are unavailable in this session.")
+    }
+    func loadPlayerSearchCatalog() async throws -> PlayerSearchCatalog { throw RepositoryError.server("Player search is unavailable in this session.") }
+    func loadPlayerSearchOwnership(refresh: Bool) async throws -> PlayerSearchOwnership { throw RepositoryError.server("Player ownership is unavailable in this session.") }
     func loadTradingBlock(refresh: Bool) async throws -> TradingBlockSnapshot { throw RepositoryError.server("Trading Block is unavailable.") }
     func publishTradingBlock(_ draft: TradingBlockDraft) async throws -> TradingBlockReceipt { throw RepositoryError.server("Publishing is unavailable.") }
     func pendingTradingBlock() async throws -> PendingTradingBlock? { nil }

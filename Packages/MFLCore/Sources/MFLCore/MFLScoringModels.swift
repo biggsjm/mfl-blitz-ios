@@ -1,5 +1,10 @@
 import Foundation
 
+public struct MFLScoringRead: Sendable {
+    public let value: MFLLiveScoring
+    public let fetchedAt: Date
+}
+
 public struct MFLLiveScoring: Decodable, Equatable, Sendable {
     public let week: Int?
     public let matchups: [MFLLiveMatchup]
@@ -36,6 +41,7 @@ public struct MFLLiveMatchup: Decodable, Equatable, Sendable, Identifiable {
 public struct MFLLiveFranchise: Decodable, Equatable, Sendable, Identifiable {
     public let franchiseID: String
     public let score: Decimal
+    public let hasReportedScore: Bool
     public let isHome: Bool?
     public let gameSecondsRemaining: Int
     public let playersYetToPlay: Int
@@ -64,7 +70,9 @@ public struct MFLLiveFranchise: Decodable, Equatable, Sendable, Identifiable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         franchiseID = try container.mflRequiredString(forKey: .id)
-        score = try container.mflDecimalIfPresent(forKey: .score) ?? 0
+        let reportedScore = try container.mflDecimalIfPresent(forKey: .score)
+        score = reportedScore ?? 0
+        hasReportedScore = reportedScore != nil
         isHome = try container.mflBoolIfPresent(forKey: .isHome)
         gameSecondsRemaining = try container.mflIntIfPresent(forKey: .gameSecondsRemaining) ?? 0
         playersYetToPlay = try container.mflIntIfPresent(forKey: .playersYetToPlay) ?? 0
