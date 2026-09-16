@@ -2,7 +2,11 @@
 
 ## Unreleased
 
+## 0.7.0 (68) — search and startup
+
 - Keep the welcome screen hidden while restoring a saved login on cold launch; open saved Scores directly and show sign-in only when needed.
+- Dismiss the player-search keyboard with Done, a tap in the results panel, or scrolling while retaining the query; tap the page outside the panel to close search.
+- Rank exact first and last names equally in player search, then prioritize your roster, league-rostered players and cached fantasy relevance. Keep result order stable while ownership updates and place conservative typo matches after direct matches.
 
 ## 0.7.0 (67) — league beta follow-up
 

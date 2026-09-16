@@ -1,5 +1,17 @@
 # Current app status
 
+## September 16: build 68 — TestFlight release preparation
+
+Josh authorized a new TestFlight release. Candidate **0.7.0 (68)** includes the saved-login startup fix and the player-search relevance and dismissal changes described below. All 22 search model tests and 10 native search journeys passed; the startup fix also passed its model and native checks before merge. App/widget build numbers are advanced together. Release signing, export verification, upload and Apple processing are pending. The existing authenticated gateway, production push configuration and testing groups are retained; no service change is part of this release.
+
+## September 16: unreleased — player-search relevance and dismissal
+
+Player search ranks exact full names, equally weighted first/last name words, word prefixes, substrings, then conservative single-edit typos. Within each name tier it prioritizes the user's roster, other league rosters, cached current-week projections (falling back to observed points), then a deterministic name/ID fallback. Hunter Henry and Travis Hunter receive the same name-match strength; Jordan Mason is no longer pushed below every first-name Mason. Suffixes, MFL reversed-name order, NFL filters and league eligibility remain supported. Current results do not move when ownership or projections finish updating; the next query edit uses the new context. Typing adds no network request or provider usage.
+
+The keyboard's native Done action, result-panel taps and scrolling dismiss the keyboard while retaining the query. Tapping outside closes search and consumes that tap so covered controls cannot activate. The field can be focused again, and player navigation/back retains the query and ordering.
+
+Validation: all **22 search model tests and 10 native search journeys pass**, with zero failures (`/tmp/mfl-search-relevance.xcresult`). Coverage includes ownership/relevance tiers, typo boundaries, current-week and conflicting metrics, stable results through delayed ownership and account replacement, request-cache reuse, all five tabs, player Back, Mason after a scrolled query, both Hunter matches, keyboard dismissal, outside taps, failed ownership and largest text. Exported Hunter, Mason and accessibility-text screenshots were inspected. Changes remain local and unreleased while beta feedback is collected; no TestFlight upload or service change.
+
 ## September 16: unreleased — remove the welcome-screen flash on cold launch
 
 The root now starts in an explicit session-restoration state before SwiftUI schedules its startup task. Onboarding is only constructed after restoration finds no account, fails without cached content, or the user chooses sign-in. Saved league content still opens directly on Scores while authentication runs; offline reads and draft/write protections are preserved. The loading view uses the system appearance instead of inheriting onboarding's forced dark appearance.

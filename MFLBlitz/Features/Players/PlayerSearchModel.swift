@@ -5,7 +5,13 @@ import MFLCore
 @MainActor
 @Observable
 final class PlayerSearchModel {
-    var query = ""
+    var query = "" {
+        didSet {
+            guard query != oldValue else { return }
+            queryGeneration += 1
+            rankingSnapshot = nil
+        }
+    }
     private(set) var results = PlayerSearchResults(players: [], total: 0)
     private(set) var recentPlayers: [PlayerIdentity] = []
     private(set) var ownership: PlayerSearchOwnership?
@@ -16,6 +22,7 @@ final class PlayerSearchModel {
     private(set) var catalogVersion = 0
     private(set) var scope: String?
     @ObservationIgnored private var index: PlayerSearchIndex?
+    @ObservationIgnored private var rankingSnapshot: (version: Int, context: PlayerSearchRankingContext)?
     private var catalogLoadedAt: Date?
     private var ownershipRevision: Int?
     private var generation = 0
@@ -28,6 +35,7 @@ final class PlayerSearchModel {
         self.scope = scope
         query = ""; results = .init(players: [], total: 0); recentPlayers = []
         index = nil; ownership = nil; catalogLoadedAt = nil; ownershipRevision = nil
+        rankingSnapshot = nil
         isLoadingCatalog = false; isLoadingOwnership = false
         catalogError = nil; ownershipError = nil; catalogVersion += 1
     }
@@ -77,13 +85,21 @@ final class PlayerSearchModel {
         }
     }
 
-    func search() async {
+    func search(franchiseID: String? = nil, fantasyValues: [String: Double] = [:]) async {
         queryGeneration += 1
         let request = queryGeneration, scope = scope, query = query
         guard let index else { results = .init(players: [], total: 0); return }
+        // A completed ownership/score refresh may update labels, but must not
+        // move a result beneath a finger. Capture again only after a query edit
+        // or catalog replacement; returning from player details keeps the order.
+        if rankingSnapshot?.version != catalogVersion {
+            rankingSnapshot = (catalogVersion, PlayerSearchRankingContext(franchiseID: franchiseID,
+                ownership: ownership?.scope == scope ? ownership : nil, fantasyValues: fantasyValues))
+        }
+        let ranking = rankingSnapshot?.context ?? .init()
         // Filtering a full NFL catalog never competes with typing/navigation on
         // the main actor. Obsolete keystrokes cannot replace newer results.
-        let task = Task.detached(priority: .userInitiated) { index.search(query) }
+        let task = Task.detached(priority: .userInitiated) { index.search(query, ranking: ranking) }
         let found = await task.value
         guard !Task.isCancelled, request == queryGeneration, scope == self.scope else { return }
         results = found

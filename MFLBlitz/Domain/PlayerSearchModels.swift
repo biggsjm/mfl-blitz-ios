@@ -6,6 +6,7 @@ struct PlayerSearchIndex: Sendable {
     private struct Entry: Sendable {
         let player: PlayerIdentity
         let name: String
+        let nameTokens: [String]
         let terms: String
         let teamCode: String?
         let position: String?
@@ -27,7 +28,11 @@ struct PlayerSearchIndex: Sendable {
             let order = $0.name.localizedStandardCompare($1.name)
             return order == .orderedSame ? $0.id < $1.id : order == .orderedAscending
         }.map { player in
-            Entry(player: player, name: Self.normalize(player.name),
+            let name = Self.normalize(player.name)
+            var nameParts = name.split(separator: " ").map(String.init)
+            if nameParts.count > 1, let suffix = nameParts.last,
+               ["jr", "sr", "ii", "iii", "iv", "v"].contains(suffix) { nameParts.removeLast() }
+            return Entry(player: player, name: name, nameTokens: nameParts,
                   terms: Self.normalize("\(player.name) \(player.metadata) \(PlayerSearchTeams.team(for: player.nflTeam)?.searchTerms ?? "")"),
                   teamCode: PlayerSearchTeams.canonicalCode(player.nflTeam),
                   position: player.position.map(PlayerSearchPositions.canonical),
@@ -43,13 +48,14 @@ struct PlayerSearchIndex: Sendable {
             .filter { !$0.isEmpty }.joined(separator: " ")
     }
 
-    func search(_ query: String, limit: Int = 60) -> PlayerSearchResults {
+    func search(_ query: String, limit: Int = 60,
+                ranking: PlayerSearchRankingContext = .init()) -> PlayerSearchResults {
         let normalized = Self.normalize(query)
         let exactPosition = PlayerSearchPositions.canonical(query)
         let tokens = PlayerSearchPositions.known.contains(exactPosition)
             ? [exactPosition.lowercased()] : normalized.split(separator: " ").map(String.init)
         guard !tokens.isEmpty else { return PlayerSearchResults(players: [], total: 0) }
-        var matches: [(Entry, Int)] = []
+        var matches: [(entry: Entry, nameRank: Int, alphabeticRank: Int)] = []
         // A recognized NFL code/position is a field match, not a substring of
         // someone's name (NE must not include every player named Jones).
         let teamCodes = tokens.compactMap(PlayerSearchTeams.canonicalCode)
@@ -57,16 +63,109 @@ struct PlayerSearchIndex: Sendable {
         let otherTokens = tokens.filter {
             PlayerSearchTeams.canonicalCode($0) == nil && !positionTokens.contains($0)
         }
-        for entry in entries where teamCodes.allSatisfy({ entry.teamCode == $0 })
-            && positionTokens.allSatisfy({ PlayerSearchPositions.expanded($0).contains(entry.position ?? "") })
-            && otherTokens.allSatisfy({ entry.terms.contains($0) }) {
-            let rank = (entry.name == normalized ? 0 : entry.name.hasPrefix(normalized) ? 1 : 2)
-                + (entry.isTeamUnit ? 3 : 0)
-            matches.append((entry, rank))
+        for (offset, entry) in entries.enumerated() where teamCodes.allSatisfy({ entry.teamCode == $0 })
+            && positionTokens.allSatisfy({ PlayerSearchPositions.expanded($0).contains(entry.position ?? "") }) {
+            let nameRank: Int
+            if otherTokens.isEmpty {
+                nameRank = 3
+            } else if entry.name == normalized || otherTokens.sorted() == entry.nameTokens.sorted() {
+                // Also recognize MFL's last, first order and omitted suffixes.
+                nameRank = 0
+            } else if otherTokens.allSatisfy({ entry.nameTokens.contains($0) }) {
+                // First and last names are equally strong: both Hunter Henry
+                // and Travis Hunter qualify before ownership breaks the tie.
+                nameRank = 1
+            } else if otherTokens.allSatisfy({ token in entry.nameTokens.contains { $0.hasPrefix(token) } }) {
+                nameRank = 2
+            } else if otherTokens.allSatisfy({ entry.terms.contains($0) }) {
+                nameRank = 3
+            } else if otherTokens.allSatisfy({ token in
+                entry.terms.contains(token) || (token.count >= 4 && entry.nameTokens.contains {
+                    $0.count >= 4 && Self.isOneEditAway(token, from: $0)
+                })
+            }) {
+                nameRank = 4
+            } else { continue }
+            matches.append((entry, nameRank, offset))
         }
-        // Preserve the index's name order within each relevance tier.
-        let sorted = (0...5).flatMap { rank in matches.filter { $0.1 == rank }.map { $0.0.player } }
-        return PlayerSearchResults(players: Array(sorted.prefix(max(0, limit))), total: matches.count)
+        let sorted = matches.sorted { left, right in
+            if left.entry.isTeamUnit != right.entry.isTeamUnit { return !left.entry.isTeamUnit }
+            if left.nameRank != right.nameRank { return left.nameRank < right.nameRank }
+            let leftID = left.entry.player.id, rightID = right.entry.player.id
+            let leftOwner = ranking.ownershipRank(leftID), rightOwner = ranking.ownershipRank(rightID)
+            if leftOwner != rightOwner { return leftOwner < rightOwner }
+            let leftValue = ranking.fantasyValues[leftID], rightValue = ranking.fantasyValues[rightID]
+            if let leftValue, let rightValue, leftValue != rightValue { return leftValue > rightValue }
+            if (leftValue != nil) != (rightValue != nil) { return leftValue != nil }
+            return left.alphabeticRank < right.alphabeticRank
+        }
+        return PlayerSearchResults(players: sorted.prefix(max(0, limit)).map(\.entry.player), total: matches.count)
+    }
+
+    /// One insertion, deletion, substitution or adjacent transposition. Applied
+    /// only to name tokens of at least four characters, never codes/positions.
+    private static func isOneEditAway(_ query: String, from name: String) -> Bool {
+        let a = Array(query), b = Array(name)
+        guard abs(a.count - b.count) <= 1 else { return false }
+        let common = zip(a, b).prefix { $0 == $1 }.count
+        if common == min(a.count, b.count) { return true }
+        if a.count == b.count {
+            if a.dropFirst(common + 1).elementsEqual(b.dropFirst(common + 1)) { return true }
+            return common + 1 < a.count && a[common] == b[common + 1] && a[common + 1] == b[common]
+                && a.dropFirst(common + 2).elementsEqual(b.dropFirst(common + 2))
+        }
+        if a.count > b.count { return a.dropFirst(common + 1).elementsEqual(b.dropFirst(common)) }
+        return a.dropFirst(common).elementsEqual(b.dropFirst(common + 1))
+    }
+}
+
+/// An immutable snapshot for a deliberate query. Relevance affects ordering
+/// only; it never implies ownership, eligibility or a permission to transact.
+struct PlayerSearchRankingContext: Sendable {
+    private let ownPlayerIDs: Set<String>
+    private let rosteredPlayerIDs: Set<String>
+    let fantasyValues: [String: Double]
+
+    init(franchiseID: String? = nil, ownership: PlayerSearchOwnership? = nil,
+         fantasyValues: [String: Double] = [:]) {
+        ownPlayerIDs = Set(ownership?.assignments.compactMap { id, owners in
+            guard let franchiseID, owners.contains(where: { $0.team.id == franchiseID }) else { return nil }
+            return id
+        } ?? [])
+        rosteredPlayerIDs = Set(ownership?.assignments.compactMap { $0.value.isEmpty ? nil : $0.key } ?? [])
+        self.fantasyValues = fantasyValues.filter { $0.value.isFinite }
+    }
+
+    func ownershipRank(_ playerID: String) -> Int {
+        ownPlayerIDs.contains(playerID) ? 0 : rosteredPlayerIDs.contains(playerID) ? 1 : 2
+    }
+
+    /// Uses the current week's already-loaded projections, falling back to
+    /// observed fantasy points. Unknown values stay unknown, not zero.
+    static func cachedFantasyValues(week: Int, scores: ScoresSnapshot, lineup: LineupSnapshot,
+                                    waivers: WaiverSnapshot) -> [String: Double] {
+        var values: [String: Double] = [:]
+        var points: [String: Double] = [:]
+        if scores.week == week, scores.lastUpdated != .distantPast {
+            let groups = Dictionary(grouping: scores.matchups.flatMap { $0.away.players + $0.home.players }, by: \.id)
+            for (id, players) in groups {
+                let projections = Set(players.compactMap(\.projectedPoints).filter(\.isFinite))
+                let actuals = Set(players.compactMap(\.livePoints).filter(\.isFinite))
+                if projections.count == 1 { values[id] = projections.first }
+                if actuals.count == 1 { points[id] = actuals.first }
+            }
+        }
+        if lineup.week == week {
+            for player in lineup.players where values[player.id] == nil {
+                if let value = player.projectedPoints, value.isFinite { values[player.id] = value }
+            }
+        }
+        if waivers.projectionWeek == week {
+            for player in waivers.candidates where values[player.id] == nil {
+                if let value = player.projectedPoints, value.isFinite { values[player.id] = value }
+            }
+        }
+        return values.merging(points) { projection, _ in projection }
     }
 }
 

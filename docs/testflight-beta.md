@@ -1,4 +1,6 @@
-# MFL Blitz 0.7.0 (67) — closed league TestFlight
+# MFL Blitz 0.7.0 (68) — closed league TestFlight
+
+Build 68 adds a smoother saved-login launch, relevant first/last-name search and keyboard/outside-tap dismissal. Its upload is being prepared; see [current status](current-status.md) for verified delivery.
 
 Build 67 includes automatic league services for invited owners. Build 67 is installed through the owner TestFlight group and waiting for Apple external review. Automatic phone enrollment and production lineup registration are confirmed; visible production notification delivery remains to be tested. See [current status](current-status.md). Build 66 is the earlier owner-only private-service build.
 
@@ -13,6 +15,9 @@ League changes affect the actual MFL league. The interactive preview uses synthe
 
 ## What to test
 
+- Cold launch with a saved login: open Scores without a flash of the welcome screen.
+- Search first/last names such as Mason and Hunter; exact names lead, with your roster and other rostered players prioritized within equally good matches.
+- Hide the search keyboard with Done or scrolling, tap outside to close search, and return from player details to the same query.
 - Scores, player stats, Live Activity handoff and foreground score freshness.
 - Roster browsing, search, standings and switching tabs; no cancellation alert should appear when leaving a tab.
 - Compact lineup checks and alert settings, initial notification permission and returning from iOS Settings.
