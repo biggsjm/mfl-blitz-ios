@@ -114,6 +114,7 @@ struct MatchupSyncClient: Sendable {
         request.setValue("1", forHTTPHeaderField: "X-Blitz-Sync")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let secret { request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization") }
+        BetaServiceAccess.authorize(&request)
         let (data, response) = try await session.data(for: request)
         guard let response = response as? HTTPURLResponse, response.statusCode == 200, data.count <= maximumBytes else {
             throw SyncError.connection
@@ -155,8 +156,8 @@ enum SyncError: LocalizedError {
     case address, connection
     var errorDescription: String? {
         switch self {
-        case .address: "Use your private Tailscale HTTPS server address."
-        case .connection: "Couldn’t reach background sync. Check Tailscale and try again."
+        case .address: "Use the HTTPS scoring service address."
+        case .connection: "Couldn’t reach background scoring. Check your connection and beta access."
         }
     }
 }
@@ -230,7 +231,7 @@ final class MatchupBackgroundSync {
             else if !status.readyForBuild { message = "Server reachable. Apple push key setup required." }
             else if let issue = status.issue { message = issue }
             else { message = isRegistered ? "Background scoring connected." : "Server ready. Open your live matchup to connect." }
-        } catch { message = "Couldn’t reach background sync. Check Tailscale and the server address." }
+        } catch { message = "Couldn’t reach background scoring. Check your connection and beta access." }
     }
 
     func track(_ activity: Activity<MatchupActivityAttributes>, value: MatchupSyncRegistration) {

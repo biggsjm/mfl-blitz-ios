@@ -21,6 +21,7 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink("League services") { LeagueBetaAccessView() }
                     NavigationLink("Lineup alerts") { LineupAlertSettings() }
                     Toggle("Matchup Live Activity", isOn: Binding(get: { model.matchupActivity.enabled }, set: { enabled in
                         model.matchupActivity.enabled = enabled

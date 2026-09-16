@@ -43,6 +43,12 @@ class GameDayTests(unittest.TestCase):
         b['required']=1;self.assertEqual(candidates(b,document(),schedule(),{},NOW),[])
         b['required']=2;b['options']['incomplete']=False
         self.assertEqual(candidates(b,document(),schedule(),{},NOW),[])
+
+    def test_full_league_can_register_lineup_alerts(self):
+        for index in range(13):
+            receipt=self.service.alerts.register(f'league-{index}',f'owner-{index}',alert_body())
+            self.assertTrue(receipt['registered'])
+        self.assertEqual(self.service.db.execute('SELECT COUNT(*) FROM lineup_alerts').fetchone()[0],13)
     def test_no_unknown_empty_wrong_week_or_postkickoff_guess(self):
         b=alert_body()
         for status in ('unknown',None):

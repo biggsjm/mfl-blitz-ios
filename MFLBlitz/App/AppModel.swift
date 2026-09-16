@@ -198,6 +198,50 @@ final class AppModel {
     }
 
     private var repository: any LeagueRepository
+    var betaServicesMessage = "Connects automatically after MFL sign-in."
+    private var betaConnectionTask: Task<Void, Never>?
+    private var lastBetaConnectionAttempt: Date?
+
+    func connectBetaServicesIfNeeded(force: Bool = false) {
+        guard phase == .signedIn, !isDemo, !isUsingCachedSession, let workspace,
+              let address = Bundle.main.object(forInfoDictionaryKey: "MFLBackgroundSyncURL") as? String,
+              let url = URL(string: address), BetaServiceAccess.origin(of: url) == BetaServiceAccess.trustedOrigin,
+              betaConnectionTask == nil else { return }
+        if !force, let access = try? privateStore.decode(BetaServiceAccess.self, key: BetaServiceAccess.key), access.matches(workspace) {
+            betaServicesMessage = "Connected"
+            return
+        }
+        guard force || lastBetaConnectionAttempt.map({ Date().timeIntervalSince($0) >= 300 }) ?? true,
+              let saved = try? privateStore.decode(SavedSession.self, key: "session") else { return }
+        let generation = sessionGeneration
+        lastBetaConnectionAttempt = Date()
+        betaServicesMessage = "Connecting…"
+        betaConnectionTask = Task {
+            defer { if generation == sessionGeneration { betaConnectionTask = nil } }
+            do {
+                let credential = try BetaServiceAccess.deviceCredential(workspace: workspace, store: privateStore)
+                let access = try await BetaServiceAccess.connect(savedSession: saved, deviceCredential: credential,
+                                                                address: address, workspace: workspace)
+                guard generation == sessionGeneration, !Task.isCancelled, self.workspace?.storageScope == workspace.storageScope else { return }
+                if matchupActivity.backgroundSync.address != address {
+                    // An old private-service activity has a different backend owner.
+                    // End it so the new gateway gets a fresh registration ID.
+                    await matchupActivity.end(reason: "Connecting league services.")
+                    try await matchupActivity.backgroundSync.saveAddress(address)
+                }
+                guard generation == sessionGeneration, !Task.isCancelled else { return }
+                try privateStore.encode(access, key: BetaServiceAccess.key)
+                betaServicesMessage = "Connected"
+                await lineupAlerts.reconcile(model: self)
+                await nflStats.refresh(season: workspace.season, week: selectedWeek, force: true)
+                await updateMatchupActivity()
+            } catch {
+                guard generation == sessionGeneration, !Task.isCancelled else { return }
+                betaServicesMessage = "Will reconnect automatically"
+            }
+        }
+    }
+
     private var sessionGeneration = 0
     private var weekLoadGeneration = 0
     private var nextRefreshID = 0
@@ -264,6 +308,7 @@ final class AppModel {
             isRestoringSession = false
             isBusy = false
             phase = .signedIn
+            connectBetaServicesIfNeeded()
             await refreshAll()
         } catch {
             guard generation == sessionGeneration else { return }
@@ -402,6 +447,7 @@ final class AppModel {
             phase = .signedIn
             authenticating = false
             isBusy = false
+            connectBetaServicesIfNeeded()
             await refreshAll()
             guard generation == sessionGeneration else { return }
         } catch {
@@ -526,13 +572,18 @@ final class AppModel {
         defer { if generation == sessionGeneration, revision == weekLoadGeneration { isLoadingLineup = false } }
         do {
             let fresh = try await repository.loadLineup(week: requestedWeek)
-            guard generation == sessionGeneration, revision == weekLoadGeneration, selectedWeek == requestedWeek else { return }
+            guard generation == sessionGeneration, revision == weekLoadGeneration, selectedWeek == requestedWeek,
+                  !Task.isCancelled else { return }
             cachedLineupDate = nil
             lineupRefreshError = nil
             mergeLineup(fresh); lineupRevision &+= 1
             await saveDisplay(.lineup(fresh))
         } catch {
             guard generation == sessionGeneration, revision == weekLoadGeneration else { return }
+            guard !Task.isCancelled, !MFLCoreError.isCancellation(error) else {
+                sectionRefreshes[.lineup] = nil
+                return
+            }
             handleSessionError(error)
             notice = .error(error.localizedDescription)
         }
@@ -545,12 +596,16 @@ final class AppModel {
         defer { if generation == sessionGeneration { isLoadingBoard = false } }
         do {
             let fresh = try await repository.loadBoard()
-            guard generation == sessionGeneration else { return }
+            guard generation == sessionGeneration, !Task.isCancelled else { return }
             boardThreads = fresh
             cachedBoardDate = nil
             await saveDisplay(.board(fresh))
         } catch {
             guard generation == sessionGeneration else { return }
+            guard !Task.isCancelled, !MFLCoreError.isCancellation(error) else {
+                sectionRefreshes[.board] = nil
+                return
+            }
             handleSessionError(error); notice = .error(error.localizedDescription)
         }
     }
@@ -561,12 +616,16 @@ final class AppModel {
         defer { endRefreshing(refreshID) }
         do {
             let fresh = try await repository.loadStandings()
-            guard generation == sessionGeneration else { return }
+            guard generation == sessionGeneration, !Task.isCancelled else { return }
             standings = fresh
             cachedStandingsDate = nil
             await saveDisplay(.standings(fresh))
         } catch {
             guard generation == sessionGeneration else { return }
+            guard !Task.isCancelled, !MFLCoreError.isCancellation(error) else {
+                sectionRefreshes[.standings] = nil
+                return
+            }
             handleSessionError(error); notice = .error(error.localizedDescription)
         }
     }
@@ -579,10 +638,11 @@ final class AppModel {
         defer { if generation == sessionGeneration { isLoadingWaivers = false } }
         do {
             let fresh = try await repository.loadWaivers()
-            guard generation == sessionGeneration else { return }
+            guard generation == sessionGeneration, !Task.isCancelled else { return }
             mergeWaivers(fresh); waiverReadError = nil; lastWaiverRefresh = Date()
         } catch {
             guard generation == sessionGeneration else { return }
+            guard !Task.isCancelled, !MFLCoreError.isCancellation(error) else { return }
             handleSessionError(error)
             waiverReadError = "Waivers couldn’t refresh. Your existing data and draft are kept. \(error.localizedDescription)"
         }
@@ -1242,6 +1302,7 @@ final class AppModel {
               leagueCalendar?.isSaving != true else { return }
         isBusy = true
         defer { isBusy = false }
+        betaConnectionTask?.cancel(); betaConnectionTask = nil; lastBetaConnectionAttempt = nil
         await tradingBlock?.disconnect()
         await leagueCalendar?.disconnect()
         if !isDemo, let workspace {
@@ -1264,6 +1325,13 @@ final class AppModel {
         await matchupActivity.disconnect()
         await matchupTimeline.clear()
         await lineupAlerts.disconnect()
+        if let access = try? privateStore.decode(BetaServiceAccess.self, key: BetaServiceAccess.key), await access.revoke(), let workspace {
+            try? privateStore.remove("league-beta-device.\(workspace.storageScope)")
+        }
+        // Retain an unreachable device's random enrollment secret for idempotent
+        // reconnection. It contains no MFL session and cannot change league actions.
+        try? privateStore.remove(BetaServiceAccess.key)
+        betaServicesMessage = "Connects automatically after MFL sign-in."
         sessionGeneration &+= 1
         weekLoadGeneration &+= 1
         workspace = nil
@@ -1950,6 +2018,7 @@ extension AppModel {
     func refreshForForeground(section: ForegroundSection = .scores) async {
         if isUsingCachedSession { await retryConnection(); return }
         guard phase == .signedIn, !isDemo, !isBusy else { return }
+        connectBetaServicesIfNeeded()
         if let lastFullRefresh, Date().timeIntervalSince(lastFullRefresh) < foregroundRefreshInterval { return }
         guard !fullRefreshInFlight || fullRefreshSession != sessionGeneration else { return }
         guard !foregroundSectionsInFlight.contains(section),
@@ -1957,7 +2026,10 @@ extension AppModel {
         foregroundSectionsInFlight.insert(section)
         let generation = sessionGeneration
         defer {
-            if generation == sessionGeneration { foregroundSectionsInFlight.remove(section) }
+            if generation == sessionGeneration {
+                foregroundSectionsInFlight.remove(section)
+                if Task.isCancelled { sectionRefreshes[section] = nil }
+            }
         }
         // Rollover/session validation is shared by tabs, not repeated per tab.
         if lastForegroundWeekCheck.map({ Date().timeIntervalSince($0) >= foregroundRefreshInterval * 5 }) ?? true {
@@ -1982,6 +2054,10 @@ extension AppModel {
                 }
             } catch {
                 guard generation == sessionGeneration else { return }
+                guard !Task.isCancelled, !MFLCoreError.isCancellation(error) else {
+                    lastForegroundWeekCheck = nil
+                    return
+                }
                 handleSessionError(error)
             }
         }

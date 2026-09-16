@@ -264,6 +264,7 @@ struct NFLFeedClient: Sendable {
         guard (2020...2100).contains(season), (1...18).contains(week) else { throw NFLFeedError.response }
         var request = URLRequest(url: baseURL.appendingPathComponent("v1/seasons/\(season)/weeks/\(week)"))
         request.setValue("1", forHTTPHeaderField: "X-Blitz-NFL")
+        BetaServiceAccess.authorize(&request)
         let codes = Set(teams.map(NFLFeedGame.team)).filter { $0.count <= 3 && $0.allSatisfy(\.isASCII) && $0.allSatisfy(\.isLetter) }.sorted()
         if !codes.isEmpty { request.setValue(codes.prefix(32).joined(separator: ","), forHTTPHeaderField: "X-Blitz-NFL-Teams") }
         let defenseCodes = Set(defenseTeams.map(NFLFeedGame.team)).filter { $0.count <= 3 && $0.allSatisfy(\.isASCII) && $0.allSatisfy(\.isLetter) }.sorted()

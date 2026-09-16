@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0 (67) — league beta follow-up
+
+- Replace the large lineup readiness/notification card with a toolbar bell and an attention badge; keep lineup checks and alert preferences one tap away.
+- Offer the notification permission prompt when permission has not been requested; link directly to notification settings after denial, and refresh authorization on return.
+- Treat canceled Board, Lineup and Standings refreshes as navigation, retaining data without an error alert on another tab.
+- Connect shared NFL stats and background notifications automatically after verified MFL team sign-in, including independent access for co-owners. No code entry or Tailscale app is needed. Keep provider request budgets and opt-in alert preferences unchanged; deployment and TestFlight delivery are recorded separately.
+
 ## 0.7.0 (66) — TestFlight candidate
 
 - Refresh the visible tab on foreground return, reuse recent reads, and check trade badges without fetching every team's tradable assets. Keep fresh checks before and after league actions.

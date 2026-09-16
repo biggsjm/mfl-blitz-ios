@@ -86,7 +86,7 @@ class LineupAlerts:
             if s.db.execute('SELECT 1 FROM lineup_alert_deleted WHERE id=?',(sid,)).fetchone(): raise ValueError('removed')
             old=s.db.execute('SELECT owner,body,expires FROM lineup_alerts WHERE id=?',(sid,)).fetchone()
             if old and old[0]!=owner: raise PermissionError()
-            if not old and s.db.execute('SELECT COUNT(*) FROM lineup_alerts').fetchone()[0]>=8: raise OverflowError()
+            if not old and s.db.execute('SELECT COUNT(*) FROM lineup_alerts').fetchone()[0]>=48: raise OverflowError()
             if old and json.loads(old[1])['revision']>=body['revision']:
                 return dict(registered=True,pushReady=s.push_ready(json.loads(old[1])['environment']),expiresAt=old[2])
             expires=s.clock()+LIFETIME

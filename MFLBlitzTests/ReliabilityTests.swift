@@ -34,6 +34,8 @@ actor ReliabilityRepository: LeagueRepository {
     var scoreLoads = 0
     var lineupLoads = 0
     var boardLoads = 0
+    var boardGate: TestGate?
+    var sectionFailure: (any Error)?
     var standingsLoads = 0
     var waiverLoads = 0
     var tradeLoads = 0
@@ -74,6 +76,7 @@ actor ReliabilityRepository: LeagueRepository {
     func loadLineup(week: Int) async throws -> LineupSnapshot {
         lineupLoads += 1
         if let lineupGate { await lineupGate.wait() }
+        if let sectionFailure { throw sectionFailure }
         var result = testLineup; result.week = week; return result
     }
     func submitLineup(_ lineup: LineupSnapshot) async throws {
@@ -94,8 +97,19 @@ actor ReliabilityRepository: LeagueRepository {
     func submitWaivers(_ claims: [WaiverClaim], replacing baseline: [WaiverClaim]) async throws {
         submittedClaims = claims; testWaivers.claims = claims
     }
-    func loadStandings() async throws -> [StandingRow] { standingsLoads += 1; return SampleData.standings }
-    func loadBoard() async throws -> [BoardThread] { boardLoads += 1; return testBoard }
+    func loadStandings() async throws -> [StandingRow] {
+        standingsLoads += 1
+        if let sectionFailure { throw sectionFailure }
+        return SampleData.standings
+    }
+    func loadBoard() async throws -> [BoardThread] {
+        boardLoads += 1
+        if let boardGate { await boardGate.wait() }
+        if let sectionFailure { throw sectionFailure }
+        return testBoard
+    }
+    func failSections(_ error: (any Error)?) { sectionFailure = error }
+    func pauseBoard(_ gate: TestGate) { boardGate = gate }
     func loadThread(id: String) async throws -> BoardThread {
         threadLoads += 1
         let snapshot = testThreadDetails.first(where: { $0.id == id })
@@ -171,6 +185,42 @@ struct ReliabilityTests {
         default: NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled,
                          userInfo: [NSURLErrorFailingURLStringErrorKey: "https://synthetic.invalid/private"])
         }
+    }
+
+    @Test("Cancelled section reads keep saved content and do not alert on another tab", arguments: ["swift", "url", "ns"])
+    func cancelledSectionReads(kind: String) async throws {
+        let repository = ReliabilityRepository()
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore())
+        await model.signIn(credentials: LoginCredentials())
+        let board = model.boardThreads, lineup = model.lineup, standings = model.standings
+        await repository.failSections(cancellation(kind))
+        await model.refreshBoard()
+        await model.refreshLineup()
+        await model.refreshStandings()
+        #expect(model.notice == nil)
+        #expect(model.boardThreads == board && model.lineup == lineup && model.standings == standings)
+        #expect(!model.isLoadingBoard && !model.isLoadingLineup && !model.isRefreshing)
+        await repository.failSections(MFLCoreError.offline)
+        await model.refreshBoard()
+        #expect(model.notice != nil) // Real failures are still reported.
+    }
+
+    @Test("Leaving Board cancels its refresh without presenting a late error on Scores")
+    func leavingBoardDuringRefresh() async throws {
+        let repository = ReliabilityRepository()
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore())
+        await model.signIn(credentials: LoginCredentials())
+        let gate = TestGate(), before = await repository.boardLoads
+        await repository.pauseBoard(gate)
+        await repository.failSections(URLError(.networkConnectionLost))
+        let task = Task { await model.refreshBoard() }
+        while await repository.boardLoads == before { await Task.yield() }
+        task.cancel()
+        await gate.open()
+        await task.value
+        #expect(model.notice == nil && !model.isLoadingBoard)
+        await model.refreshScores()
+        #expect(model.notice == nil)
     }
 
     @Test("Cancelled manual and polling score reads retain data without a stale banner or alert",

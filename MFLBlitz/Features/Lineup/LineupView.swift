@@ -5,6 +5,8 @@ struct LineupView: View {
     @State private var reviewedLineup: LineupReviewRequest?
     @State private var replacementRequest: AppModel.LineupReplacementRequest?
     @State private var startRequest: AppModel.LineupStartRequest?
+    @State private var showingLineupCheck = false
+    @State private var readinessReplacement: AppModel.LineupReplacementRequest?
 
     private struct LineupReviewRequest: Identifiable {
         let id = UUID()
@@ -69,13 +71,6 @@ struct LineupView: View {
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 .listRowBackground(Color.clear)
             } else {
-                Section {
-                    LineupReadinessView(replace: { playerID in
-                        if let slot = model.lineup.startingSlots.first(where: { $0.player.id == playerID }) {
-                            replacementRequest = model.replacementRequest(for: slot.id)
-                        }
-                    }, reviewBench: { proxy.scrollTo("lineup-bench", anchor: .top) })
-                }
                 Section {
                     LineupSummaryCard(
                         lineup: model.lineup,
@@ -170,6 +165,13 @@ struct LineupView: View {
             await model.loadPlayerAvailability(week: model.selectedWeek)
         }
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Lineup check and alerts", systemImage: lineupNeedsAttention ? "bell.badge" : "bell") {
+                    showingLineupCheck = true
+                }
+                .accessibilityIdentifier("lineup-alerts-toolbar")
+                .accessibilityValue("\(lineupReadiness.title). \(model.lineupAlerts.coverageTitle(week: model.lineup.week))")
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 WeekPicker(selection: weekBinding, weeks: model.availableWeeks)
                     .disabled(model.isUsingCachedSession || model.availableWeeks.isEmpty)
@@ -181,6 +183,37 @@ struct LineupView: View {
             }
         }
         .refreshable { await model.refreshLineup() }
+        .sheet(isPresented: $showingLineupCheck, onDismiss: {
+            if let request = readinessReplacement {
+                readinessReplacement = nil
+                replacementRequest = request
+            }
+        }) {
+            NavigationStack {
+                Form {
+                    Section {
+                        LineupReadinessView(replace: { playerID in
+                            showingLineupCheck = false
+                            if let slot = model.lineup.startingSlots.first(where: { $0.player.id == playerID }) {
+                                readinessReplacement = model.replacementRequest(for: slot.id)
+                            }
+                        }, reviewBench: {
+                            showingLineupCheck = false
+                            proxy.scrollTo("lineup-bench", anchor: .top)
+                        })
+                    }
+                }
+                .navigationTitle("Lineup check")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showingLineupCheck = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .sheet(item: $replacementRequest) { request in
             LineupReplacementPicker(request: request)
                 .presentationDetents([.large])
@@ -199,6 +232,17 @@ struct LineupView: View {
 
     private var isDirty: Bool {
         model.hasLineupChanges
+    }
+
+    private var lineupReadiness: LineupReadiness {
+        LineupReadiness(lineup: model.lineup, availability: model.playerTools.availability[model.lineup.week],
+                        scope: model.workspace?.storageScope)
+    }
+
+    private var lineupNeedsAttention: Bool {
+        lineupReadiness.attentionCount > 0 || (model.lineupAlerts.options.enabled && !model.lineupAlerts.busy &&
+            (model.lineupAlerts.permissionRequired || model.lineupAlerts.acknowledgedWeek != model.lineup.week ||
+             (model.lineupAlerts.acknowledgedUntil ?? .distantPast) <= Date()))
     }
 
     private var displayedValidationMessage: String? {

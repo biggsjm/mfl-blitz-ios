@@ -25,7 +25,7 @@ from mfl_requests import MFL
 
 INTERVAL = 60
 MAX_LIFETIME = 7 * 3600 + 50 * 60
-MAX_SUBSCRIPTIONS = 8
+MAX_SUBSCRIPTIONS = 48
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):

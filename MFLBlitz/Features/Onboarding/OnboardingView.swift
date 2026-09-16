@@ -154,7 +154,7 @@ private struct SignInSheet: View {
                 } header: {
                     Text("MyFantasyLeague account")
                 } footer: {
-                    Text("Credentials are sent directly to MFL over HTTPS. The password and resulting session are kept in memory only and are discarded when you disconnect or close the app.")
+                    Text("Your password goes directly to MFL and is never saved. Your session is protected in Keychain. For invited teams, Blitz briefly verifies that session through its server to connect league services automatically.")
                 }
 
                 Section("League") {

@@ -1,5 +1,15 @@
 # Current app status
 
+## September 16: build 67 — automatic league services prepared for upload
+
+Champion Hall Owners contains 12 external tester addresses, excluding Josh; both Two Bad Neighbors co-owners are included. All received the initial iPhone/TestFlight instructions. Build 66 remains Waiting for Review at the latest App Store Connect check. No public TestFlight link or staff roles were granted.
+
+Josh requested full enhanced stats/background notifications and automatic activation through each owner's normal MFL login. The updated gateway is deployed and running on Hephaestus, with 12 allowed teams and independent device credentials for co-owners. The previously provisioned 13 manual codes were never sent and are retired. HTTPS port 10000 publishes only the scoped gateway, while private ports 8443–8445 remain intact. Authenticated HTTPS status returns 200 and production APNs signer readiness; unauthenticated, arbitrary-route and cross-league probes return 403. The temporary health-check credential was removed. This verifies service configuration/health, not actual TestFlight phone push delivery. The canonical Hephaestus inventory records the change. See [automatic access and operations](league-beta-access.md).
+
+Migration ends an existing private-service Live Activity before re-registering with the new identity; alert registration reuse also checks the destination address. Build 67 also fixes notification permission recovery, moves lineup checks/alerts into a compact toolbar bell, and suppresses navigation cancellation alerts. Automatic enrollment checks membership transiently with MFL without persisting the session; the sign-in copy and privacy policy disclose this. Notification options remain opt-in and provider polling/budgets remain shared and unchanged.
+
+Validation: 379 app tests in 40 suites pass (`/tmp/mfl67-automatic.xcresult`); normal/largest-text bell and alert-settings journeys pass (`/tmp/mfl67-final.xcresult`), and screenshots were inspected. All 14 gateway and 53 background service tests pass locally; gateway tests also pass on Hephaestus. Build 67 archive/upload and real phone verification remain pending at this source checkpoint.
+
 ## September 16: build 66 — available in owner-only TestFlight
 
 **0.7.0 (66)** uploaded successfully at **11:20 CDT**, completed Apple processing, and was assigned to the **Owner Testing** internal group. At **11:29 CDT**, App Store Connect showed one build, one tester (Josh) and status **Invited**. Beta description, privacy/support links, feedback contact and build-specific test instructions are saved. No external testers or public invitation link were added. Phone installation and production notification delivery remain for Josh's test; the last locally verified phone install is build 65.

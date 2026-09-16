@@ -284,6 +284,14 @@ class ServiceTests(unittest.TestCase):
         with self.assertRaises(PermissionError): self.service.delete('one', 'other')
         self.assertEqual(self.service.status()['subscriptions'], 1)
 
+    def test_full_league_activities_share_one_mfl_read(self):
+        for index in range(13):
+            self.service.register(f'league-{index}', f'owner-{index}', subscription())
+        self.service.tick()
+        self.assertEqual(self.service.status()['subscriptions'], 13)
+        self.assertEqual(self.mfl.calls, 1)
+        self.assertEqual(len(self.push.calls), 13)
+
     def test_expiry_not_extended_by_foreground_refresh(self):
         first = self.register(); self.now += 1000
         self.assertEqual(self.register(revision=2)['expiresAt'], first['expiresAt'])
