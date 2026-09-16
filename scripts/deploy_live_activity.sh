@@ -7,6 +7,7 @@ ssh -o BatchMode=yes -o StrictHostKeyChecking=yes hephaestus \
 scp -q -o BatchMode=yes -o StrictHostKeyChecking=yes \
   "$repo_dir/services/live_activity/server.py" "$repo_dir/services/live_activity/scoring.py" \
   "$repo_dir/services/live_activity/timeline.py" \
+  "$repo_dir/services/live_activity/mfl_requests.py" "$repo_dir/services/live_activity/test_mfl_requests.py" \
   "$repo_dir/services/live_activity/nfl_context.py" "$repo_dir/services/live_activity/lineup_alerts.py" \
   "$repo_dir/services/live_activity/test_game_day.py" "$repo_dir/services/live_activity/test_server.py" "$repo_dir/services/live_activity/mfl-live-activity.service" \
   hephaestus:.local/share/mfl-live-activity/

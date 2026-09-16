@@ -88,10 +88,10 @@ class LineupAlerts:
             if old and old[0]!=owner: raise PermissionError()
             if not old and s.db.execute('SELECT COUNT(*) FROM lineup_alerts').fetchone()[0]>=8: raise OverflowError()
             if old and json.loads(old[1])['revision']>=body['revision']:
-                return dict(registered=True,pushReady=s.apns.ready,expiresAt=old[2])
+                return dict(registered=True,pushReady=s.push_ready(json.loads(old[1])['environment']),expiresAt=old[2])
             expires=s.clock()+LIFETIME
             s.db.execute('INSERT OR REPLACE INTO lineup_alerts VALUES (?,?,?,?)',(sid,owner,json.dumps(body),expires));s.db.commit()
-        return dict(registered=True,pushReady=s.apns.ready,expiresAt=expires)
+        return dict(registered=True,pushReady=s.push_ready(body['environment']),expiresAt=expires)
     def delete(self,sid,owner):
         s=self.service
         with s.lock:
@@ -106,8 +106,12 @@ class LineupAlerts:
             return prior[1]
         self.cache[key]=(now,None) # Failed requests also back off.
         if len(self.cache)>64: self.cache={key:(now,None)}
-        data=self.service.mfl.read(season,league,week) if kind=='liveScoring' else self.service.mfl.export(season,league,week,kind)
-        self.cache[key]=(self.service.clock(),data);return data
+        if kind=='liveScoring' and hasattr(self.service.mfl,'read_with_receipt'):
+            data,checked=self.service.mfl.read_with_receipt(season,league,week)
+        else:
+            data=self.service.mfl.read(season,league,week) if kind=='liveScoring' else self.service.mfl.export(season,league,week,kind)
+            checked=self.service.clock()
+        self.cache[key]=(checked,data);return data
     def tick(self):
         s=self.service; now=s.clock()
         with s.lock:
@@ -117,6 +121,7 @@ class LineupAlerts:
             rows=s.db.execute('SELECT id,body FROM lineup_alerts').fetchall()
         for sid,raw in rows:
             body=json.loads(raw)
+            if not s.push_ready(body['environment']): continue
             try:
                 args=(body['season'],body['leagueID'],body['week'])
                 prior=self.cache.get((*args,'nflSchedule'))

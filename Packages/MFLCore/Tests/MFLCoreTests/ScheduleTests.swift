@@ -83,6 +83,19 @@ struct ScheduleTests {
         #expect(await transport.requests.count == 1)
     }
 
+    @Test("Standings can require a fresher schedule than the existing calendar cache")
+    func shorterScheduleCacheAge() async throws {
+        let transport = ScheduleFixtureTransport(responses: [try fixtureData("schedule-future"),
+                                                            try fixtureData("schedule-singleton")])
+        let client = try makeClient(transport)
+        #expect(try await client.schedule().weeks.first?.week == 3)
+        #expect(try await client.schedule(maximumAge: 60).weeks.first?.week == 3)
+        #expect(await transport.requests.count == 1)
+        // An age of zero makes a previously cached 15-minute entry ineligible.
+        #expect(try await client.schedule(maximumAge: 0).weeks.first?.week == 2)
+        #expect(await transport.requests.count == 2)
+    }
+
     private func makeClient(_ transport: ScheduleFixtureTransport) throws -> MFLClient {
         MFLClient(configuration: MFLClientConfiguration(
             league: try MFLLeagueReference(season: 2026, leagueID: "12345", host: MFLAPIHost("www45.myfantasyleague.com")),

@@ -95,6 +95,58 @@ struct StandingsRankingTests {
         #expect(result.places["b"] == .init(position: 1))
     }
 
+    @Test("Reported Week 1 records rank before the global completed week advances")
+    func preliminaryStandings() throws {
+        // Regression for Warner: winners have not played each other, nor have
+        // the two losing teams. H2H is equal, then points decide each pair.
+        let rows = try [row("uber", 0, 1, points: "93"), row("gpt", 0, 1, points: "77.5"),
+                        row("neighbors", 1, 0, points: "87"), row("bears", 1, 0, points: "154.5")]
+        let schedule = MFLSchedule(weeks: [
+            .init(week: 1, matchups: [game("bears", "uber"), game("neighbors", "gpt")]),
+            .init(week: 2, matchups: [game("uber", "neighbors"), game("gpt", "bears")])
+        ])
+        for order in [rows, Array(rows.reversed())] {
+            let week = MFLStandingsRanking.reconciledWeek(order, schedule: schedule, throughWeek: 1)
+            #expect(week == 1)
+            let result = MFLStandingsRanking.resolve(order, criteria: "PCT,H2H,PTS,DIVPCT,",
+                hasResults: true, schedule: schedule, completedWeek: week)
+            #expect(result.issue == nil)
+            for (index, id) in ["bears", "neighbors", "uber", "gpt"].enumerated() {
+                #expect(result.places[id] == .init(position: index + 1))
+            }
+        }
+        // A later current week must not force a horizon newer than the records.
+        #expect(MFLStandingsRanking.reconciledWeek(rows, schedule: schedule, throughWeek: 2) == 1)
+    }
+
+    @Test("A standings horizon needs every record, actual results and a valid season bound")
+    func preliminaryHorizonValidation() throws {
+        let rows = try [row("a", 1, 0), row("b", 0, 1)]
+        let week = MFLScheduleWeek(week: 1, matchups: [game("a", "b")])
+        let valid = MFLSchedule(weeks: [week])
+        #expect(MFLStandingsRanking.reconciledWeek(rows, schedule: valid, throughWeek: 0) == nil)
+        #expect(MFLStandingsRanking.reconciledWeek(rows, schedule: valid, throughWeek: 23) == nil)
+        #expect(MFLStandingsRanking.reconciledWeek(rows, schedule: .init(weeks: [week, week]), throughWeek: 1) == nil)
+        let reversed = MFLSchedule(weeks: [.init(week: 1, matchups: [game("b", "a")])])
+        #expect(MFLStandingsRanking.reconciledWeek(rows, schedule: reversed, throughWeek: 1) == nil)
+        let adjusted = try [row("a", 2, 0), row("b", 0, 2)]
+        #expect(MFLStandingsRanking.reconciledWeek(adjusted, schedule: valid, throughWeek: 1) == nil)
+        let placeholders = MFLSchedule(weeks: [.init(week: 1, matchups: [.init(franchises: [
+            .init(franchiseID: "a", result: "T"), .init(franchiseID: "b", result: "T")])])])
+        let ties = try [row("a", 0, 0, 1), row("b", 0, 0, 1)]
+        #expect(MFLStandingsRanking.reconciledWeek(ties, schedule: placeholders, throughWeek: 1) == nil)
+        #expect(MFLStandingsRanking.reconciledWeek([], schedule: valid, throughWeek: 1) == nil)
+    }
+
+    @Test("Reconciliation supports explicit byes and doubleheaders without inventing extra games")
+    func byeAndDoubleheaderHorizon() throws {
+        let rows = try [row("a", 2, 0), row("b", 0, 1), row("c", 0, 1), row("bye", 0, 0)]
+        let schedule = MFLSchedule(weeks: [.init(week: 1, matchups: [
+            game("a", "b"), game("a", "c"), .init(franchises: [.init(franchiseID: "bye")])])])
+        #expect(MFLStandingsRanking.reconciledWeek(rows, schedule: schedule, throughWeek: 1) == 1)
+        #expect(MFLStandingsRanking.reconciledWeek(rows, schedule: schedule, startWeek: 2, throughWeek: 2) == nil)
+    }
+
     @Test("Circular head-to-head results never create a fabricated winner")
     func headToHeadCycle() throws {
         let rows = try [row("a", 1, 1), row("b", 1, 1), row("c", 1, 1)]

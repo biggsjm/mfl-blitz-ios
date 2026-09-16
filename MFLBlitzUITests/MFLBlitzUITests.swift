@@ -2,6 +2,24 @@ import XCTest
 
 final class MFLBlitzUITests: XCTestCase {
     @MainActor
+    func testClosedTradeHistoryRetainsTermsAndShowsUnknownOutcome() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--preview-trade-history", "-AppleInterfaceStyle", "Dark"]
+        app.launch()
+        enterPreview(in: app)
+        openTool("trades", title: "Trades", in: app)
+        let row = app.otherElements["trade-history-demo-sent"].firstMatch
+        let disclosure = app.buttons.matching(identifier: "trade-history-demo-sent").firstMatch
+        for _ in 0..<5 where !row.isHittable && !disclosure.isHittable { app.swipeUp() }
+        if disclosure.exists { disclosure.tap() } else { row.tap() }
+        XCTAssertTrue(app.staticTexts["This offer is no longer pending. Check MFL for the outcome."].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Brock Bowers")).firstMatch.exists)
+        XCTAssertTrue(app.links["View on MFL"].exists || app.buttons["View on MFL"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Closed trade with retained terms"; screenshot.lifetime = .keepAlways; add(screenshot)
+    }
+
+    @MainActor
     func testLineupDraftAndReviewSurviveHeightChanges() {
         continueAfterFailure = false
         let app = XCUIApplication()

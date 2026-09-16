@@ -6,6 +6,20 @@ import Testing
 @testable import MFLCore
 
 struct RefreshCoordinationTests {
+    @Test("An HTTP-date Retry-After prevents subsequent requests on the throttled host")
+    func datedCooldown() async throws {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        let transport = RefreshTransport(rateLimitFirst: true, retryHeader: formatter.string(from: Date().addingTimeInterval(600)))
+        let client = try client(transport)
+        for _ in 0..<2 {
+            do { _ = try await client.projectedScores(week: 1); Issue.record("Expected cooldown") }
+            catch MFLCoreError.rateLimited(let seconds) { #expect(try #require(seconds) > 590) }
+        }
+        #expect(await transport.calls == 1)
+    }
     @Test("Cancellation classification requires a cancellation type or URLSession domain and code")
     func cancellationClassification() {
         #expect(MFLCoreError.isCancellation(CancellationError()))

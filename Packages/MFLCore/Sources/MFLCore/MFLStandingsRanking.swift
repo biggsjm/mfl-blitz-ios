@@ -19,6 +19,26 @@ public struct MFLStandingsRanking: Equatable, Sendable {
     public let places: [String: MFLStandingPlace]
     public let issue: Issue?
 
+    /// Standings can include preliminary results before MFL advances its global
+    /// CompletedWeek. Find the schedule horizon actually represented by every
+    /// reported record, bounded by MFL's current/live week (never LineupWeek).
+    /// Explicit W/L/T and real scores are still required; future placeholders,
+    /// missing games and extra median/manual wins cannot establish a horizon.
+    public static func reconciledWeek(
+        _ rows: [MFLStanding], schedule: MFLSchedule, startWeek: Int = 1,
+        throughWeek: Int
+    ) -> Int? {
+        guard startWeek > 0, throughWeek >= startWeek, throughWeek <= 22,
+              !rows.isEmpty, Set(rows.map(\.id)).count == rows.count,
+              rows.contains(where: { ($0.wins ?? 0) + ($0.losses ?? 0) + ($0.ties ?? 0) > 0 })
+        else { return nil }
+        return (startWeek...throughWeek).reversed().first {
+            completedRecordsMatch(rows, schedule: schedule, startWeek: startWeek, completedWeek: $0)
+        }
+    }
+
+    /// `completedWeek` is the last week represented in the supplied standings,
+    /// which may be a reconciled preliminary week rather than global CompletedWeek.
     public static func resolve(
         _ rows: [MFLStanding], criteria: String?, hasResults: Bool,
         schedule: MFLSchedule? = nil, startWeek: Int = 1,
@@ -127,8 +147,8 @@ public struct MFLStandingsRanking: Equatable, Sendable {
         return games > 0 ? (Decimal(values[0]) + Decimal(values[2]) / 2) / games : 0
     }
 
-    /// Do not combine preliminary/adjusted records with a different schedule
-    /// horizon. Extra median wins or manual adjustments need MFL's report when
+    /// Do not combine standings with a different schedule horizon.
+    /// Extra median wins or manual adjustments need MFL's report when
     /// they prevent an exact H2H reconciliation; simple earlier criteria can
     /// still resolve without needing H2H.
     private static func completedRecordsMatch(
@@ -158,7 +178,8 @@ public struct MFLStandingsRanking: Equatable, Sendable {
                         let own = participants.first(where: { $0.franchiseID == row.id }),
                         let opponent = participants.first(where: { $0.franchiseID != row.id }),
                         seenOpponents.insert(opponent.franchiseID).inserted,
-                        own.score != nil, opponent.score != nil
+                        let ownScore = own.score, let opponentScore = opponent.score,
+                        !ownScore.isNaN, !opponentScore.isNaN
                     else { return false }
                     switch (own.result?.uppercased(), opponent.result?.uppercased()) {
                     case ("W", "L"): wins += 1

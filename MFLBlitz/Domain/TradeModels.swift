@@ -67,6 +67,7 @@ struct TradeSnapshot: Sendable {
     var teams: [TradeTeam] = []
     var offers: [TradeOffer] = []
     var updatedAt: Date?
+    var hasTradableAssets = true
 }
 
 enum TradeCommand: Codable, Equatable, Sendable {

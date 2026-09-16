@@ -1,6 +1,12 @@
 # Privacy policy
 
-Effective September 13, 2026
+Effective September 16, 2026
+
+Build 66 adds local trade history. Observed offers, their terms, partner names, known outcomes, observation times and unread state are stored in the device Keychain, scoped to the signed-in league, season and franchise. The app retains active offers and up to 200 closed offers. Disconnect removes that scope's history. A closed offer does not by itself establish why the offer ended. Trade history is not sent to the background scoring service, and this build does not provide background trade push alerts.
+
+The private scoring service now persists request-spacing and rate-limit deadlines by MFL server, without storing request URLs, credentials or response bodies in those records. It can use separately configured sandbox and production Apple push credentials. Production delivery remains subject to server configuration and Apple delivery; the environment changes do not grant new users access to the private service.
+
+The privacy manifest declares app-only preference access, and functionality-related collection of access identity/email (including its hashed form), league/franchise identifiers, push/device registration identifiers, and fantasy matchup/lineup content for the optional private service. These can be linked to the authorized user; they are not used for advertising or tracking. Local trade history, MFL passwords and session cookies are not sent to this service. This declaration does not enable collection or change the service's access controls.
 
 League-data implementation reviewed against **0.6.0 (33–35)**; the optional DEBUG-only NFL test section below was added September 9, 2026. Those builds added protected Trading Block/Calendar snapshots and drafts, optional local deadline notifications, selected-event Apple Calendar handoff and a matchup Live Activity. Installation evidence is in [current status](docs/current-status.md). Sign-in and league actions still go directly to MFL. The optional private background-scoring service is described below; its sandbox Apple push setup was activated September 13, 2026.
 

@@ -116,7 +116,7 @@ struct StandingsView: View {
                                 switch $0.trimmingCharacters(in: .whitespaces).uppercased() {
                                 case "PCT": "Winning percentage"
                                 case "H2H": "Head-to-head"
-                                case "PTS": "Points"
+                                case "PTS": "Points scored"
                                 case "DIVPCT": "Division percentage"
                                 default: String($0)
                                 }
@@ -127,11 +127,15 @@ struct StandingsView: View {
                     }
 
                     Label(
-                        "Places use your league’s configured criteria. Division and overall places are calculated separately. Matching records alone don’t mean a tie. Unresolved places stay blank; MFL’s report is the final authority for custom orders.",
+                        "Division and overall places are calculated separately using your league’s rules, including MFL’s preliminary results. Head-to-head compares each pair of teams.",
                         systemImage: "checkmark.seal"
                     )
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+
+                    if let url = tiebreakersURL {
+                        Link("View tiebreakers on MFL", destination: url)
+                    }
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -173,6 +177,10 @@ struct StandingsView: View {
     private var standingsURL: URL? {
         guard let workspace = model.workspace else { return nil }
         return URL(string: "\(workspace.baseURL.absoluteString)/\(workspace.season)/standings?L=\(workspace.leagueID)")
+    }
+    private var tiebreakersURL: URL? {
+        guard let workspace = model.workspace else { return nil }
+        return URL(string: "\(workspace.baseURL.absoluteString)/\(workspace.season)/options?L=\(workspace.leagueID)&O=119")
     }
 
     @ViewBuilder

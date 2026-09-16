@@ -49,6 +49,27 @@ struct MyTeamNavigationTests {
         #expect(owner.summary(leagueName: "") == "")
     }
 
+    @Test("Unavailable head-to-head still groups winners ahead of losers without invented places")
+    func unresolvedStandingsOrder() {
+        var rows = Array(SampleData.standings.prefix(4))
+        for index in rows.indices {
+            rows[index].name = ["A loser", "Z winner", "B loser", "Y winner"][index]
+            rows[index].wins = index % 2
+            rows[index].losses = 1 - rows[index].wins
+            rows[index].standingsRule = "PCT,H2H,PTS"
+            rows[index].overallRankIssue = .headToHeadUnavailable
+            rows[index].divisionRankIssue = .headToHeadUnavailable
+        }
+        for division in [true, false] {
+            let sorted = StandingRow.sorted(rows.reversed(), withinDivision: division)
+            #expect(sorted.map(\.name) == ["Y winner", "Z winner", "A loser", "B loser"])
+            #expect(sorted.allSatisfy { $0.overallPlace == nil && $0.divisionPlace == nil })
+        }
+        // A points-first league must never inherit win/loss sorting.
+        for index in rows.indices { rows[index].standingsRule = "PTS,PCT" }
+        #expect(StandingRow.sorted(rows, withinDivision: false).first?.name == "A loser")
+    }
+
     @Test("Numeric places use correct ordinal suffixes, including teens")
     func ordinalSuffixes() {
         for (number, word) in [(1, "1st"), (2, "2nd"), (3, "3rd"), (8, "8th"),

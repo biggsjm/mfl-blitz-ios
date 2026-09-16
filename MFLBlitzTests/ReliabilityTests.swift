@@ -124,6 +124,11 @@ actor ReliabilityRepository: LeagueRepository {
         if let tradeReadFailure { throw tradeReadFailure }
         var snapshot = SampleData.trades; snapshot.updatedAt = Date(); return snapshot
     }
+    func loadTradeInbox() async throws -> TradeSnapshot {
+        var snapshot = try await loadTrades()
+        snapshot.hasTradableAssets = false
+        return snapshot
+    }
     func loadTransactionActivity() async throws -> [TransactionActivity] {
         activityLoads += 1
         if let transactionGate { await transactionGate.wait() }

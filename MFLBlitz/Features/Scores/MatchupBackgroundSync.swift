@@ -76,7 +76,17 @@ private final class MatchupSyncRedirectDelegate: NSObject, URLSessionTaskDelegat
 
 struct MatchupSyncClient: Sendable {
     struct Receipt: Decodable { var registered: Bool; var pushReady: Bool; var expiresAt: Double }
-    struct Status: Decodable { var pushReady: Bool; var subscriptions: Int; var acceptedPushes: Int; var issue: String? }
+    struct Status: Decodable {
+        var pushReady: Bool
+        var productionPushReady: Bool?
+        var readyForBuild: Bool {
+            #if DEBUG
+            pushReady
+            #else
+            productionPushReady == true
+            #endif
+        }
+        var subscriptions: Int; var acceptedPushes: Int; var issue: String? }
     let origin: URL
     private let session: URLSession
 
@@ -217,7 +227,7 @@ final class MatchupBackgroundSync {
         do {
             let status = try await makeClient(address).status()
             if !Self.supportsPush { message = "Server reachable. Apple push setup required for this build." }
-            else if !status.pushReady { message = "Server reachable. Apple push key setup required." }
+            else if !status.readyForBuild { message = "Server reachable. Apple push key setup required." }
             else if let issue = status.issue { message = issue }
             else { message = isRegistered ? "Background scoring connected." : "Server ready. Open your live matchup to connect." }
         } catch { message = "Couldn’t reach background sync. Check Tailscale and the server address." }

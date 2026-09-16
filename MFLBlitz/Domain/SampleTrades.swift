@@ -5,7 +5,7 @@ extension SampleData {
     static var tradePreview: TradeSnapshot {
         var preview = trades
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--preview-empty-trades") {
+        if ProcessInfo.processInfo.arguments.contains("--preview-empty-trades") || ProcessInfo.processInfo.arguments.contains("--preview-trade-history") {
             preview.offers = []
         }
         #endif
