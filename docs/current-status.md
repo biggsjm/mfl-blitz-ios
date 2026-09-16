@@ -1,5 +1,17 @@
 # Current app status
 
+## September 16: build 66 — available in owner-only TestFlight
+
+**0.7.0 (66)** uploaded successfully at **11:20 CDT**, completed Apple processing, and was assigned to the **Owner Testing** internal group. At **11:29 CDT**, App Store Connect showed one build, one tester (Josh) and status **Invited**. Beta description, privacy/support links, feedback contact and build-specific test instructions are saved. No external testers or public invitation link were added. Phone installation and production notification delivery remain for Josh's test; the last locally verified phone install is build 65.
+
+Apple rejected the first upload because the installed Xcode beta `27A5194q` was unsupported. Installed official stable Xcode **27A266a** alongside the beta, rebuilt the unchanged app source and uploaded the accepted archive. Archive source revision is `92b5c26e85793300097105b85bcdf0f5482ad82c` (app implementation `027aa802af5082086722ffec96f44111af38244d`); SDK build is `24A430`. The App Store export passes strict app/widget signatures, matching versions, distribution profiles, production push entitlement, endpoint and privacy checks. All six [CI jobs](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/35117838630) passed. An additional **19 checks** with stable Xcode pass, including the native retained-trade-history journey, with no failures or runtime warnings.
+
+Josh explicitly approved creating and installing the production-only MFL Blitz APNs key. The existing Hephaestus service restarted at **11:12:27 CDT**; at **11:13:18 CDT**, HTTP 200 status reported both sandbox and production ready, zero subscriptions and no issue. Key/config permissions are owner-only. The sandbox key, owner allowlist, private routes and polling schedules are preserved; the canonical service inventory is updated. Configured readiness is not proof of push delivery.
+
+Export-compliance source and binary inspection found Apple's URLSession HTTPS, Security/Keychain/random APIs and CryptoKit hashing, with no third-party crypto package or custom encryption implementation. The questionnaire's **None of the algorithms mentioned above** answer cleared Missing Compliance. External beta review details/access remain separate from this internal test.
+
+Artifacts: `/tmp/MFLBlitz-66-Xcode27.xcarchive`, `/tmp/mfl66-xcode27-export/MFLBlitz.ipa`, `/tmp/mfl66-xcode27-upload.log`, `/tmp/mfl66-xcode27-evidence.json`, `/tmp/mfl66-xcode27-smoke.xcresult`. App Store Connect app ID `6812830730`, build ID `ff77c029-108f-48c8-bd2e-3b0f9ae4d29b`. [TestFlight](https://appstoreconnect.apple.com/teams/69a6de81-6983-47e3-e053-5b8c7c11a4d1/apps/6812830730/testflight) · [test checklist and limitations](testflight-beta.md).
+
 ## September 16: build 66 — signed App Store export verified
 
 After Josh signed into Xcode, the Release archive and App Store export succeeded using automatic provisioning. The exported **0.7.0 (66)** app and widget pass strict signature verification, matching versions/identities, App Store distribution-profile checks, production `aps-environment`, and absence of development debugging entitlements. The private endpoint configuration and privacy manifest are present. The export verifier now normalizes macOS's `/var` → `/private/var` temporary-directory alias before checking IPA extraction paths.
