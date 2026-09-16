@@ -1,8 +1,12 @@
 # Current app status
 
-## September 16: build 68 — TestFlight release preparation
+## September 16: build 68 — uploaded; distribution being completed
 
-Josh authorized a new TestFlight release. Candidate **0.7.0 (68)** includes the saved-login startup fix and the player-search relevance and dismissal changes described below. All 22 search model tests and 10 native search journeys passed; the startup fix also passed its model and native checks before merge. App/widget build numbers are advanced together. Release signing, export verification, upload and Apple processing are pending. The existing authenticated gateway, production push configuration and testing groups are retained; no service change is part of this release.
+Josh authorized a new TestFlight release. **0.7.0 (68)** includes the saved-login startup fix and player-search relevance and dismissal changes described below. All 22 search model tests and 10 native search journeys passed; the startup fix passed its model and native checks before merge. The stable-Xcode archive and App Store export pass strict signatures, matching app/widget versions, distribution profiles, production push entitlement and existing gateway configuration. Archive source is `2b47c6a6a610fad9dc2c9c23bdaa9f7fc0f143b2`, pushed on `release/testflight-0.7.0-68` and available in [PR #14](https://github.com/biggsjm/mfl-blitz-ios/pull/14).
+
+After Josh reauthenticated Xcode, upload succeeded at **17:11:13 CDT**. Apple processing completed and export compliance cleared after a build-specific source/binary check confirmed only Apple OS cryptography (URLSession HTTPS, Security/Keychain and CryptoKit), no external package dependencies or embedded third-party frameworks. Build-specific What to Test notes are saved. App Store Connect build ID: `d85b889b-808f-4fa2-8992-80925965f213`. Assignment to existing testing groups and replacement of build 67's pending external review remain pending explicit approval requested by automatic action review. No service or backend access configuration changed. CI core, full app and background-service checks pass; the three native UI jobs are still running at this checkpoint.
+
+Artifacts: `/tmp/MFLBlitz-68.xcarchive`, `/tmp/mfl68-export/MFLBlitz.ipa`, `/tmp/mfl68-export-verification.log`, `/tmp/mfl68-export-evidence.json`, `/tmp/mfl68-upload-reauthenticated.log`.
 
 ## September 16: unreleased — player-search relevance and dismissal
 

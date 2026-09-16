@@ -1,6 +1,6 @@
 # MFL Blitz 0.7.0 (68) — closed league TestFlight
 
-Build 68 adds a smoother saved-login launch, relevant first/last-name search and keyboard/outside-tap dismissal. Its upload is being prepared; see [current status](current-status.md) for verified delivery.
+Build 68 adds a smoother saved-login launch, relevant first/last-name search and keyboard/outside-tap dismissal. It has uploaded and completed Apple processing/export compliance; assignment to the existing testing groups is being completed. See [current status](current-status.md) for verified delivery.
 
 Build 67 includes automatic league services for invited owners. Build 67 is installed through the owner TestFlight group and waiting for Apple external review. Automatic phone enrollment and production lineup registration are confirmed; visible production notification delivery remains to be tested. See [current status](current-status.md). Build 66 is the earlier owner-only private-service build.
 
