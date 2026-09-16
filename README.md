@@ -1,6 +1,6 @@
 # MFL Blitz
 
-Build 66 is the first TestFlight candidate: fewer browsing requests, shared server rate-limit handling, retained trade History and production build/privacy preparation. Apple signing, production push activation and actual TestFlight delivery remain pending. See [beta setup](docs/testflight-beta.md) and [delivery status](docs/current-status.md).
+Build 66 is the first TestFlight candidate: fewer browsing requests, shared server rate-limit handling, retained trade History and production build/privacy preparation. Its signed App Store export is verified; production push activation, App Store Connect setup and actual TestFlight delivery remain pending. See [beta setup](docs/testflight-beta.md) and [delivery status](docs/current-status.md).
 
 > Deep enough for MFL. Calm enough for Sunday.
 
@@ -10,7 +10,7 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
-**0.7.0 (66) — tested candidate, not uploaded:** Foreground refresh targets the visible tab; My Team checks offers without loading all trade assets. Closed offers retain their terms and unread state, with unknown outcomes labeled Closed. Backend request controls and production signer support are deployed; production credentials and signed distribution are pending. Build 65 remains installed on the owner's phone. See [verification and remaining gates](docs/testflight-beta.md).
+**0.7.0 (66) — signed candidate, not uploaded:** Foreground refresh targets the visible tab; My Team checks offers without loading all trade assets. Closed offers retain their terms and unread state, with unknown outcomes labeled Closed. Backend request controls and production signer support are deployed; production credentials and Apple beta setup are pending. Build 65 remains installed on the owner's phone. See [verification and remaining gates](docs/testflight-beta.md).
 
 **0.6.4 (65) — installed and launched on the owner's iPhone:** Standings reconcile MFL's preliminary records with the completed matchup schedule and honor the configured tiebreakers. Confirmed against the owner's Week 1 division reports; included in build 66.
 

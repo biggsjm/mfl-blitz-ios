@@ -1,5 +1,13 @@
 # Current app status
 
+## September 16: build 66 — signed App Store export verified
+
+After Josh signed into Xcode, the Release archive and App Store export succeeded using automatic provisioning. The exported **0.7.0 (66)** app and widget pass strict signature verification, matching versions/identities, App Store distribution-profile checks, production `aps-environment`, and absence of development debugging entitlements. The private endpoint configuration and privacy manifest are present. The export verifier now normalizes macOS's `/var` → `/private/var` temporary-directory alias before checking IPA extraction paths.
+
+App source revision: `027aa802af5082086722ffec96f44111af38244d`. Signed archive: `/tmp/MFLBlitz-66-Signed.xcarchive`; export: `/tmp/mfl66-testflight-export/MFLBlitz.ipa`; evidence: `/tmp/mfl66-signed-evidence.json`. [Draft PR #13](https://github.com/biggsjm/mfl-blitz-ios/pull/13) holds the candidate. Core, app and backend CI jobs passed; native UI jobs were still running at this checkpoint.
+
+Xcode account access is verified. The available browser's App Store Connect and Apple Developer pages still require sign-in, which was requested separately. The app record/beta setup and production APNs key therefore remain pending. No upload, production key creation, tester invitation, TestFlight installation or service-role change occurred in this signing step. Build 65 remains installed on the phone.
+
 ## September 16: build 66 — TestFlight candidate implementation
 
 Josh approved request reduction, retained trade outcomes and TestFlight preparation, with personal testing before inviting one or two people. Candidate **0.7.0 (66)** refreshes the visible tab on foreground return, shares league-week checks and refreshes waiver context once at rollover. Initial sign-in still loads the main sections. My Team uses a cached pending-offer read without all league assets; entering Trades waits for an overlapping badge read and upgrades to current assets. Every real trade retains fresh preflight and readback. The app honors both numeric and HTTP-date cooldowns; its existing host cooldown remains in-memory.

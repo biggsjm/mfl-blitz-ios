@@ -28,7 +28,7 @@ Privacy policy: [PRIVACY.md](../PRIVACY.md). Support: [repository](https://githu
 
 ## September 16 implementation evidence
 
-- Signed archive attempt stopped at Xcode's **No Accounts** error and missing push-enabled provisioning profile. The distribution certificate is present; only a Blitz development provisioning profile was found. No upload or invitations have occurred.
+- The initial signed archive attempt stopped at Xcode's **No Accounts** error. After Josh signed into Xcode, archive and App Store export succeeded. `/tmp/mfl66-testflight-export/MFLBlitz.ipa` passes app/widget signature, distribution-profile, version, private endpoint, privacy-manifest and production push-entitlement checks. App source revision is `027aa802af5082086722ffec96f44111af38244d`. Browser sign-in is still required for App Store Connect/Apple Developer setup. No upload or invitations have occurred.
 - Optimized unsigned Release archive succeeded at `/tmp/MFLBlitz-66-Unsigned.xcarchive`. It is compiler/bundle evidence only and cannot be uploaded as-is.
 - Backend: 51 synthetic tests passed, changes deployed to the existing service, health and mode-0600 cooldown database verified. Sandbox ready; production credentials not yet configured. Canonical inventory updated.
 - Core: 115 tests passed, including HTTP-date cooldown handling. All 374 app tests and three native trade journeys passed. After the final storage safeguards, 29 focused app checks and the native history journey passed, including two new storage regressions. Details and artifact paths are in [current status](current-status.md).

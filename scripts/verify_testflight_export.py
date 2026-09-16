@@ -23,7 +23,7 @@ def exported_app(source):
         return
     require(source.suffix == '.ipa', 'Provide an exported .ipa or .app; Xcode re-signs archives during export.')
     with tempfile.TemporaryDirectory(prefix='mfl-verify-export-') as directory:
-        root = Path(directory)
+        root = Path(directory).resolve()
         with zipfile.ZipFile(source) as archive:
             require(all((root / member.filename).resolve().is_relative_to(root) for member in archive.infolist()), 'Unsafe IPA paths')
         subprocess.run(['ditto', '-x', '-k', str(source), directory], check=True)
