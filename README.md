@@ -1,6 +1,6 @@
 # MFL Blitz
 
-Build 64 follows the owner’s compact comparison-row reference, with equal-height player areas and points beside the center position gutter. **Live players** shows active-game starters under pinned official totals. Ownership appears in search and player Week details; scoring rows retain stats while calculations stay in details. League abbreviations and the existing NFL request budget are preserved. See [behavior](docs/matchup-mode-plan.md) and [delivery status](docs/current-status.md).
+Build 66 is the first TestFlight candidate: fewer browsing requests, shared server rate-limit handling, retained trade History and production build/privacy preparation. Its signed App Store export is verified; production push activation, App Store Connect setup and actual TestFlight delivery remain pending. See [beta setup](docs/testflight-beta.md) and [delivery status](docs/current-status.md).
 
 > Deep enough for MFL. Calm enough for Sunday.
 
@@ -9,6 +9,10 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 <img src="docs/app-icon-source.png" alt="MFL Blitz app icon" width="160">
 
 ## Product status
+
+**0.7.0 (66) — signed candidate, not uploaded:** Foreground refresh targets the visible tab; My Team checks offers without loading all trade assets. Closed offers retain their terms and unread state, with unknown outcomes labeled Closed. Backend request controls and production signer support are deployed; production credentials and Apple beta setup are pending. Build 65 remains installed on the owner's phone. See [verification and remaining gates](docs/testflight-beta.md).
+
+**0.6.4 (65) — installed and launched on the owner's iPhone:** Standings reconcile MFL's preliminary records with the completed matchup schedule and honor the configured tiebreakers. Confirmed against the owner's Week 1 division reports; included in build 66.
 
 **0.6.3 (64) — installed and launched on the owner’s iPhone:** Compact mirrored scoring rows have equal tappable heights and centered points, following the supplied reference. Live players filters active-game starters; ownership appears in search and player Week details. Shorter stat labels retain all scoring values, and league abbreviations remain unchanged. Twenty-four native stat/game checks and four final normal/largest-text layout and TD journeys pass; build 63’s eleven ownership/search/timeline checks also pass. Phone readback confirms 64. See [delivery evidence](docs/current-status.md).
 
@@ -91,7 +95,7 @@ The app includes:
 
 **Optional NFL statistics:** API-NFL Pro is active through October 14, 2026, following the approved $15 prepaid month with no automatic renewal. Hephaestus's existing key successfully retrieves a completed 2026 game and player breakdown. Build 55 connects a separate shared current-season feed to normal scoring. The historical test remains isolated; live-game timing still needs observation during play. See the [service contract and remaining plan](docs/nfl-stats-service.md) and [exact validation/phone status](docs/current-status.md).
 
-Josh will validate Week 1 on his development device. TestFlight is intentionally on hold until iOS 27 and macOS 27 are both out of beta, followed by the existing release gates and Josh's approval; the earlier Week 2 invitation deadline is superseded. The approved [Trading Block, Calendar, reminders and Live Activity increment](docs/trading-block-calendar-plan.md) is implemented for development-device validation; current status distinguishes tests, installation and owner acceptance. Josh confirmed build 35's last-player trading-block removal works on MFL September 7. Broader game-week checks remain open. New cash listings remain on MFL. The optional private background Live Activity service is approved and activated for the development phone; distribution and broader game-week verification remain separate.
+Josh approved preparing TestFlight on September 16, with personal testing before inviting one or two people. The earlier OS-release waiting condition has been met; Apple account/provisioning, production push activation and installation checks remain. The approved [Trading Block, Calendar, reminders and Live Activity increment](docs/trading-block-calendar-plan.md) is implemented for development-device validation; current status distinguishes tests, installation and owner acceptance. Josh confirmed build 35's last-player trading-block removal works on MFL September 7. Broader game-week checks remain open. New cash listings remain on MFL. The optional private background Live Activity service is approved and activated for the development phone; distribution and broader game-week verification remain separate.
 
 **My Team, schedules and player tools 1–5 are implemented**. Tabs are Scores / Lineup / My Team / Standings / Board. Polls and playoff brackets remain queued after this increment. Complete supported-device/accessibility and real game-week validation remain. Global player search now opens a shared sheet from the existing tabs; no extra Players tab is introduced. Adds / Drops keeps its task-specific search. See the [remaining execution plan](docs/roadmap.md).
 

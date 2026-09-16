@@ -4,6 +4,37 @@ import Testing
 
 @MainActor
 struct TransactionRefreshTests {
+    @Test("Opening Trades during a badge read waits and upgrades once to actionable assets")
+    func joinsInboxRead() async {
+        let repository = ReliabilityRepository()
+        let gate = TestGate()
+        await repository.pauseTransactions(gate)
+        let model = TransactionsModel(repository: repository, workspace: SampleData.workspace, privateStore: MemoryPrivateStore())
+        let badge = Task { await model.refreshInbox() }
+        while !model.isLoading { await Task.yield() }
+        let firstOpen = Task { await model.refresh(ifNeeded: true) }
+        let secondOpen = Task { await model.refresh(ifNeeded: true) }
+        await Task.yield()
+        await gate.open()
+        await badge.value
+        await firstOpen.value
+        await secondOpen.value
+        #expect(await repository.tradeLoads == 2)
+        #expect(model.canAct)
+        #expect(model.readError == nil)
+    }
+
+    @Test("Foreground roster browsing does not refresh scores, lineup, waivers, standings or board")
+    func scopedForeground() async {
+        let repository = ReliabilityRepository()
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore(), foregroundRefreshInterval: 0)
+        await model.signIn(credentials: LoginCredentials())
+        let before = await [repository.scoreLoads, repository.lineupLoads, repository.waiverLoads, repository.standingsLoads, repository.boardLoads]
+        await model.refreshForForeground(section: .myTeam)
+        let after = await [repository.scoreLoads, repository.lineupLoads, repository.waiverLoads, repository.standingsLoads, repository.boardLoads]
+        #expect(before == after)
+        #expect(await repository.tradeLoads == 1)
+    }
     @Test("Switching sections during a read does not create a false failure or delay the next load", arguments: [true, false])
     func canceledRead(activity: Bool) async {
         let repository = ReliabilityRepository()

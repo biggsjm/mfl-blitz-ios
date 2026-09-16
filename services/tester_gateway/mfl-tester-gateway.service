@@ -1,0 +1,22 @@
+[Unit]
+Description=MFL Blitz authenticated league beta access
+After=network-online.target mfl-live-activity.service mfl-nfl-live.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/.local/share/mfl-tester-gateway/server.py --config %h/.config/mfl-tester-gateway/testers.json --state-dir %h/.local/share/mfl-tester-gateway/state
+Restart=on-failure
+RestartSec=10
+UMask=0077
+LimitCORE=0
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/share/mfl-tester-gateway/state
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=192M
+TasksMax=32
+
+[Install]
+WantedBy=default.target

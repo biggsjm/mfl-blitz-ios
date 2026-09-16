@@ -284,6 +284,14 @@ class ServiceTests(unittest.TestCase):
         with self.assertRaises(PermissionError): self.service.delete('one', 'other')
         self.assertEqual(self.service.status()['subscriptions'], 1)
 
+    def test_full_league_activities_share_one_mfl_read(self):
+        for index in range(13):
+            self.service.register(f'league-{index}', f'owner-{index}', subscription())
+        self.service.tick()
+        self.assertEqual(self.service.status()['subscriptions'], 13)
+        self.assertEqual(self.mfl.calls, 1)
+        self.assertEqual(len(self.push.calls), 13)
+
     def test_expiry_not_extended_by_foreground_refresh(self):
         first = self.register(); self.now += 1000
         self.assertEqual(self.register(revision=2)['expiresAt'], first['expiresAt'])
@@ -330,6 +338,26 @@ class ServiceTests(unittest.TestCase):
 
 
 class APNsTests(unittest.TestCase):
+    def test_sandbox_key_is_never_used_for_a_production_token(self):
+        push = APNs({'apnsKeyID': 'SANDBOX123', 'apnsKeyFile': '/missing', 'apnsTeamID': 'TEAM123456'})
+        value = subscription(); value['environment'] = 'production'
+        with patch('server.subprocess.run') as run:
+            self.assertEqual(push.send(value, b'{}', NOW), 503)
+            run.assert_not_called()
+        self.assertFalse(push.ready_for('production'))
+
+    def test_production_uses_its_own_signer_and_endpoint(self):
+        push = APNs({'apnsKeyID': 'SANDBOX123', 'productionAPNs': {'apnsKeyID': 'PRODKEY123'}})
+        value = subscription(); value['environment'] = 'production'
+        with patch.object(APNs, 'jwt', autospec=True, side_effect=lambda signer, now: signer.config['apnsKeyID']), \
+             patch('server.subprocess.run') as run:
+            run.return_value.returncode = 0; run.return_value.stdout = b'\n200'
+            self.assertEqual(push.send(value, b'{}', NOW), 200)
+            config = run.call_args.kwargs['input'].decode()
+            self.assertIn('api.push.apple.com', config)
+            self.assertIn('bearer PRODKEY123', config)
+            self.assertNotIn('SANDBOX123', config)
+
     def test_real_curl_preserves_unicode_and_json_bytes(self):
         # Exercise curl's config parser and HTTP body, not a JSON-only mock.
         # Replace only the synthetic destination; no real token/key/network is used.

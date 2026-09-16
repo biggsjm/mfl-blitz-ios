@@ -12,7 +12,7 @@ Approved and implemented September 6, 2026 for **0.5.3 (26)**. [Current status](
 - `T2, T2, 4` requires evidence: for example, tied records with known equal points for the two second-place teams and lower points for the fourth, when points are the final applicable criterion. Missing points or an earlier unresolved H2H criterion must not create those places. The ranked Preview scenario uses explicit synthetic values; it is not Champion Hall's live preseason standing.
 - Unavailable rank: retain known record and group; omit the rank. Keep longer explanations and freshness in Standings, not the team identity header.
 - My Team and other-team details use the same summary. Tapping it opens Standings in the matching Division/Overall context and scrolls to that franchise, without changing the Lineup/Scores week or drafts. The scope selector remains above the scrolling table. No duplicate standing card or repeated division label.
-- Division identity uses IDs, not names; same-name divisions do not merge. No division means no redundant scope selector. Unknown ranks display a dash and sort alphabetically for stable browsing, not fabricated places.
+- Division identity uses IDs, not names; same-name divisions do not merge. No division means no redundant scope selector. Unknown ranks display a dash. When every record is known and the primary criterion is PCT, unresolved rows remain grouped by winning percentage, with alphabetical order only inside each record group. Other unresolved configurations retain alphabetical browsing order; neither fallback fabricates a place.
 - VoiceOver identifies rank context, team, owner, record and points. At accessibility text sizes, team headers stack and standings rows put identity, record and points on separate lines instead of squeezing fixed columns.
 
 ## Rank source and supported rules
@@ -24,17 +24,17 @@ The public league configuration reports `PCT,H2H,PTS,DIVPCT,`, start week 1, reg
 `MFLStandingsRanking` resolves each scope from the configured criterion sequence:
 
 - `PCT`: exact win percentage from wins, losses and half-win game ties.
-- `H2H`: pairwise confirmed W/L/T results, not a mini-league percentage or a winner inferred from rounded scores. Completed schedule weeks must reconcile exactly with each team's reported record.
+- `H2H`: pairwise confirmed W/L/T results, not a mini-league percentage or a winner inferred from rounded scores. The schedule horizon must reconcile exactly with every team’s reported record. It may include preliminary results before MFL advances global CompletedWeek; CurrentWeek/LiveScoringWeek bound the search, and LineupWeek never admits future results.
 - `PTS`: actual points for, including real zero or negative scores.
 - `DIVPCT`: exact division record when supplied, otherwise a valid returned division percentage.
 
 No results means no place. Points-only leagues use reported points/completion rather than requiring a win–loss record. Unsupported criteria, incomplete membership/numbers, unreconciled H2H history, and non-transitive/circular comparisons leave the affected scope unranked. Input order and franchise ID never determine rank.
 
-**Limit:** MFL's standings report remains the final authority. Manual/custom orders not exposed in the used API fields are not mirrored. Preliminary, median-win or adjusted records can prevent completed-schedule H2H reconciliation; the app then omits place instead of guessing. This is not playoff seeding or certification of every MFL league format. After-results comparison with the signed-in league's actual report remains a Week 1 owner gate.
+**Limit:** MFL's standings report remains the final authority. Manual/custom orders not exposed in the used API fields are not mirrored. Missing results, median wins or manual adjustments can prevent schedule/record reconciliation; the app then omits place instead of guessing. This is not playoff seeding or certification of every MFL league format. On September 15, the signed-in Week 1 standings, fantasy schedule and Tiebreakers report confirmed the configured rules and Warner order: Bears Sausage Ditka, Two Bad Neighbors, Uber Beasts, GPT 5.0 now available. The public global status still reported CompletedWeek 0, establishing the preliminary-results regression. This comparison does not certify later custom or playoff orders.
 
 ## Performance and verification
 
-Standings reuse the 60-second response cache and league configuration's 24-hour memory cache. Only if tied earlier criteria require H2H does the repository consult season status and the shared 15-minute full-schedule cache. There is no per-team request fan-out, new polling or private disk cache. Mutations are unchanged.
+Standings reuse the 60-second response cache and league configuration's 24-hour memory cache. Only if tied earlier criteria require H2H does the repository consult season status and the shared full-schedule cache with a maximum age of 60 seconds, even if Calendar originally cached it for 15 minutes. There is no per-team request fan-out, new polling or private disk cache. Mutations are unchanged.
 
 Core fixtures cover criteria, real ties, score-tied games with authoritative W/L, H2H cycles/incomplete history, malformed division records, no results, points-only leagues and unsupported data. App fixtures cover numeric suffixes, missing summaries, same-name division IDs, separate scopes, incomplete membership and repeated-read cache reuse. Native Preview journeys cover header navigation, Divisions/Overall, ties, no divisions, maximum Dynamic Type and preserved drafts. Synthetic data is explicitly Preview-only; it does not certify real Week 1 results.
 
@@ -43,7 +43,7 @@ Core fixtures cover criteria, real ties, score-tied games with authoritative W/L
 - [x] Approve and implement the shared numeric-ordinal pattern and context-aware navigation.
 - [x] Verify the API array-order flaw through an authenticated read; replace index ranking with supported configured criteria.
 - [x] Add conservative preseason/missing/tie handling, cache reuse and model/native regressions.
-- [ ] Compare completed Week 1 division/overall places and tiebreakers with MFL, including any commissioner custom order.
+- [x] Compare Week 1 division ordering, reported records and the tiebreaker sequence with the signed-in MFL reports. Test overall ranking separately from division places. Global finalization and future commissioner custom orders remain separate cases.
 - [ ] Complete broader device/manual assistive-technology checks and Week 2 release gates in the [roadmap](roadmap.md).
 
 Final test, install and merge receipts belong in [current status](current-status.md); checked implementation items do not substitute for those receipts.

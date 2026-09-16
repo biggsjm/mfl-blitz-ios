@@ -62,6 +62,10 @@ Josh approved wiring the free plan, server-side key storage and private Tailscal
 
 ## P0 — Dev-device Week 1 validation and later release gates
 
+September 16 implementation: Josh approved items 1–3 and an internal TestFlight beta for himself before inviting one or two people. Request reduction, retained trade History and the distribution build/privacy configuration are implemented in **0.7.0 (66)**; server request controls and production signer support are deployed. Actual TestFlight delivery remains blocked by Apple sign-in/provisioning and production APNs configuration. [Beta setup and evidence](testflight-beta.md) separate finished work from these remaining gates. Trade push notifications remain deferred until authenticated source access and reliable outcomes are available; the current beta uses an unread in-app badge.
+
+September 16 update: Apple's published releases satisfy the earlier iOS/macOS release waiting condition, and App Store Connect accepts Xcode 27. The [current TestFlight audit](testflight-readiness-2026-09-16.md) takes precedence over stale readiness assumptions below: prioritize MFL request reduction, retained trade outcomes, production push/privacy setup and an internal TestFlight installation before broader invitations. Josh reports a successful proposal followed by a recipient rejection; the missing retained outcome/alert is a confirmed product gap. No upload or invite decision was made during the audit.
+
 September 7 decision: Josh will validate Week 1 on his development device. TestFlight is on hold until both iOS 27 and macOS 27 leave beta, then still requires the gates below and Josh's go-ahead. This replaces the earlier Week 2 invitation deadline; it is an owner preference, not an asserted Apple requirement. No OS release date is assumed. Each gate remains open until its evidence is recorded; a calendar date or passing fixtures is not enough.
 
 | Remaining gate | Owner / action | Done when |

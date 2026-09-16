@@ -153,7 +153,7 @@ extension LiveMFLRepository {
         return details.playersByID[playerID].map(TeamPlayerMapper.biography)
     }
 
-    private func validateTeamPlayerSession(client: MFLClient, scope: String) throws {
+    func validateTeamPlayerSession(client: MFLClient, scope: String) throws {
         try Task.checkCancellation()
         let active = try requireSession()
         guard active.0 === client, active.2.storageScope == scope else { throw CancellationError() }

@@ -485,14 +485,33 @@ struct StandingRow: Codable, Identifiable, Equatable, Sendable {
     }
 
     static func sorted(_ rows: [StandingRow], withinDivision: Bool) -> [StandingRow] {
-        rows.sorted {
+        // If H2H is unavailable, keep the known primary order without assigning
+        // places or pretending that points can bypass an unresolved tiebreaker.
+        // Require the same rule and known records for the whole scope so this
+        // remains a transitive comparator even with incomplete data.
+        let useRecordGroups = !rows.isEmpty && rows.allSatisfy {
+            $0.standingsRule?.split(separator: ",").first?
+                .trimmingCharacters(in: .whitespaces).uppercased() == "PCT" &&
+            $0.recordIsKnown && $0.wins >= 0 && $0.losses >= 0 && $0.ties >= 0
+        }
+        return rows.sorted {
             let a = withinDivision && $0.hasDivision ? $0.divisionPlace : $0.overallPlace
             let b = withinDivision && $1.hasDivision ? $1.divisionPlace : $1.overallPlace
             if a?.position != b?.position { return (a?.position ?? Int.max) < (b?.position ?? Int.max) }
+            if a == nil, b == nil, useRecordGroups {
+                let left = $0.standingPercentage
+                let right = $1.standingPercentage
+                if left != right { return left > right }
+            }
             // Unranked order is presentation only; never turn it into a place.
             let order = $0.name.localizedStandardCompare($1.name)
             return order == .orderedSame ? $0.id < $1.id : order == .orderedAscending
         }
+    }
+
+    private var standingPercentage: Decimal {
+        let games = Decimal(wins) + Decimal(losses) + Decimal(ties)
+        return games > 0 ? (Decimal(wins) + Decimal(ties) / 2) / games : 0
     }
 
     static func ordinalText(_ number: Int) -> String? {

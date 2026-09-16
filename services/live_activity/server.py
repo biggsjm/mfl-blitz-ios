@@ -21,42 +21,17 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from scoring import APPLE_EPOCH, array, integer, payload, read_matchup, updated_state, validate_subscription
+from mfl_requests import MFL
 
 INTERVAL = 60
 MAX_LIFETIME = 7 * 3600 + 50 * 60
-MAX_SUBSCRIPTIONS = 8
+MAX_SUBSCRIPTIONS = 48
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         return None
 
-
-class MFL:
-    def __init__(self, leagues):
-        self.leagues = leagues
-        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
-
-    def read(self, season, league, week):
-        return self.export(season,league,week,'liveScoring')
-
-    def export(self, season, league, week, kind):
-        if kind not in ('liveScoring','nflSchedule','injuries'): raise ValueError('export')
-        host = self.leagues[f'{season}.{league}']
-        if not re.fullmatch(r'www[0-9]{1,3}\.myfantasyleague\.com', host):
-            raise ValueError('invalid configured MFL host')
-        query = urllib.parse.urlencode(dict(TYPE=kind, L=league, W=week, DETAILS=1, JSON=1))
-        request = urllib.request.Request(f'https://{host}/{season}/export?{query}',
-                                        headers={'User-Agent': 'MFLBlitz/1.0 (private live activity)', 'Accept': 'application/json'})
-        with self.opener.open(request, timeout=15) as response:
-            data = response.read(2_000_001)
-            if len(data) > 2_000_000:
-                raise ValueError('response too large')
-            # Reject a provably old HTTP-cache response. Receipt time is otherwise
-            # when this exact successful read finished, not an upstream play time.
-            if int(response.headers.get('Age', '0')) >= 210:
-                raise ValueError('stale upstream cache')
-            return json.loads(data)
 
 
 def b64(data):
@@ -81,9 +56,16 @@ class APNs:
         self.config = config
         self.cached_jwt = None
         self.issued_at = 0
+        self.production = APNs(config['productionAPNs']) if config.get('productionAPNs') else None
 
     @property
     def ready(self):
+        return self.ready_for('sandbox') or self.ready_for('production')
+
+    def ready_for(self, environment):
+        if environment == 'production':
+            return bool(self.production and self.production.ready_for('sandbox'))
+        if environment != 'sandbox': return False
         p = Path(self.config.get('apnsKeyFile', '/nonexistent'))
         return (p.is_file() and p.stat().st_mode & 0o077 == 0
                 and bool(re.fullmatch(r'[A-Z0-9]{10}', self.config.get('apnsKeyID', '')))
@@ -108,7 +90,9 @@ class APNs:
         # Sensitive URL/token/JWT and payload travel through stdin, never argv.
         options = {'url': f'https://{host}/3/device/{subscription["token"]}',
                    'request': 'POST', 'data': data.decode(), 'write-out': '\n%{http_code}'}
-        headers = ['authorization: bearer ' + self.jwt(now), 'apns-push-type: '+('alert' if alert else 'liveactivity'),
+        signer = self.production if subscription['environment'] == 'production' else self
+        if signer is None: return 503
+        headers = ['authorization: bearer ' + signer.jwt(now), 'apns-push-type: '+('alert' if alert else 'liveactivity'),
                    'apns-topic: com.biggsjm.MFLBlitz'+('' if alert else '.push-type.liveactivity'), 'apns-priority: '+('10' if alert else '5'),
                    'apns-expiration: ' + str(int(min(now + 210, subscription.get('deliveryExpiresAt', now + 210)) if alert else now + 210)), 'content-type: application/json']
         if alert and collapse: headers.append('apns-collapse-id: '+collapse)
@@ -132,7 +116,8 @@ class Service:
     def __init__(self, config, database, mfl=None, apns=None, clock=time.time):
         self.config = config
         self.clock = clock
-        self.mfl = mfl or MFL(config['leagues'])
+        self.mfl = mfl or MFL(config['leagues'], Path(database).with_name('mfl-requests.sqlite3'),
+                              user_agent=config.get('mflUserAgent', 'MFL Blitz/0.1 (com.biggsjm.MFLBlitz)'))
         self.apns = apns or APNs(config)
         self.lock = threading.RLock()
         self.db = sqlite3.connect(database, check_same_thread=False)
@@ -151,6 +136,9 @@ class Service:
         self.pause_until = 0
         self.last_error = None
         self.accepted_pushes = 0
+
+    def push_ready(self, environment):
+        return self.apns.ready_for(environment) if hasattr(self.apns, 'ready_for') else self.apns.ready
 
     def lifecycle(self, event):
         # Bounded diagnostic reasons, without activity IDs, teams or credentials.
@@ -181,7 +169,7 @@ class Service:
             if row:
                 old = json.loads(row[1])
                 if body['revision'] <= old['revision']:
-                    return {'registered': True, 'pushReady': self.apns.ready, 'expiresAt': row[2]}
+                    return {'registered': True, 'pushReady': self.push_ready(old['environment']), 'expiresAt': row[2]}
                 identity = ('season', 'leagueID', 'week', 'homeID', 'awayID', 'environment', 'precision')
                 if any(old[k] != body[k] for k in identity):
                     raise ValueError('activity scope changed')
@@ -215,7 +203,7 @@ class Service:
                     'starters': {}, 'unknown': True} for side in ('home', 'away')}
             self.db.execute('INSERT OR REPLACE INTO subscriptions VALUES (?,?,?,?)', (sid, owner, json.dumps(body), expiry))
             self.db.commit()
-        return {'registered': True, 'pushReady': self.apns.ready, 'expiresAt': expiry}
+        return {'registered': True, 'pushReady': self.push_ready(body['environment']), 'expiresAt': expiry}
 
     def delete(self, sid, owner):
         with self.lock:
@@ -231,8 +219,9 @@ class Service:
     def status(self):
         with self.lock:
             self.prune()
-            return {'pushReady': self.apns.ready, 'subscriptions': self.db.execute('SELECT COUNT(*) FROM subscriptions').fetchone()[0],
-                    'acceptedPushes': self.accepted_pushes, 'issue': self.last_error}
+            return {'pushReady': self.push_ready('sandbox'), 'productionPushReady': self.push_ready('production'), 'subscriptions': self.db.execute('SELECT COUNT(*) FROM subscriptions').fetchone()[0],
+                    'acceptedPushes': self.accepted_pushes, 'issue': self.last_error,
+                    'mflRequests': dict(getattr(self.mfl, 'counts', {}))}
 
     def tick(self):
         with self.lock:
@@ -244,6 +233,7 @@ class Service:
             groups = {}
             for sid, raw in rows:
                 body = json.loads(raw)
+                if not self.push_ready(body['environment']): continue
                 key = (body['season'], body['leagueID'], body['week'])
                 groups.setdefault(key, []).append(sid)
         for key, ids in groups.items():
@@ -257,8 +247,11 @@ class Service:
                 self.db.execute('INSERT OR REPLACE INTO polls VALUES (?,?,?)', (poll_id, now + INTERVAL, failures))
                 self.db.commit()
             try:
-                document = self.mfl.read(*key)
-                checked = self.clock()
+                if hasattr(self.mfl, 'read_with_receipt'):
+                    document, checked = self.mfl.read_with_receipt(*key)
+                else:
+                    document = self.mfl.read(*key)
+                    checked = self.clock()
                 # Reject missing/wrong week before advancing any baseline.
                 if integer(document.get('liveScoring', {}).get('week'), 1, 21) != key[2]:
                     raise ValueError('wrong week')

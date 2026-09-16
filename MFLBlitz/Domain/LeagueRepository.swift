@@ -38,6 +38,7 @@ protocol LeagueRepository: Sendable {
     func reconcileBoardPost() async throws -> Bool
     func acknowledgeUnconfirmedPost() async throws
     func loadTrades() async throws -> TradeSnapshot
+    func loadTradeInbox() async throws -> TradeSnapshot
     func performTrade(_ command: TradeCommand) async throws -> TradeReceipt
     func pendingTradeAction() async throws -> PendingTradeAction?
     func reconcileTradeAction() async throws -> TradeReceipt
@@ -110,6 +111,7 @@ extension LeagueRepository {
         throw RepositoryError.server("The season schedule is unavailable in this session.")
     }
     func loadTrades() async throws -> TradeSnapshot { TradeSnapshot() }
+    func loadTradeInbox() async throws -> TradeSnapshot { try await loadTrades() }
     func performTrade(_ command: TradeCommand) async throws -> TradeReceipt { throw RepositoryError.server("Trades are unavailable in this session.") }
     func pendingTradeAction() async throws -> PendingTradeAction? { nil }
     func reconcileTradeAction() async throws -> TradeReceipt { TradeReceipt(confirmed: false, message: "Check this trade on MFL.") }

@@ -1,5 +1,15 @@
 # Trade inbox
 
+## Build 66 retained outcomes
+
+History keeps observed incoming/outgoing terms, partner, observation time and unread state when a successful complete pending-offer read no longer includes the offer. It retains every active offer and the latest 200 closed offers in scoped device Keychain storage; disconnect removes that scope. Failed inbox or history-storage reads cannot silently erase the saved ledger.
+
+Only a confirmed response receives Accepted, Declined or Withdrawn. Otherwise the row says **Closed** and links to MFL for the reason. Accepted can still await league approval/processing. Unresolved ownership retains neutral Offered/Requested labels. Expanding a history row marks it read; closed unread offers contribute to the My Team/Trades badge. This is an in-app change indicator, not a background push alert, and does not recover offers that disappeared before the app observed them.
+
+My Team's badge uses a short-lived pending-offer cache and cached player names without the full league assets export. Opening Trades loads actionable assets, joining any badge read already running. Preflight, submission and readback still use fresh authoritative reads. Synthetic request-count, concurrent-entry, cancellation, storage-recovery and outcome tests cover these distinctions.
+
+## Existing inbox and composer
+
 Implemented at [`e779e4b`](https://github.com/biggsjm/mfl-blitz-ios/commit/e779e4b), installed on the owner's phone September 6, 2026. See [current status](current-status.md), [remaining plan](roadmap.md), and [owner verification](week-1-testing.md). Build 22 exposes this workflow directly at My Team → Trades, retaining the trade badge and draft/review protections. Earlier Transactions-tab and Transactions-hub routes are historical; see [direct-tool navigation](my-team-shortcuts.md).
 
 Native trading is the primary path. A full-width **Create trade** button sits directly below the transaction selector and remains visible while the inbox scrolls. A saved draft changes that same action to **Resume trade**; there is no duplicate draft card.

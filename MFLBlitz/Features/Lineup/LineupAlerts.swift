@@ -80,7 +80,11 @@ final class LineupAlertController {
     private(set) var options = LineupAlertOptions()
     private(set) var message = "Off"
     private(set) var busy = false
-    private(set) var permissionRequired = false
+    private(set) var authorizationStatus: UNAuthorizationStatus?
+    var permissionRequired: Bool {
+        options.enabled && authorizationStatus != nil && authorizationStatus != .authorized && authorizationStatus != .provisional
+    }
+    var canRequestPermission: Bool { permissionRequired && authorizationStatus == .notDetermined }
     private(set) var needsCurrentLineup = false
     private(set) var acknowledgedWeek: Int?
     private(set) var acknowledgedUntil: Date?
@@ -113,6 +117,7 @@ final class LineupAlertController {
     func open(scope: String?, preview: Bool) {
         guard self.scope != scope || saved == nil else { return }
         self.scope = scope
+        authorizationStatus = nil
         acknowledgedWeek = nil; acknowledgedUntil = nil
         if preview { options = .init(); message = "Preview · notifications stay off"; return }
         do {
@@ -147,22 +152,37 @@ final class LineupAlertController {
             guard let self else { return }
             self.busy=true
             defer { if self.generation==requestGeneration { self.busy=false; self.task=nil } }
-            await self.cleanup()
             guard !Task.isCancelled else { return }
-            guard self.options.enabled else { self.message=self.saved?.pending.isEmpty == false ? "Off on this phone · server removal pending; reconnect Tailscale" : "Off"; return }
+            guard self.options.enabled else {
+                await self.cleanup()
+                self.message=self.saved?.pending.isEmpty == false ? "Off on this phone · server removal pending; reconnect to finish" : "Off"
+                return
+            }
             var authorization=await self.notifications.authorization()
+            var permissionFailed = false
             if authorization == .notDetermined, requestPermission {
-                try? await self.notifications.requestPermission()
+                do { try await self.notifications.requestPermission() }
+                catch { permissionFailed = true }
                 authorization=await self.notifications.authorization()
             }
+            guard !Task.isCancelled else { return }
+            self.authorizationStatus = authorization
             guard authorization == .authorized || authorization == .provisional else {
-                self.permissionRequired=true; self.acknowledgedWeek=nil; self.acknowledgedUntil=nil
+                self.acknowledgedWeek=nil; self.acknowledgedUntil=nil
                 if let old=self.saved?.current {
                     self.saved?.pending.append(old);self.saved?.current=nil;try? self.persist();await self.cleanup()
                 }
-                self.message="Allow notifications in iPhone Settings to receive lineup alerts."; return
+                if authorization == .notDetermined {
+                    self.message = permissionFailed
+                        ? "The notification prompt couldn’t open. Tap Enable notifications to try again."
+                        : "Tap Enable notifications to allow lineup alerts on this iPhone."
+                } else {
+                    self.message="Allow notifications in iPhone Settings to receive lineup alerts."
+                }
+                return
             }
-            self.permissionRequired=false
+            await self.cleanup()
+            guard !Task.isCancelled else { return }
             guard let workspace=model.workspace, !model.isUsingCachedSession, model.lineup.week==model.currentWeek,
                   (1...18).contains(model.currentWeek), !model.isLoadingLineup else {
                 self.needsCurrentLineup=true
@@ -197,7 +217,7 @@ final class LineupAlertController {
                 let encoder=JSONEncoder();encoder.outputFormatting = .sortedKeys
                 let fingerprint=try encoder.encode(body)
                 if self.lastFingerprint==fingerprint,Date().timeIntervalSince(self.lastSent)<3600,
-                   self.saved?.current != nil, self.acknowledgedWeek == body.week,
+                   self.saved?.current?.address == address, self.acknowledgedWeek == body.week,
                    (self.acknowledgedUntil ?? .distantPast) > Date() { return }
                 guard !Task.isCancelled,workspace.storageScope==self.scope else { return }
                 if let old=self.saved?.current, old.address != address || old.token != token || old.expires <= Date().timeIntervalSince1970 {
@@ -226,7 +246,7 @@ final class LineupAlertController {
                 await self.cleanup()
             } catch { if !Task.isCancelled {
                 self.acknowledgedWeek=nil; self.acknowledgedUntil=nil
-                self.message="Alerts couldn’t connect. Check Tailscale, then retry."
+                self.message="Alerts couldn’t connect. Check your connection and beta access, then retry."
             } }
         }
         await task?.value
@@ -239,7 +259,7 @@ final class LineupAlertController {
                     _ = try await send(entry.address,"v1/lineup-alerts/\(entry.id)","DELETE",state.secret,nil)
                 }
                 saved?.pending.removeAll { $0.id==entry.id };try persist()
-            } catch { message="Server removal pending. Reconnect Tailscale to finish turning alerts off." }
+            } catch { message="Server removal pending. Reconnect to finish turning alerts off." }
         }
     }
     func disconnect() async {
@@ -259,13 +279,20 @@ final class LineupAlertController {
 struct LineupAlertSettings: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showInfo = false
     var body: some View {
         Form {
             Section {
                 Text(model.lineupAlerts.coverageTitle(week: model.currentWeek)).font(.headline)
-                if model.lineupAlerts.permissionRequired {
-                    Button("Open iPhone Settings") { if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) } }
+                if model.lineupAlerts.canRequestPermission {
+                    Button("Enable notifications") {
+                        Task { await model.lineupAlerts.reconcile(model: model, requestPermission: true) }
+                    }.disabled(model.lineupAlerts.busy)
+                } else if model.lineupAlerts.permissionRequired {
+                    Button("Open notification settings") {
+                        if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
+                    }
                 } else if model.lineupAlerts.needsCurrentLineup {
                     Button("Open current lineup") {
                         if let url = URL(string: "mflblitz://lineup?scope=\(model.workspace?.storageScope ?? "")&id=lineup&week=\(model.currentWeek)") { openURL(url) }
@@ -302,6 +329,9 @@ struct LineupAlertSettings: View {
             }
         }
         .task { model.lineupAlerts.open(scope:model.workspace?.storageScope,preview:model.isDemo);await model.lineupAlerts.reconcile(model:model) }
+        .onChange(of: scenePhase) {
+            if scenePhase == .active { Task { await model.lineupAlerts.reconcile(model: model) } }
+        }
     }
     private func toggle(_ title:String,path:WritableKeyPath<LineupAlertOptions,Bool>) -> some View {
         Toggle(title,isOn:Binding(get:{ model.lineupAlerts.options[keyPath:path] },set:{ enabled in

@@ -5,6 +5,50 @@ import Testing
 
 @MainActor
 struct StartupCacheTests {
+    @Test("Cold launch waits for the saved account before showing onboarding")
+    func restoringBeforeFirstRender() async throws {
+        let repository = ReliabilityRepository()
+        let gate = TestGate()
+        await repository.pauseRestore(gate)
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore())
+        // This is the state RootView reads before its .task can run.
+        #expect(model.phase == .restoring)
+        let restore = Task { await model.restoreSession() }
+        for _ in 0..<100 {
+            if model.isRestoringSession { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(model.isRestoringSession && model.phase == .restoring)
+        #expect(model.workspace == nil)
+        await gate.open()
+        await restore.value
+        #expect(model.phase == .signedIn && !model.isRestoringSession)
+        #expect(!model.scores.matchups.isEmpty)
+    }
+
+    @Test("No saved session opens onboarding and does not leave startup spinning")
+    func noSavedSession() async {
+        let store = MemoryPrivateStore()
+        let model = AppModel(repository: LiveMFLRepository(privateStore: store), privateStore: store)
+        #expect(model.phase == .restoring)
+        await model.restoreSession()
+        #expect(model.phase == .onboarding)
+        #expect(!model.isRestoringSession && !model.isBusy && model.notice == nil)
+        await model.restoreSession()
+        #expect(model.phase == .onboarding)
+    }
+
+    @Test("A failed restore without cached content offers sign-in")
+    func failedRestoreWithoutCache() async {
+        let repository = ReliabilityRepository()
+        await repository.failRestore(.unauthorized("Synthetic expiration"))
+        let model = AppModel(repository: repository, privateStore: MemoryPrivateStore())
+        await model.restoreSession()
+        #expect(model.phase == .onboarding)
+        #expect(!model.isRestoringSession && !model.isBusy)
+        #expect(model.notice != nil)
+    }
+
     private func makeCache(_ store: MemoryPrivateStore) throws -> (LeagueDisplayCache, URL) {
         let directory = FileManager.default.temporaryDirectory.appending(path: "mfl-display-tests-\(UUID().uuidString)")
         try store.encode(SavedSession(cookie: "synthetic-startup-cookie", season: 2026,
@@ -29,6 +73,7 @@ struct StartupCacheTests {
         let lineups = await repository.lineupLoads
         let reopenedCache = LeagueDisplayCache(fileURL: directory.appending(path: "display.json"), privateStore: store)
         let reopened = AppModel(repository: repository, privateStore: store, displayCache: reopenedCache)
+        #expect(reopened.phase == .restoring)
         let clock = ContinuousClock(), start = ContinuousClock.now
         let task = Task { await reopened.restoreSession() }
         for _ in 0..<100 {

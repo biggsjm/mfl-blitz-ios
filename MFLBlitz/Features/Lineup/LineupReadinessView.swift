@@ -4,7 +4,7 @@ struct LineupReadinessView: View {
     @Environment(AppModel.self) private var model
     let replace: (String) -> Void
     let reviewBench: () -> Void
-    @State private var expanded = false
+    @State private var expanded = true
     var body: some View {
         let readiness = LineupReadiness(lineup: model.lineup, availability: model.playerTools.availability[model.lineup.week],
             scope: model.workspace?.storageScope)

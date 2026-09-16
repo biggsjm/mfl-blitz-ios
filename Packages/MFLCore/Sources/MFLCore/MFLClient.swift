@@ -242,11 +242,14 @@ public actor MFLClient {
 
     /// Omitting W and F returns the whole fantasy season. This is schedule
     /// metadata, not an invitation to fetch every week's player scoring.
-    public func schedule(refreshPolicy: MFLRefreshPolicy = .useCache) async throws -> MFLSchedule {
+    public func schedule(
+        maximumAge: TimeInterval = 900, refreshPolicy: MFLRefreshPolicy = .useCache
+    ) async throws -> MFLSchedule {
         let result: MFLScheduleResponse = try await export(
             MFLScheduleResponse.self, endpoint: .schedule,
             host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
-            parameters: [:], ttl: 900, refreshPolicy: refreshPolicy
+            parameters: [:], ttl: max(0, maximumAge), refreshPolicy: refreshPolicy,
+            maximumAge: max(0, maximumAge)
         )
         return result.schedule
     }
@@ -859,11 +862,11 @@ public actor MFLClient {
         return result
     }
 
-    public func pendingTrades(franchiseID: String) async throws -> MFLPendingTrades {
+    public func pendingTrades(franchiseID: String, refreshPolicy: MFLRefreshPolicy = .reloadIgnoringCache) async throws -> MFLPendingTrades {
         try validateIdentifier(franchiseID)
         let response = try await export(MFLPendingTradesResponse.self, endpoint: .pendingTrades,
             host: try await resolvedLeagueHost(), leagueID: configuration.league.leagueID,
-            parameters: ["FRANCHISE_ID": franchiseID], ttl: 0, refreshPolicy: .reloadIgnoringCache)
+            parameters: ["FRANCHISE_ID": franchiseID], ttl: 60, refreshPolicy: refreshPolicy)
         return response.pendingTrades
     }
 
@@ -1165,9 +1168,16 @@ public actor MFLClient {
     }
 
     private func retryAfter(_ response: MFLHTTPResponse) -> TimeInterval? {
-        response.value(forHeader: "Retry-After").flatMap(TimeInterval.init).flatMap {
-                $0.isFinite && $0 >= 0 && $0 < Double(Int.max) / 2 ? $0 : nil
+        guard let raw = response.value(forHeader: "Retry-After")?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
+        if let seconds = TimeInterval(raw) {
+            return seconds.isFinite && seconds >= 0 && seconds < Double(Int.max) / 2 ? seconds : nil
         }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        guard let deadline = formatter.date(from: raw) else { return nil }
+        return max(1, deadline.timeIntervalSinceNow)
     }
 
     private func validateHTTP(_ response: MFLHTTPResponse) throws {

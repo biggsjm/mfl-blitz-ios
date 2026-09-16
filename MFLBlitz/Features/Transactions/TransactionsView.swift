@@ -132,6 +132,9 @@ struct TradesView: View {
         List {
             if trades.isDemo { DemoBanner().listRowInsets(EdgeInsets()) }
             if trades.isLoading { TransactionLoadingRow(title: "Checking offers and tradable assets…") }
+            if let error = trades.historyError {
+                Text(error).foregroundStyle(.secondary)
+            }
             if let error = trades.readError {
                 Section {
                     Label(error, systemImage: "wifi.exclamationmark").font(.subheadline)
@@ -181,6 +184,13 @@ struct TradesView: View {
                     mflLink
                 }
             }
+            if !trades.closedOffers.isEmpty {
+                Section("History") {
+                    ForEach(trades.closedOffers) { entry in
+                        TradeHistoryRow(entry: entry)
+                    }
+                }
+            }
             if let date = trades.snapshot.updatedAt {
                 Text("Checked \(date.formatted(date: .omitted, time: .shortened))")
                     .font(.caption).foregroundStyle(.secondary)
@@ -198,6 +208,47 @@ struct TradesView: View {
             Link(destination: workspace.reportURL("05")) { Label("Open on MFL", systemImage: "arrow.up.right.square") }
                 .accessibilityIdentifier("trade-open-mfl")
         }
+    }
+}
+
+private struct TradeHistoryRow: View {
+    @Environment(TransactionsModel.self) private var trades
+    @State private var expanded = false
+    let entry: TradeHistoryEntry
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded) {
+            VStack(alignment: .leading, spacing: 8) {
+                if entry.offer.offeredBy == trades.ownerID || entry.offer.offeredTo == trades.ownerID {
+                    Text("You send: " + entry.offer.sending(for: trades.ownerID).map(\.name).joined(separator: ", "))
+                    Text("You receive: " + entry.offer.getting(for: trades.ownerID).map(\.name).joined(separator: ", "))
+                } else {
+                    Text("Offered: " + entry.offer.giving.map(\.name).joined(separator: ", "))
+                    Text("Requested: " + entry.offer.receiving.map(\.name).joined(separator: ", "))
+                }
+                if entry.outcome == .closed {
+                    Text("This offer is no longer pending. Check MFL for the outcome.")
+                        .foregroundStyle(.secondary)
+                } else if entry.outcome == .accepted {
+                    Text("Acceptance confirmed. League approval or processing may still be pending.")
+                        .foregroundStyle(.secondary)
+                }
+                if let workspace = trades.workspace {
+                    Link("View on MFL", destination: workspace.reportURL("05"))
+                }
+            }.font(.subheadline).padding(.vertical, 6)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(entry.partnerName).font(.headline)
+                    if entry.unread { Image(systemName: "circle.fill").font(.caption2).accessibilityLabel("Unread update") }
+                }
+                Text("\(entry.outcome.title) · \(entry.changedAt.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .onChange(of: expanded) { if expanded { trades.markHistoryRead(entry.id) } }
+        .accessibilityIdentifier("trade-history-\(entry.id)")
     }
 }
 

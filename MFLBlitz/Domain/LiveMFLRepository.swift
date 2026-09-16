@@ -850,24 +850,33 @@ actor LiveMFLRepository: LeagueRepository {
         let completeMembership = Set(standings.franchises.map(\.id)) == Set(league.franchises.map(\.id)) &&
             standings.franchises.count == league.franchises.count
         var schedule: MFLSchedule?
-        var completedWeek: Int?
+        var standingsWeek: Int?
         let preliminary = MFLStandingsRanking.resolve(standings.franchises, criteria: league.standingsSort, hasResults: hasResults)
-        if preliminary.issue == .headToHeadUnavailable {
+        if completeMembership, preliminary.issue == .headToHeadUnavailable {
             let status = try? await playerToolsSeasonStatus(client: client)
-            if let status, status.year == workspace.season, status.completedWeek >= startWeek {
-                completedWeek = min(status.completedWeek, league.lastRegularSeasonWeek ?? status.completedWeek)
-                schedule = try? await client.schedule()
+            if let status, status.year == workspace.season {
+                let throughWeek = min(max(status.completedWeek, status.currentWeek, status.liveScoringWeek),
+                                      league.lastRegularSeasonWeek ?? league.endWeek ?? 18)
+                if throughWeek >= startWeek {
+                    // Match the standings cache age; a 15-minute schedule can
+                    // otherwise lag newly posted preliminary W/L/T records.
+                    schedule = try? await client.schedule(maximumAge: 60)
+                    if let schedule {
+                        standingsWeek = MFLStandingsRanking.reconciledWeek(standings.franchises,
+                            schedule: schedule, startWeek: startWeek, throughWeek: throughWeek)
+                    }
+                }
             }
         }
         let overall = MFLStandingsRanking.resolve(standings.franchises,
             criteria: completeMembership ? league.standingsSort : nil, hasResults: hasResults,
-            schedule: schedule, startWeek: startWeek, completedWeek: completedWeek)
+            schedule: schedule, startWeek: startWeek, completedWeek: standingsWeek)
         var divisions: [String: MFLStandingsRanking] = [:]
         for division in league.divisions {
             let members = standings.franchises.filter { franchiseByID[$0.id]?.divisionID == division.id }
             divisions[division.id] = MFLStandingsRanking.resolve(members,
                 criteria: completeMembership ? league.standingsSort : nil, hasResults: hasResults,
-                schedule: schedule, startWeek: startWeek, completedWeek: completedWeek)
+                schedule: schedule, startWeek: startWeek, completedWeek: standingsWeek)
         }
         guard client === self.client else { throw CancellationError() }
 

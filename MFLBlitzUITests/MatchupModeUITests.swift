@@ -109,16 +109,29 @@ final class MatchupModeUITests: XCTestCase {
         rosterPlayer.tap(); checkWeek(app)
     }
     @MainActor func testLineupReadinessAndCompactTeamToolsRemainDiscoverable() {
-        let app = start()
+        lineupToolbar()
+    }
+    @MainActor func testLineupToolbarAtLargestText() {
+        lineupToolbar(arguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+    }
+    @MainActor private func lineupToolbar(arguments: [String] = []) {
+        let app = start(arguments: arguments)
         app.tabBars.buttons["Lineup"].tap()
+        let bell = app.buttons["lineup-alerts-toolbar"]
+        XCTAssertTrue(bell.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["lineup-alert-coverage"].exists)
+        capture(app, "Lineup — compact bell toolbar")
+        bell.tap()
         let readiness = app.descendants(matching: .any)["lineup-readiness"].firstMatch
         XCTAssertTrue(readiness.waitForExistence(timeout: 5))
         let alerts = app.buttons["lineup-alert-coverage"]
+        for _ in 0..<6 where !alerts.isHittable { app.swipeUp() }
         XCTAssertTrue(alerts.waitForExistence(timeout: 5)); alerts.tap()
         XCTAssertTrue(app.navigationBars["Lineup alerts"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.switches["Incomplete lineup"].value as? String, "0")
         capture(app, "Lineup — coverage separate from preferences")
         app.navigationBars.buttons.firstMatch.tap()
+        app.buttons["Done"].tap()
         app.tabBars.buttons["My Team"].tap()
         XCTAssertTrue(app.buttons["my-team-schedule"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["my-team-adds-drops"].exists)

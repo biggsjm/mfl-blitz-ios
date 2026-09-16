@@ -9,8 +9,13 @@ import UserNotifications
     var status: UNAuthorizationStatus = .notDetermined
     var permissionRequests = 0
     var registrations = 0
+    var permissionFailure = false
     func authorization() async -> UNAuthorizationStatus { status }
-    func requestPermission() async throws { permissionRequests += 1; status = .authorized }
+    func requestPermission() async throws {
+        permissionRequests += 1
+        if permissionFailure { throw URLError(.unknown) }
+        status = .authorized
+    }
     func register() { registrations += 1 }
 }
 
@@ -99,6 +104,7 @@ private actor AlertTransportStub {
         #expect(alerts.message.contains("Allow notifications")); #expect(await transport.requests.isEmpty)
         #expect(alerts.coverageTitle(week: model.currentWeek).contains("permission"))
         #expect(access.permissionRequests == 0)
+        #expect(!alerts.canRequestPermission)
         access.status = .authorized
         await alerts.reconcile(model: model)
         await alerts.set(.init(), model: model)
@@ -106,5 +112,35 @@ private actor AlertTransportStub {
         #expect(await transport.requests.map(\.method) == ["PUT", "DELETE"])
         let saved = try #require(try store.decode(LineupAlertController.Saved.self, key: "lineup-alerts.v1"))
         #expect(saved.current == nil); #expect(saved.pending.isEmpty)
+    }
+
+    @Test func restoredOptInWithUndeterminedPermissionOffersPromptAndRecovers() async throws {
+        let store = MemoryPrivateStore(), access = AlertNotificationStub(), transport = AlertTransportStub(), model = model()
+        let state = LineupAlertController.Saved(secret: String(repeating: "a", count: 64),
+            options: [SampleData.workspace.storageScope: .init(incomplete: true)])
+        try store.encode(state, key: "lineup-alerts.v1")
+        let alerts = controller(store, access, transport)
+        await alerts.reconcile(model: model)
+        #expect(alerts.canRequestPermission)
+        #expect(access.permissionRequests == 0)
+        #expect(await transport.requests.isEmpty)
+        await alerts.reconcile(model: model, requestPermission: true)
+        #expect(access.permissionRequests == 1)
+        #expect(!alerts.permissionRequired && !alerts.canRequestPermission)
+        #expect(alerts.message.hasPrefix("Connected for Week"))
+    }
+
+    @Test func failedPermissionPromptRemainsRetryableWithoutSettingsDetour() async throws {
+        let store = MemoryPrivateStore(), access = AlertNotificationStub(), transport = AlertTransportStub(), model = model()
+        access.permissionFailure = true
+        let alerts = controller(store, access, transport)
+        await alerts.set(.init(incomplete: true), model: model)
+        #expect(alerts.canRequestPermission)
+        #expect(alerts.message.contains("prompt couldn’t open"))
+        #expect(await transport.requests.isEmpty)
+        access.permissionFailure = false
+        await alerts.reconcile(model: model, requestPermission: true)
+        #expect(access.permissionRequests == 2)
+        #expect(alerts.message.hasPrefix("Connected for Week"))
     }
 }

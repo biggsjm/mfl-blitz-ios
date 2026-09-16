@@ -11,10 +11,12 @@ struct MatchupBackgroundSyncSettings: View {
         Form {
             Section {
                 Text(sync.message).font(.callout)
-                TextField("https://your-server.your-tailnet.ts.net:8444", text: $address)
+                #if DEBUG
+                TextField("Scoring service address", text: $address)
                     .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
-                    .accessibilityLabel("Private background scoring server")
-                Button(isChecking ? "Checking…" : "Save and check connection") {
+                    .accessibilityLabel("Background scoring server")
+                #endif
+                Button(isChecking ? "Checking…" : "Check connection") {
                     isChecking = true; error = nil
                     Task {
                         do {
@@ -30,10 +32,10 @@ struct MatchupBackgroundSyncSettings: View {
                 }.disabled(isChecking || address.isEmpty)
                 if let error { Text(error).foregroundStyle(.secondary).font(.footnote) }
             } header: { Text("Background scoring") } footer: {
-                Text("Connect through Tailscale when your matchup is live. Your server checks MFL about every 90 seconds and Apple delivers updates while your phone is locked. Delivery can be delayed; the activity always shows its last checked time.")
+                Text("Scoring connects automatically for your invited MFL team. The server shares MFL checks about once a minute, and Apple delivers updates while your phone is locked. The activity shows its last checked time.")
             }
             Section {
-                Text("Your private server receives this matchup’s team and starter names, scores, starter projections, small logos, and an Apple activity token. Your MFL password, login session and drafts stay on your device.")
+                Text("Blitz sends matchup scores, team and starter details, small logos and an Apple activity token to its server. Your password and drafts are never sent. Initial connection briefly verifies your MFL session without storing it on the server.")
                 Text("Turning off Matchup Live Activity or disconnecting removes the subscription when reachable. Unreachable subscriptions expire within eight hours. Open Blitz to start a new activity after it ends.")
             }.font(.footnote).foregroundStyle(.secondary)
             Section("Live Activity history") {

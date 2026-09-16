@@ -105,14 +105,18 @@ struct AppTabView: View {
                   !Task.isCancelled, key == artworkKey else { return }
             teamTabImage = TeamTabArtwork.image(abbreviation: key.abbreviation, artwork: image)
         }
-        .task(id: scenePhase) {
+        .task(id: "foreground|\(scenePhase)|\(selection)") {
             guard scenePhase == .active else { return }
-            await model.refreshForForeground()
+            let section: AppModel.ForegroundSection = switch selection {
+            case .scores: .scores; case .lineup: .lineup; case .myTeam: .myTeam
+            case .standings: .standings; case .board: .board
+            }
+            await model.refreshForForeground(section: section)
         }
         .task(id: "\(selection)|\(model.isLoadingScores)|\(model.isLoadingLineup)|\(model.isUsingCachedSession)|\(scenePhase)") {
             guard scenePhase == .active, selection == .myTeam, !model.isUsingCachedSession,
                   !model.isLoadingScores, !model.isLoadingLineup else { return }
-            await model.transactions.refresh(ifNeeded: true)
+            await model.transactions.refreshInbox()
         }
         .task(id: "\(scenePhase)-\(selection)-\(model.selectedWeek)-\(model.scopedScoreInspection?.uuidString ?? "scoreboard")") {
             guard scenePhase == .active, !model.isDemo else { return }

@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+- Keep the welcome screen hidden while restoring a saved login on cold launch; open saved Scores directly and show sign-in only when needed.
+
+## 0.7.0 (67) — league beta follow-up
+
+- Replace the large lineup readiness/notification card with a toolbar bell and an attention badge; keep lineup checks and alert preferences one tap away.
+- Offer the notification permission prompt when permission has not been requested; link directly to notification settings after denial, and refresh authorization on return.
+- Treat canceled Board, Lineup and Standings refreshes as navigation, retaining data without an error alert on another tab.
+- Connect shared NFL stats and background notifications automatically after verified MFL team sign-in, including independent access for co-owners. No code entry or Tailscale app is needed. Keep provider request budgets and opt-in alert preferences unchanged; deployment and TestFlight delivery are recorded separately.
+
+## 0.7.0 (66) — TestFlight candidate
+
+- Refresh the visible tab on foreground return, reuse recent reads, and check trade badges without fetching every team's tradable assets. Keep fresh checks before and after league actions.
+- Retain observed trade terms and closed offers in secure local history, with an unread badge. Only confirmed outcomes receive specific labels; disappearance alone means Closed. Background trade notifications remain deferred.
+- Share paced MFL reads and persistent server cooldowns across existing background scoring and lineup alerts; accept numeric and HTTP-date Retry-After values and retain original score fetch times.
+- Prepare Release production push settings, separate server push credentials, accurate privacy declarations and reproducible archive/export checks. Production credentials, Apple signing/upload and TestFlight installation remain pending.
+- Includes the build 65 standings and tiebreaker fixes below.
+
+## 0.6.4 (65) — preliminary standings and tiebreakers
+
+- Rank the records already reported by MFL, including preliminary results before its global completed-week marker advances. Reconcile every team’s W/L/T with the matching schedule horizon.
+- Keep winners ahead of losers if a head-to-head read is unavailable, while leaving unverified places blank. Preserve the league’s configured tiebreaker priority.
+- Limit the head-to-head schedule cache to the same one-minute age as standings, reusing one shared league-wide read. Add a direct MFL tiebreaker-report link.
+
 ## 0.6.3 (64) — compact, consistent player areas
 
 - Use compact mirrored rows following the owner’s reference, with points nearest the position gutter and concise name/game/stat context. Shorten stat labels without omitting scoring values or events.

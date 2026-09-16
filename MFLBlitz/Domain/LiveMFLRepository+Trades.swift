@@ -2,6 +2,22 @@ import Foundation
 import MFLCore
 
 extension LiveMFLRepository {
+    /// Badge/history reads need pending terms, not every team's tradable assets.
+    /// An omitted sender stays unresolved until the full editor read verifies it.
+    func loadTradeInbox() async throws -> TradeSnapshot {
+        let (client, league, workspace) = try requireSession()
+        let pending = try await client.pendingTrades(franchiseID: workspace.franchiseID, refreshPolicy: .useCache)
+        let players = pending.offers.isEmpty ? [:] : try await client.players().playersByID
+        let teams = league.franchises.map {
+            TradeTeam(id: $0.id, name: cleanText($0.name), abbreviation: $0.abbreviation ?? $0.id,
+                      artworkURLs: TeamArtworkURLPolicy.candidates(icon: $0.iconURL, logo: $0.logoURL), assets: [])
+        }
+        try validateTeamPlayerSession(client: client, scope: workspace.storageScope)
+        return TradeSnapshot(teams: teams, offers: pending.offers.map {
+            tradeOffer($0, assets: nil, players: players, league: league, workspace: workspace)
+        }, updatedAt: Date(), hasTradableAssets: false)
+    }
+
     func loadTrades() async throws -> TradeSnapshot {
         let (client, league, workspace) = try requireSession()
         async let pendingTask = client.pendingTrades(franchiseID: workspace.franchiseID)
@@ -28,7 +44,7 @@ extension LiveMFLRepository {
         return snapshot
     }
 
-    private func tradeOffer(_ raw: MFLPendingTrade, assets: MFLTradeAssets, players: [String: MFLPlayer],
+    private func tradeOffer(_ raw: MFLPendingTrade, assets: MFLTradeAssets?, players: [String: MFLPlayer],
                             league: MFLLeague, workspace: LeagueWorkspace) -> TradeOffer {
         var proposer = raw.offeredBy
         if proposer == nil {
@@ -36,7 +52,7 @@ extension LiveMFLRepository {
             // non-cash asset identifies exactly one current owner; never infer
             // direction from text, list order, or the signed-in franchise alone.
             let codes = raw.giving.filter { !$0.hasPrefix("BB_") }
-            let owners = assets.franchises.filter { owner in !codes.isEmpty && codes.allSatisfy(owner.owns) }
+            let owners = (assets?.franchises ?? []).filter { owner in !codes.isEmpty && codes.allSatisfy(owner.owns) }
             if owners.count == 1 { proposer = owners[0].id }
         }
         if proposer == raw.offeredTo || !league.franchises.contains(where: { $0.id == proposer }) { proposer = nil }

@@ -7,6 +7,8 @@ struct RootView: View {
     var body: some View {
         Group {
             switch model.phase {
+            case .restoring:
+                restoringView
             case .onboarding:
                 OnboardingView()
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
@@ -17,23 +19,6 @@ struct RootView: View {
         }
         .animation(reduceMotion ? nil : .snappy, value: model.phase)
         .task { await model.restoreSession() }
-        .overlay {
-            if model.isRestoringSession && model.phase == .onboarding {
-                ZStack {
-                    Color(uiColor: .systemBackground).ignoresSafeArea()
-                    VStack(spacing: 24) {
-                        ProgressView("Reconnecting to MFL…")
-                        Text("Checking your saved account. Your drafts stay on this device.")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                        Button("Sign in instead") { model.cancelReconnect() }
-                            .buttonStyle(.bordered)
-                            .accessibilityIdentifier("cancel-reconnect")
-                    }
-                    .padding(32)
-                }
-            }
-        }
         .alert(
             model.notice.map { notice in
                 switch notice {
@@ -49,6 +34,20 @@ struct RootView: View {
             Button("OK") { model.notice = nil }
         } message: {
             Text(model.notice?.message ?? "")
+        }
+    }
+
+    private var restoringView: some View {
+        ZStack {
+            Color(uiColor: .systemBackground).ignoresSafeArea()
+            VStack(spacing: 24) {
+                ProgressView("Opening MFL Blitz…")
+                    .accessibilityIdentifier("session-restoring")
+                Button("Sign in instead") { model.cancelReconnect() }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("cancel-reconnect")
+            }
+            .padding(32)
         }
     }
 }
