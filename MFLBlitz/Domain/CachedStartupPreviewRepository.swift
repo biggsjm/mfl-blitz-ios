@@ -19,6 +19,10 @@ actor CachedStartupPreviewRepository: LeagueRepository {
     }
 
     func seed(_ cache: LeagueDisplayCache) async {
+        if ProcessInfo.processInfo.arguments.contains("--synthetic-startup-slow-cache") {
+            // Leave time for XCTest to attach before inspecting the first state.
+            try? await Task.sleep(for: .seconds(15))
+        }
         guard let workspace = try? await loadWorkspace() else { return }
         guard let identity = await cache.identity(for: workspace) else { return }
         let yesterday = Date().addingTimeInterval(-3_600)

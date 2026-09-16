@@ -111,6 +111,26 @@ final class MFLBlitzUITests: XCTestCase {
     }
 
     @MainActor
+    func testColdStartupKeepsWelcomeHiddenUntilSavedScoresAppear() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--synthetic-cached-startup", "--synthetic-startup-slow-cache"]
+        app.launch()
+        let isRestoring = app.buttons["cancel-reconnect"].waitForExistence(timeout: 2)
+        XCTAssertTrue(isRestoring)
+        guard isRestoring else { app.terminate(); return }
+        XCTAssertFalse(app.buttons["Connect MyFantasyLeague"].exists)
+        XCTAssertFalse(app.buttons["Preview Champion Hall"].exists)
+        let loading = XCTAttachment(screenshot: app.screenshot())
+        loading.name = "Cold startup — saved account loading without welcome screen"
+        loading.lifetime = .keepAlways; add(loading)
+        XCTAssertTrue(app.navigationBars["Startup preview"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.tabBars.buttons["Scores"].isSelected)
+        XCTAssertFalse(app.buttons["Connect MyFantasyLeague"].exists)
+        XCTAssertFalse(app.buttons["cancel-reconnect"].exists)
+        app.terminate()
+    }
+
+    @MainActor
     func testCachedStartupShowsScreensWhileAuthenticationIsDelayed() {
         let app = XCUIApplication()
         app.launchArguments = ["--synthetic-cached-startup"]

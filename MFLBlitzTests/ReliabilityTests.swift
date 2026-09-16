@@ -391,6 +391,7 @@ struct ReliabilityTests {
             try await Task.sleep(for: .milliseconds(10))
         }
         model.cancelReconnect()
+        #expect(model.phase == .onboarding)
         #expect(!model.isRestoringSession)
         #expect(!model.isBusy)
         await model.continueInDemo()

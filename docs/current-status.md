@@ -1,5 +1,11 @@
 # Current app status
 
+## September 16: unreleased — remove the welcome-screen flash on cold launch
+
+The root now starts in an explicit session-restoration state before SwiftUI schedules its startup task. Onboarding is only constructed after restoration finds no account, fails without cached content, or the user chooses sign-in. Saved league content still opens directly on Scores while authentication runs; offline reads and draft/write protections are preserved. The loading view uses the system appearance instead of inheriting onboarding's forced dark appearance.
+
+Validation: all 27 startup/reliability model checks pass, including initial render state, no saved account, expired sessions, cancel/late completion and cached/offline recovery. The native cached-startup and largest-text offline journeys pass in `/tmp/mfl-startup-fix.xcresult`. The slow-cache UI check initially missed the loading screen and then exposed a parent accessibility identifier overriding the button's identifier; the fixture timing and identifier placement are corrected. Its final run passes in `/tmp/mfl-startup-ui-final.xcresult`, verifies the loading-to-Scores transition without onboarding, and its screenshot was inspected. The preceding release revision also passed all six CI jobs. This fix remains unreleased: Josh requested merging the source changes and collecting further feedback before another TestFlight update. Build 67's submitted binary is unchanged.
+
 ## September 16: build 67 — installed through TestFlight; league beta awaiting review
 
 Champion Hall Owners contains 12 external tester addresses, excluding Josh; both Two Bad Neighbors co-owners are included. All received the initial iPhone/TestFlight instructions. Build 67 is now Waiting for Review for the external group, with automatic notification selected; build 66 was withdrawn from review. No public TestFlight link or staff roles were granted.

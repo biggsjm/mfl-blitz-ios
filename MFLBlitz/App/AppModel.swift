@@ -7,6 +7,7 @@ import MFLCore
 @Observable
 final class AppModel {
     enum Phase: Equatable {
+        case restoring
         case onboarding
         case signedIn
     }
@@ -34,7 +35,9 @@ final class AppModel {
         fileprivate let replacements: [LineupReplacementRequest]
     }
 
-    var phase: Phase = .onboarding
+    // Session restoration starts after SwiftUI's first render. Until it resolves,
+    // onboarding must not enter the view tree (or its dark appearance flash).
+    var phase: Phase = .restoring
     var workspace: LeagueWorkspace?
     let scoringChanges = ScoringChangeTracker()
     let lineupAlerts = LineupAlertController()
@@ -257,12 +260,14 @@ final class AppModel {
         } : nil)
         if repository is DemoLeagueRepository {
             installDemoContent()
+            phase = .onboarding
         }
     }
 
     func restoreSession() async {
-        guard !didAttemptRestore, phase == .onboarding || isUsingCachedSession, !isDemo else { return }
+        guard !didAttemptRestore, phase != .signedIn || isUsingCachedSession, !isDemo else { return }
         didAttemptRestore = true
+        if !isUsingCachedSession { phase = .restoring }
         isRestoringSession = true
         isBusy = true
         let generation = sessionGeneration
@@ -270,6 +275,7 @@ final class AppModel {
             if generation == sessionGeneration {
                 restoreRequest = nil
                 if isRestoringSession { isRestoringSession = false; isBusy = false }
+                if phase == .restoring { phase = .onboarding }
             }
         }
         let activeRepository = repository
@@ -394,6 +400,7 @@ final class AppModel {
         isBusy = false
         notice = nil
         if isUsingCachedSession { discardCachedSession() }
+        if phase == .restoring { phase = .onboarding }
         // Keep the saved cookie/drafts; this only dismisses the current attempt.
     }
 
@@ -417,6 +424,7 @@ final class AppModel {
         let generation = sessionGeneration
         let activeRepository = repository
 
+        if phase == .restoring { phase = .onboarding }
         isBusy = true
         var authenticating = true
         defer { if authenticating, generation == sessionGeneration { isBusy = false } }

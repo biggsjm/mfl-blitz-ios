@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Keep the welcome screen hidden while restoring a saved login on cold launch; open saved Scores directly and show sign-in only when needed.
+
 ## 0.7.0 (67) — league beta follow-up
 
 - Replace the large lineup readiness/notification card with a toolbar bell and an attention badge; keep lineup checks and alert preferences one tap away.
