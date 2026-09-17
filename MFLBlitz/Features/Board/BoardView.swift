@@ -73,16 +73,13 @@ struct BoardView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .playerSearch()
         .navigationTitle("Board")
         .navigationDestination(for: String.self) { threadID in
             ThreadDetailView(threadID: threadID)
         }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("New thread", systemImage: "square.and.pencil") { composerMode = .newThread }
-                    .disabled(!model.canPostToBoard)
-            }
+        .playerSearch {
+            Button("New thread", systemImage: "square.and.pencil") { composerMode = .newThread }
+                .disabled(!model.canPostToBoard)
         }
         .sheet(item: $composerMode) { mode in
             MessageComposerView(mode: mode)

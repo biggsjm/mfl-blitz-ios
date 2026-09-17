@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep player search at the far right of every toolbar, after each screen's week, compose, standings information or matchup timeline action.
+
 ## 0.7.0 (68) — search and startup
 
 - Keep the welcome screen hidden while restoring a saved login on cold launch; open saved Scores directly and show sign-in only when needed.

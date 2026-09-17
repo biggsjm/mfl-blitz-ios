@@ -3,7 +3,8 @@ import SwiftUI
 private enum PlayerSearchFocus: Hashable { case button, field }
 /// A focused field and bounded results keep the originating screen mounted.
 /// Player details use that screen's existing navigation path.
-private struct PlayerSearchModifier: ViewModifier {
+private struct PlayerSearchModifier<Actions: View>: ViewModifier {
+    let actions: Actions
     @Environment(AppModel.self) private var model
     @Environment(\.openPlayerRoute) private var openPlayerRoute
     @Environment(\.scenePhase) private var scenePhase
@@ -54,7 +55,10 @@ private struct PlayerSearchModifier: ViewModifier {
             }
             .navigationBarTitleDisplayMode(isPresented ? .inline : .automatic)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    // Keep screen actions and search in one ordered group. Separate
+                    // toolbar modifiers can reverse their order across screens.
+                    actions
                     Button(isPresented ? "Close search" : "Search players", systemImage: isPresented ? "xmark" : "magnifyingglass") {
                         if isPresented { close() }
                         else {
@@ -128,7 +132,11 @@ private struct PlayerSearchModifier: ViewModifier {
 }
 
 extension View {
-    func playerSearch() -> some View { modifier(PlayerSearchModifier()) }
+    func playerSearch() -> some View { playerSearch { EmptyView() } }
+
+    func playerSearch<Actions: View>(@ViewBuilder actions: () -> Actions) -> some View {
+        modifier(PlayerSearchModifier(actions: actions()))
+    }
 }
 
 private struct PlayerSearchContent: View {

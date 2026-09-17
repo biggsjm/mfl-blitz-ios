@@ -1,5 +1,11 @@
 # Current app status
 
+## September 16: unreleased — consistent search toolbar position
+
+Player search now owns one ordered trailing toolbar group: the screen's Week, compose, standings information or matchup timeline action comes first, with Search last. Close search occupies the same far-right position. My Team continues to use the same shared search control, and leading Settings/lineup alerts stay in place. This removes modifier-order differences that put Search before information or timeline on some screens.
+
+All four existing native UI checks pass in `/tmp/mfl-toolbar-order.xcresult`: search on every tab with player Back/query retention, matchup search return, standings information and lineup week selection. The exported screenshots in `/tmp/mfl-toolbar-order-shots` confirm the trailing order on Standings, matchup, Lineup and open search. The final simulator build passes after preserving Scores' existing inline-title modifier order (`/tmp/mfl-toolbar-final-build.log`). Interactive desktop inspection was unavailable while the Mac was locked; test screenshots provide the visual evidence. Josh authorized source integration in [PR #14](https://github.com/biggsjm/mfl-blitz-ios/pull/14) and requested collecting more changes before another TestFlight build. The toolbar fix remains unreleased; TestFlight build 68 remains unchanged.
+
 ## September 16: build 68 — owner TestFlight available; league beta awaiting review
 
 Josh authorized a new TestFlight release. **0.7.0 (68)** includes the saved-login startup fix and player-search relevance and dismissal changes described below. All 22 search model tests and 10 native search journeys passed; the startup fix passed its model and native checks before merge. The stable-Xcode archive and App Store export pass strict signatures, matching app/widget versions, distribution profiles, production push entitlement and existing gateway configuration. Archive source is `2b47c6a6a610fad9dc2c9c23bdaa9f7fc0f143b2`, pushed on `release/testflight-0.7.0-68` and available in [PR #14](https://github.com/biggsjm/mfl-blitz-ios/pull/14).
@@ -8,7 +14,7 @@ After Josh reauthenticated Xcode, upload succeeded at **17:11:13 CDT**. Apple pr
 
 With Josh's explicit approval, build 68 is assigned to **Owner Testing (one internal tester)** and **Champion Hall Owners (12 external testers)**. Owner Testing confirms **Testing** for build 68. Its external status is **Waiting for Review**; **Automatically notify testers** was checked when submitting. Build 67 was withdrawn and is now **Ready to Submit**. The 12 external testers will receive access after Apple's approval. No new testers, public link, service or backend access configuration were added. Build 68 phone installation remains unverified.
 
-CI core, full app and background-service checks pass. The original source run's native UI jobs were canceled when the documentation commit triggered a replacement run; [replacement run 35157343449](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/35157343449) passes those same three checks, with its three native UI jobs still running at this checkpoint. The app source is unchanged, and the focused local search/startup results above remain valid.
+All six CI jobs pass in [replacement run 35157343449](https://github.com/biggsjm/mfl-blitz-ios/actions/runs/35157343449): core, full app, background service and the three native UI groups. The original source run's native UI jobs were canceled when the documentation commit triggered this replacement run. The app source is unchanged, and the focused local search/startup results above remain valid.
 
 Artifacts: `/tmp/MFLBlitz-68.xcarchive`, `/tmp/mfl68-export/MFLBlitz.ipa`, `/tmp/mfl68-export-verification.log`, `/tmp/mfl68-export-evidence.json`, `/tmp/mfl68-upload-reauthenticated.log`.
 
