@@ -1,13 +1,13 @@
 # MFL Blitz 0.7.0 (69) — closed league TestFlight
 
-Build 69 is the next release candidate, with shared player name/team/jersey headings, day-first game captions and trailing status, a position-sorted lineup bench, and consistent far-right Search controls. Local validation passes; upload and distribution are pending. See [current status](current-status.md) for verified delivery.
+Build 69 is **Testing** for both Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It includes shared player name/team/jersey headings, day-first game captions and trailing status, a position-sorted lineup bench, and consistent far-right Search controls. The signed export, initial full model checks and affected native UI journeys pass; post-merge full CI is still running. See [current status](current-status.md) for evidence. Installation of build 69 on a phone remains unverified.
 
 Build 68 retains build 67's automatic league services for invited owners. Build 67 was installed through the owner TestFlight group; automatic phone enrollment and production lineup registration were confirmed. Visible production notification delivery remains to be tested. See [current status](current-status.md). Build 66 is the earlier owner-only private-service build.
 
 ## Tester setup
 
 1. On an iPhone running iOS 18 or later, install Apple's TestFlight app and accept the emailed invitation once Apple approves the beta.
-2. Install build 69 or newer once it is available. Connect using your own MFL account and team. Co-owners sign in independently.
+2. Install build 69 or newer. Connect using your own MFL account and team. Co-owners sign in independently.
 3. Enhanced NFL stats and background scoring connect automatically. No access code, Tailscale app or server address is needed.
 4. For optional lineup alerts, open Lineup's toolbar bell, choose alerts and allow iOS notifications. Live Activity preferences remain in My Team → Settings.
 
