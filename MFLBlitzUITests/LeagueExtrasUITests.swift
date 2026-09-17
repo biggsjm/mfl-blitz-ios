@@ -39,7 +39,8 @@ final class LeagueExtrasUITests: XCTestCase {
         capture(app, "Trading Block — recovered owner draft, explicit publication")
         review.tap()
         XCTAssertTrue(app.navigationBars["Review trading block"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Dak Prescott"].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(
+            format: "label BEGINSWITH %@", "Dak Prescott  DAL")).firstMatch.exists)
         capture(app, "Trading Block — review before submitting")
         app.navigationBars["Review trading block"].buttons["Cancel"].tap()
         XCTAssertTrue(review.waitForExistence(timeout: 5))

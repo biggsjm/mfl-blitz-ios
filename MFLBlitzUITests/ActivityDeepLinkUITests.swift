@@ -56,13 +56,16 @@ final class ActivityDeepLinkUITests: XCTestCase {
     }
     @MainActor private func enterPreview(in app: XCUIApplication) {
         let preview = app.buttons["Preview Champion Hall"]
-        XCTAssertTrue(preview.waitForExistence(timeout: 8))
         // Unsigned simulator builds can report unavailable secure storage.
         let alert = app.alerts["Something went wrong"]
+        let ready = app.descendants(matching: .any).matching(NSPredicate(
+            format: "label == %@ OR label == %@", "Preview Champion Hall", "Something went wrong")).firstMatch
+        XCTAssertTrue(ready.waitForExistence(timeout: 8))
         if alert.exists {
             XCTAssertTrue(alert.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Couldn’t restore your MFL session")).firstMatch.exists)
             alert.buttons["OK"].tap()
         }
+        XCTAssertTrue(preview.waitForExistence(timeout: 8))
         preview.tap()
     }
     @MainActor private func capture(_ app: XCUIApplication, _ name: String) {
