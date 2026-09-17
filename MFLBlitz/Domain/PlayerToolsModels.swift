@@ -1,5 +1,17 @@
 import Foundation
 
+struct PlayerJersey: Equatable, Sendable {
+    let nflTeam: String
+    let number: String
+
+    static func validNumber(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty, value.utf8.allSatisfy({ (48...57).contains($0) }),
+              let number = Int(value), (0...99).contains(number) else { return nil }
+        return String(number)
+    }
+}
+
 struct PlayerHealth: Equatable, Sendable {
     let status: String
     var details: String?

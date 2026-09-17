@@ -7,6 +7,12 @@ struct TradeAsset: Identifiable, Codable, Equatable, Sendable {
     var name: String
     var detail: String
     var kind: Kind
+
+    var playerIdentity: PlayerIdentity? {
+        let parts = detail.components(separatedBy: " · ")
+        guard kind == .player, parts.count == 2 else { return nil }
+        return PlayerIdentity(id: id, name: name, position: parts[0], nflTeam: parts[1])
+    }
 }
 
 struct TradeTeam: Identifiable, Codable, Equatable, Sendable {

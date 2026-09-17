@@ -10,7 +10,9 @@ final class PlayerToolsUITests: XCTestCase {
         player.tap()
         let card = app.descendants(matching: .any)["player-detail-12620"].firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 2), "Show the tapped identity before the held ownership read finishes")
-        XCTAssertTrue(card.staticTexts["Dak Prescott"].exists)
+        XCTAssertTrue(card.staticTexts.matching(NSPredicate(
+            format: "label BEGINSWITH %@", "Dak Prescott  QB · DAL")).firstMatch.exists,
+            "The known player name, position and NFL team appear together before ownership loads")
         XCTAssertTrue(app.staticTexts["player-ownership-pending"].exists)
         XCTAssertFalse(app.buttons["player-actions-12620"].exists)
         XCTAssertFalse(app.buttons["player-watch-12620"].isEnabled)

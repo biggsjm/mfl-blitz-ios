@@ -222,7 +222,27 @@ struct LineupSnapshot: Codable, Equatable, Sendable {
     var preferredStartingAssignments: [LineupSlotAssignment]? = nil
 
     var starters: [LineupPlayer] { players.filter(\.isStarter) }
-    var bench: [LineupPlayer] { players.filter { !$0.isStarter } }
+    /// Match the league's starting-position order without reordering the saved roster.
+    var bench: [LineupPlayer] {
+        let positionOrder = positionRequirements.map(\.position)
+            + ["QB", "RB", "WR", "TE", "K", "PK", "DEF", "DT", "DE", "DL", "LB", "CB", "S", "DB"]
+        return players.filter { !$0.isStarter }.sorted {
+            let leftPosition = positionOrder.firstIndex(of: $0.position) ?? positionOrder.count
+            let rightPosition = positionOrder.firstIndex(of: $1.position) ?? positionOrder.count
+            if leftPosition != rightPosition { return leftPosition < rightPosition }
+            if $0.position != $1.position {
+                return $0.position.localizedStandardCompare($1.position) == .orderedAscending
+            }
+            let leftProjection = $0.projectedPoints.flatMap { $0.isFinite ? $0 : nil }
+            let rightProjection = $1.projectedPoints.flatMap { $0.isFinite ? $0 : nil }
+            if let leftProjection, let rightProjection, leftProjection != rightProjection {
+                return leftProjection > rightProjection
+            }
+            if (leftProjection == nil) != (rightProjection == nil) { return leftProjection != nil }
+            let names = $0.name.localizedStandardCompare($1.name)
+            return names == .orderedSame ? $0.id < $1.id : names == .orderedAscending
+        }
+    }
     var projectedTotal: Double? {
         let projections = starters.compactMap(\.projectedPoints)
         guard !starters.isEmpty, projections.count == starters.count else { return nil }
@@ -360,6 +380,7 @@ struct LineupPlayer: Codable, Identifiable, Equatable, Sendable {
     var isLocked: Bool
     var injuryStatus: InjuryStatus?
     var gameTime: Date
+    var jerseyNumber: String? = nil
 }
 
 enum InjuryStatus: String, Codable, Equatable, Sendable {

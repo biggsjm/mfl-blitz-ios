@@ -1,5 +1,27 @@
 # Current app status
 
+## September 17: build 69 — uploaded; distribution pending
+
+Josh authorized committing, pushing/merging and uploading the collected changes to TestFlight. Candidate **0.7.0 (69)** contains the approved player-row layout, bounded cached jersey reads, sorted bench and consistent trailing Search control. The app/widget build numbers match. The existing automatic league gateway and testing groups remain the release targets. Local feature verification below passes. The reviewed release source is `5b5a6bf780675948950d1b47fbdcd55c59ee7fbd` in [PR #15](https://github.com/biggsjm/mfl-blitz-ios/pull/15). The stable-Xcode archive and App Store export pass strict signatures, matching app/widget versions, distribution profiles, production push entitlement and gateway/privacy checks. Upload succeeded at **18:04:12 CDT**; Apple processing and the Apple-only encryption declaration are complete; build-specific What to Test notes are saved. Build ID: `67386447-8d00-4867-ae5c-b6d568845807`. Tester distribution and GitHub merge remain pending. No service-role change was made.
+
+The initial CI core, background-service and full app-test jobs pass. Two older UI assertions expected a standalone name where the approved heading now includes position/team. They now verify the combined identity; both native delayed-ownership and persisted-trade-draft journeys pass in `/tmp/mfl69-heading-compatibility.xcresult`. Only test selectors and release documentation changed after archive; the uploaded app source is unchanged. Final CI is pending.
+
+Artifacts: `/tmp/MFLBlitz-69.xcarchive`, `/tmp/mfl69-export/MFLBlitz.ipa`, `/tmp/mfl69-export-verification.log`, `/tmp/mfl69-export-evidence.json`, `/tmp/mfl69-upload.log`. App Store Connect also confirms the previous build 68 is now Testing with three installations; this is a later observation than its September 16 review checkpoint below.
+
+## September 17: unreleased — shared player identity and day-first game information
+
+Josh approved the native preview. Player rows now place NFL team and an available jersey number beside the name, followed by day/time, opponent and trailing injury/lock status. The shared layout covers Lineup and replacement/review choices, roster management, search, watchlists, waivers, trade player assets, player details and matchup rows. Ownership remains separate in search, and live/final matchup captions retain the score and clock. Largest accessibility text gives lineup names/game information the full row width and moves projection/action controls below; compact matchup rows preserve their equal areas.
+
+MFL's basic player directory omits jersey numbers, so settled player lists request optional metadata through cached detailed-player batches of at most 100 IDs. Reads are shared, successful/missing results are retained for 24 hours in the session, failures back off for five minutes, and account changes discard old responses. Existing persistent MFL caching is also reused. Number 0 is supported; missing/invalid numbers or numbers for a different NFL team are hidden. These reads do not block screen loading, force refreshes, add paid NFL-provider requests or create a polling loop. See [player layout and request policy](player-detail-ux.md).
+
+Validation passes for **58 focused app model tests and 10 native UI journeys**, covering cache/request boundaries and account safety, normal/largest-text lineup actions, live players, search and ownership/navigation, watchlists/player detail, compact/equal matchup rows, trading block and free-agent review/cancellation. Results: `/tmp/mfl-player-rows-validation.xcresult` and `/tmp/mfl-player-rows-tools.xcresult`; screenshots are exported to the matching `-shots` directories. The preview's largest-text scrolling failure is resolved by the full-width accessibility layout. No service changes, TestFlight archive or upload were made; this work is collected for the next release.
+
+## September 17: unreleased — sorted lineup bench
+
+The Lineup bench now follows the league's position order, then descending weekly projection within each position. Missing projections come last within their position; names and player IDs resolve ties. The same order applies to the bench-tiebreaker menu. Sorting is computed for display and does not change the underlying roster, draft membership or submission payload.
+
+The simulator build, all seven existing `LineupBenchFlowTests` (including parameterized safety cases), and the native full-bench Start/cancel/reopen/FLEX-swap/review journey pass in `/tmp/mfl-bench-order.xcresult`. No new TestFlight archive or upload was made; this fix joins the toolbar change for the next release.
+
 ## September 16: unreleased — consistent search toolbar position
 
 Player search now owns one ordered trailing toolbar group: the screen's Week, compose, standings information or matchup timeline action comes first, with Search last. Close search occupies the same far-right position. My Team continues to use the same shared search control, and leading Settings/lineup alerts stay in place. This removes modifier-order differences that put Search before information or timeline on some screens.

@@ -15,7 +15,9 @@ struct LineupReadinessView: View {
             }
             ForEach(readiness.issues) { issue in
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(issue.name).font(.subheadline.weight(.medium))
+                    let player = model.lineup.players.first { $0.id == issue.playerID }
+                    PlayerNameCaption(name: issue.name, playerID: issue.playerID, nflTeam: player?.nflTeam,
+                        jerseyNumber: player?.jerseyNumber, nameFont: .subheadline.weight(.medium))
                     Text(issue.reason + (issue.locked ? " · Locked" : "")).font(.caption).foregroundStyle(.secondary)
                     if !issue.locked {
                         Button("Replace \(issue.name)") { replace(issue.playerID) }

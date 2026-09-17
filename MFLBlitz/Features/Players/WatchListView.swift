@@ -17,8 +17,7 @@ struct WatchListView: View {
                             NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: model.currentWeek,
                                 previewIdentity: player)) {
                                 VStack(alignment: .leading, spacing: 6) {
-                                    PlayerIdentityView(player: player)
-                                    PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.nflTeam ?? "", week: model.currentWeek)
+                                    PlayerIdentityView(player: player, availabilityWeek: model.currentWeek)
                                 }
                             }
                             .accessibilityIdentifier("watchlist-player-\(player.id)")
@@ -30,6 +29,7 @@ struct WatchListView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .playerJerseyMetadata(for: model.playerTools.watchList?.players.map(\.id) ?? [])
         .task(id: model.workspace?.storageScope) { await model.loadWatchList() }
         .task(id: model.currentWeek) { await model.loadPlayerAvailability(week: model.currentWeek) }
         .refreshable { await model.loadWatchList(refresh: true) }

@@ -181,6 +181,7 @@ struct WaiversView: View {
 
         }
         .listStyle(.insetGrouped)
+        .playerJerseyMetadata(for: candidates.map(\.id))
         .task(id: "\(model.workspace?.storageScope ?? "none")|\(model.waivers.projectionWeek ?? model.currentWeek)") {
             await model.loadPlayerAvailability(week: model.waivers.projectionWeek ?? model.currentWeek)
             await model.loadWatchList()
@@ -358,7 +359,8 @@ private struct ClaimRow: View {
                 .background(Color.blitzGreen, in: Circle())
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(claim.player.name).font(.body.weight(.semibold))
+                PlayerNameCaption(name: claim.player.name, playerID: claim.player.id,
+                    nflTeam: claim.player.nflTeam, position: claim.player.position)
                 Text(claim.priority == 1 ? "Round \(claim.round) · First choice" : "Round \(claim.round) · Fallback \(claim.priority)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -395,18 +397,14 @@ private struct WaiverCandidateRow: View {
             identityLink {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    Text(candidate.name).font(.body.weight(.semibold))
-                    if let injury = candidate.injuryStatus {
-                        Text(injury.rawValue)
-                            .font(.caption2.bold())
-                            .foregroundStyle(.orange)
-                    }
+                    PlayerNameCaption(name: candidate.name, playerID: candidate.id, nflTeam: candidate.nflTeam)
                 }
-                Text(showTrends ? "\(candidate.nflTeam) · \(candidate.rosteredPercent)% rostered · +\(candidate.trend)%" : candidate.nflTeam)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 PlayerAvailabilityCaption(playerID: candidate.id, nflTeam: candidate.nflTeam,
-                    week: model.waivers.projectionWeek ?? model.currentWeek)
+                    week: model.waivers.projectionWeek ?? model.currentWeek, fallbackInjury: candidate.injuryStatus)
+                if showTrends {
+                    Text("\(candidate.rosteredPercent)% rostered · +\(candidate.trend)%")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
             }
             Spacer(minLength: 4)
@@ -480,8 +478,9 @@ private struct ClaimEditorView: View {
                     HStack(spacing: 12) {
                         PositionBadge(position: claim.player.position)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(claim.player.name).font(.headline)
-                            Text("\(claim.player.nflTeam) · Projected \(claim.player.projectedPoints.pointsText)")
+                            PlayerNameCaption(name: claim.player.name, playerID: claim.player.id,
+                                nflTeam: claim.player.nflTeam, nameFont: .headline)
+                            Text("Projected \(claim.player.projectedPoints.pointsText)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

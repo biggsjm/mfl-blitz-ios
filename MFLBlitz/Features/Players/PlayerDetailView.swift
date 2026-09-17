@@ -45,6 +45,7 @@ struct PlayerDetailView: View {
             }
         }
         .task(id: "\(model.workspace?.storageScope ?? "none")|\(playerID)|\(model.rosterRevision)|\(model.isUsingCachedSession)") { await load(refresh: false) }
+        .playerJerseyMetadata(for: [playerID])
         .task(id: "week-context|\(model.workspace?.storageScope ?? "")|\(contextWeek)") {
             guard let scope = model.workspace?.storageScope, !model.isUsingCachedSession else { return }
             if model.scores.week != contextWeek {

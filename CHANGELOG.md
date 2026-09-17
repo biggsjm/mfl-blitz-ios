@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 (69) — scannable player rows
 
+- Use name/team/jersey headings and day/time → opponent → status captions across player browsing, lineup editing, waivers and matchup rows. Keep ownership and league stats visible, and adapt lineup actions to large text.
+- Load optional jersey metadata in bounded, daily-cached batches shared across screens, with duplicate suppression and failure backoff. Scores and lineup editing do not wait for these reads.
+- Sort the Lineup bench by the league's position order, then highest projected points; keep missing projections last within each position and tied players in a stable name order.
 - Keep player search at the far right of every toolbar, after each screen's week, compose, standings information or matchup timeline action.
 
 ## 0.7.0 (68) — search and startup

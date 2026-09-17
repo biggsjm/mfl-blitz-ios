@@ -227,6 +227,7 @@ struct MatchupDetailView: View {
         }
         .pageBackground()
         .navigationTitle("Week \(displayScores.week) Matchup")
+        .playerJerseyMetadata(for: matchup.map { ($0.away.players + $0.home.players).map(\.id) } ?? [])
         .navigationBarTitleDisplayMode(.inline)
         .refreshable {
             async let nfl: Void = refreshNFL()
@@ -539,12 +540,15 @@ struct MatchupPlayerCell: View {
     private func healthLabel(_ player: MatchupPlayer) -> String? {
         guard let week = inspectedWeek, let availability = model.playerTools.availability[week],
               availability.scope == model.workspace?.storageScope, availability.week == week,
-              let health = availability.injuries[player.id], health.needsAttention else { return nil }
+              let health = availability.injuries[player.id] else { return nil }
         return health.shortLabel
     }
 
     private func playerName(_ player: MatchupPlayer) -> some View {
-        HStack(spacing: 4) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: alignment, spacing: 3))
+            : AnyLayout(HStackLayout(spacing: 4))
+        return layout {
             if showsGameDayStatus { Text(player.position).font(.caption2.weight(.semibold)).foregroundStyle(Color.blitzAction) }
             ViewThatFits(in: .horizontal) {
                 Text(player.name).fixedSize(horizontal: true, vertical: false)
@@ -552,9 +556,9 @@ struct MatchupPlayerCell: View {
             }
             .font(.footnote.weight(.semibold))
             .frame(maxWidth: .infinity, alignment: frameAlignment)
-            if !dynamicTypeSize.isAccessibilitySize {
-                Text(player.nflTeam).font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary).fixedSize()
-            }
+            let jersey = model.playerTools.jerseyNumber(playerID: player.id, nflTeam: player.nflTeam)
+            Text([player.nflTeam, jersey.map { "#\($0)" }].compactMap { $0 }.joined(separator: "\u{00A0}"))
+                .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: true, vertical: false)
         }
     }
 
@@ -571,10 +575,6 @@ struct MatchupPlayerCell: View {
             Text(stats).font(.caption2).foregroundStyle(.primary)
                 .multilineTextAlignment(side == .away ? .leading : .trailing)
                 .fixedSize(horizontal: false, vertical: true)
-        }
-        if showsGameDayStatus, let health = healthLabel(player) {
-            Label(health, systemImage: "exclamationmark.circle")
-                .font(.caption2).foregroundStyle(ScoringStyle.negative)
         }
     }
 
@@ -595,9 +595,17 @@ struct MatchupPlayerCell: View {
     private func gameCaption(_ player: MatchupPlayer) -> some View {
         let info = gameInfo(for: player)
         let stale = info.gameCheckedAt == nil ? scoringContext.freshness.qualifiesGameState : info.gameIsStale
-        let context = [info.compactScoreLabel ?? info.opponent,
-            info.timingLabel(locale: locale, timeZone: timeZone) ?? "Status unavailable"].compactMap { $0 }.joined(separator: " · ")
-        return Text((stale && info.isLive ? "Last known: " : "") + context)
+        let timing = info.timingLabel(locale: locale, timeZone: timeZone) ?? "Status unavailable"
+        let context = (info.kickoff != nil
+            ? [timing, info.opponent]
+            : [info.compactScoreLabel ?? info.opponent, timing]).compactMap { $0 }.joined(separator: " · ")
+        var caption = AttributedString((stale && info.isLive ? "Last known: " : "") + context)
+        if let health = healthLabel(player) {
+            var status = AttributedString(" · \(health)")
+            status.foregroundColor = ["Q", "D"].contains(health) ? .orange : ScoringStyle.negative
+            caption.append(status)
+        }
+        return Text(caption)
             .font(.caption2).foregroundStyle(info.isLive && !stale ? Color.blitzAction : Color.secondary)
             .multilineTextAlignment(side == .away ? .leading : .trailing)
             .fixedSize(horizontal: false, vertical: true)
@@ -662,7 +670,7 @@ struct MatchupPlayerCell: View {
         if scoringContext.freshness.qualifiesGameState { label += ", saved game state" }
         if let change = model.scoringChanges.change(for: .init(matchupID: scoringContext.matchupID, teamID: teamID, playerID: player.id)), !scoringContext.freshness.qualifiesGameState { label += ", \(change.signedText) points since previous check" }
         if let statLine = displayedStatLine(player), !statLine.isEmpty { label += ", \(statLine)" }
-        if showsGameDayStatus, let health = healthLabel(player) { label += ", \(health)" }
+        if let health = healthLabel(player) { label += ", \(health)" }
         return label
     }
 }

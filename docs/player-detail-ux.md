@@ -1,5 +1,15 @@
 # Player and team detail
 
+## September 17: shared player row layout (unreleased)
+
+The owner-approved heading places the NFL team and available jersey number beside the player's name. Team/number stays together when a long name wraps. Game captions begin with day/time, then the opponent and optional injury/lock status; lineup reserve membership stays visible even when the injury report has another designation. Lineup actions move below the identity at accessibility text sizes.
+
+This presentation covers Lineup and replacements, team rosters, watchlists, search, Adds / Drops, waivers, trade assets, trading-block assets, player summaries and scoring details. Matchup cells preserve mirrored scores and equal player-area sizing; pregame captions put kickoff first, while live/final captions retain the NFL score and clock. Search retains its separate ownership result. Trade picks/budget items and historical message/activity prose keep their existing meanings.
+
+Jerseys come from MFL's detailed player metadata, independently of primary screen loads. Each settled list supplies one batch (at most its first 100 results); filtering changes the requested subset. Requests debounce for 300 ms and reuse successful or missing-number results for 24 hours across screens and weeks. Overlapping player IDs share in-flight work. Failures back off for five minutes, cancellation permits a later retry, and session replacement discards late results. The repository also uses the existing public 24-hour persistent player cache, sorted/deduplicated IDs and batches of at most 100. Scrolling individual rows never starts a request. Only valid numbers from the matching NFL team appear; unknown values are omitted. This adds no paid NFL requests, polling loop or server role.
+
+Verification and delivery status are recorded in [current status](current-status.md).
+
 Status: **Player-card and matchup refinement — included in installed private build 0.5.4 (32)**, September 7, 2026. See [current status](current-status.md) for exact installation/test evidence and [roadmap](roadmap.md) for remaining work. The owner confirmed corrected matchup Back navigation on build 29 and the spinner fix on build 30. Remaining primary-card latency is addressed in build 31; completed-week scoring still needs owner validation. Build 32 adds cancellation/error handling without changing this layout.
 
 ## Navigation and action boundaries

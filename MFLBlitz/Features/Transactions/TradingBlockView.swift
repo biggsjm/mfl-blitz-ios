@@ -97,6 +97,7 @@ struct TradingBlockView: View {
             }
         }
         .task { guard !app.isUsingCachedSession else { return }; await block.refresh() }
+        .playerJerseyMetadata(for: block.feed.snapshot?.listings.flatMap { $0.codes.sorted() }.filter { $0.allSatisfy(\.isNumber) } ?? [])
         .refreshable { await block.refresh(force: true) }
         .sheet(item: $editing, onDismiss: { presentedNotice = block.notice }) { session in
             TradingBlockEditor(block: block, session: session).id(session.id)
@@ -185,6 +186,7 @@ private struct TradingBlockEditor: View {
                 }
             }
             .navigationTitle("My trading block").navigationBarTitleDisplayMode(.inline)
+            .playerJerseyMetadata(for: (listed + roster).filter { $0.kind == .player }.map(\.id))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { if draft != session.draft { showingClose = true } else { dismiss() } }.disabled(block.isBusy)
@@ -323,8 +325,12 @@ private struct BlockAssetSummary: View {
             if let position { PositionBadge(position: position) }
             else { Image(systemName: asset.kind == .pick ? "ticket" : "person.crop.circle").foregroundStyle(Color.blitzAction).frame(width: 40) }
             VStack(alignment: .leading, spacing: 3) {
-                Text(asset.name).font(.body.weight(.semibold)).foregroundStyle(.primary)
-                Text(asset.detail).font(.caption).foregroundStyle(.secondary)
+                if let player = asset.playerIdentity {
+                    PlayerNameCaption(name: player.name, playerID: player.id, nflTeam: player.nflTeam)
+                } else {
+                    Text(asset.name).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                    Text(asset.detail).font(.caption).foregroundStyle(.secondary)
+                }
             }
         }.accessibilityElement(children: .combine)
     }
