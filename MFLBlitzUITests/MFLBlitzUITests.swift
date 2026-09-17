@@ -965,6 +965,10 @@ final class MFLBlitzUITests: XCTestCase {
     @MainActor
     func testTradeDraftPersistsAndRequiresReview() throws {
         let app = XCUIApplication()
+        let receivingPlayer = app.staticTexts.matching(NSPredicate(
+            format: "label BEGINSWITH %@", "CeeDee Lamb  WR · DAL")).firstMatch
+        let sendingPlayer = app.staticTexts.matching(NSPredicate(
+            format: "label BEGINSWITH %@", "Dak Prescott  QB · DAL")).firstMatch
         app.launch()
         enterPreview(in: app)
         openTool("trades", title: "Trades", in: app)
@@ -979,7 +983,7 @@ final class MFLBlitzUITests: XCTestCase {
         selectedAsset.name = "Selected receiving asset"; selectedAsset.lifetime = .keepAlways; add(selectedAsset)
         XCTAssertTrue(app.buttons["trade-asset-demo-wr"].label.hasSuffix(", selected"))
         app.buttons["Done"].tap()
-        XCTAssertTrue(app.staticTexts["CeeDee Lamb"].exists)
+        XCTAssertTrue(receivingPlayer.exists)
         app.buttons["trade-choose-send"].tap()
         let player = app.buttons["trade-asset-12620"]
         for _ in 0..<5 where !player.isHittable { app.swipeUp() }
@@ -996,8 +1000,8 @@ final class MFLBlitzUITests: XCTestCase {
         beforeSaving.name = "Trade draft before save"; beforeSaving.lifetime = .keepAlways; add(beforeSaving)
         app.buttons["Save & close"].tap()
         resumeTradeAfterDismissal(in: app)
-        XCTAssertTrue(app.staticTexts["CeeDee Lamb"].exists)
-        XCTAssertTrue(app.staticTexts["Dak Prescott"].exists)
+        XCTAssertTrue(receivingPlayer.exists)
+        XCTAssertTrue(sendingPlayer.exists)
         // Editing and canceling a resumed trade restores the saved terms.
         app.buttons["trade-partner"].tap()
         app.buttons["Croton Bug Eaters"].tap()
@@ -1009,8 +1013,8 @@ final class MFLBlitzUITests: XCTestCase {
         app.alerts.buttons["Discard changes"].tap()
         resumeTradeAfterDismissal(in: app)
         XCTAssertTrue(app.staticTexts["Route Runners"].exists)
-        XCTAssertTrue(app.staticTexts["CeeDee Lamb"].exists)
-        XCTAssertTrue(app.staticTexts["Dak Prescott"].exists)
+        XCTAssertTrue(receivingPlayer.exists)
+        XCTAssertTrue(sendingPlayer.exists)
         let review = app.buttons["trade-review-offer"]
         for _ in 0..<5 where !review.isHittable { app.swipeUp() }
         XCTAssertTrue(review.isEnabled)

@@ -1,8 +1,12 @@
 # Current app status
 
-## September 17: build 69 — release preparation
+## September 17: build 69 — uploaded; distribution pending
 
-Josh authorized committing, pushing/merging and uploading the collected changes to TestFlight. Candidate **0.7.0 (69)** contains the approved player-row layout, bounded cached jersey reads, sorted bench and consistent trailing Search control. The app/widget build numbers match. The existing automatic league gateway and testing groups remain the release targets. Local feature verification below passes; GitHub integration, signed distribution validation and Apple processing/distribution are pending. No service-role change is required.
+Josh authorized committing, pushing/merging and uploading the collected changes to TestFlight. Candidate **0.7.0 (69)** contains the approved player-row layout, bounded cached jersey reads, sorted bench and consistent trailing Search control. The app/widget build numbers match. The existing automatic league gateway and testing groups remain the release targets. Local feature verification below passes. The reviewed release source is `5b5a6bf780675948950d1b47fbdcd55c59ee7fbd` in [PR #15](https://github.com/biggsjm/mfl-blitz-ios/pull/15). The stable-Xcode archive and App Store export pass strict signatures, matching app/widget versions, distribution profiles, production push entitlement and gateway/privacy checks. Upload succeeded at **18:04:12 CDT**; Apple processing and the Apple-only encryption declaration are complete; build-specific What to Test notes are saved. Build ID: `67386447-8d00-4867-ae5c-b6d568845807`. Tester distribution and GitHub merge remain pending. No service-role change was made.
+
+The initial CI core, background-service and full app-test jobs pass. Two older UI assertions expected a standalone name where the approved heading now includes position/team. They now verify the combined identity; both native delayed-ownership and persisted-trade-draft journeys pass in `/tmp/mfl69-heading-compatibility.xcresult`. Only test selectors and release documentation changed after archive; the uploaded app source is unchanged. Final CI is pending.
+
+Artifacts: `/tmp/MFLBlitz-69.xcarchive`, `/tmp/mfl69-export/MFLBlitz.ipa`, `/tmp/mfl69-export-verification.log`, `/tmp/mfl69-export-evidence.json`, `/tmp/mfl69-upload.log`. App Store Connect also confirms the previous build 68 is now Testing with three installations; this is a later observation than its September 16 review checkpoint below.
 
 ## September 17: unreleased — shared player identity and day-first game information
 
