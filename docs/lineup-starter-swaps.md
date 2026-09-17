@@ -4,6 +4,8 @@ Still implemented in **0.4.0 (17)**. The versioned evidence below records when t
 
 The replacement picker includes eligible bench players and other starters. It separates them into **Bench** and **Already starting**, sorts each group by projection, and labels each starter's current slot.
 
+The Lineup page's bench and bench-tiebreaker menu follow the league's starting-position order, with standard football position order as a fallback. Within each position, higher weekly projections come first, missing projections come last, and ties use player name then ID. This is a presentation sort; saved roster order, starter membership and submission payloads are unchanged.
+
 ## September 10 lineup recovery fix — 0.6.3 (44)
 
 Tapping **Start** with a full lineup now opens **Choose a starter**, showing the fixed/FLEX starters that the selected bench player can legally replace. Cancel or dismissal leaves the draft intact; selecting a starter applies both moves together and retains the required starter count. Start still fills an open lineup spot directly. The model also rejects direct promotions above the starter limit.

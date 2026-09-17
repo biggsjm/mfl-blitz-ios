@@ -21,6 +21,11 @@ struct PlayerIdentity: Codable, Identifiable, Hashable, Sendable {
     var name: String
     var position: String? = nil
     var nflTeam: String? = nil
+    var jerseyNumber: String? = nil
+
+    var teamAndJersey: String {
+        [nflTeam, jerseyNumber.map { "#\($0)" }].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+    }
 
     var metadata: String {
         [position, nflTeam].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")

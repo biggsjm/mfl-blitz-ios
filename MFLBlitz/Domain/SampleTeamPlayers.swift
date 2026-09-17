@@ -1,6 +1,17 @@
 import Foundation
 
 extension DemoLeagueRepository {
+    func loadPlayerJerseys(playerIDs: [String]) async throws -> [String: PlayerJersey] {
+        let numbers = ["12620": "4", "13319": "33", "14056": "1", "14073": "8",
+            "14842": "11", "14860": "14", "15256": "33", "15284": "17",
+            "15712": "22", "15757": "4", "15761": "10", "15889": "85",
+            "16080": "22", "16269": "85", "17047": "22", "17080": "13"]
+        return Dictionary(uniqueKeysWithValues: SampleData.lineup.players.compactMap { player in
+            guard playerIDs.contains(player.id), let number = numbers[player.id] else { return nil }
+            return (player.id, PlayerJersey(nflTeam: player.nflTeam, number: number))
+        })
+    }
+
     func loadTeams(refresh: Bool) async throws -> [TeamSummary] {
         try Task.checkCancellation()
         return SampleTeamPlayers.teams

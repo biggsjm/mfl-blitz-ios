@@ -159,6 +159,7 @@ struct LineupView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .playerJerseyMetadata(for: model.lineup.players.map(\.id))
         .playerSearch {
             WeekPicker(selection: weekBinding, weeks: model.availableWeeks)
                 .disabled(model.isUsingCachedSession || model.availableWeeks.isEmpty)
@@ -305,8 +306,9 @@ private struct LineupSubmissionReview: View {
                         HStack(spacing: 12) {
                             PositionBadge(position: slot.label)
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(slot.player.name).font(.body.weight(.semibold))
-                                Text("\(slot.player.position) · \(slot.player.nflTeam)").font(.caption).foregroundStyle(.secondary)
+                                PlayerNameCaption(name: slot.player.name, playerID: slot.player.id,
+                                    nflTeam: slot.player.nflTeam, jerseyNumber: slot.player.jerseyNumber,
+                                    position: slot.label == "FLEX" ? slot.player.position : nil)
                             }
                             Spacer(minLength: 8)
                             Text(slot.player.projectedPoints.pointsText).font(.body.monospacedDigit())
@@ -556,14 +558,9 @@ private struct LineupReplacementCandidateRow: View {
                 : AnyLayout(HStackLayout(spacing: 12))
             layout {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(player.name).font(.body.weight(.semibold)).foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    PlayerNameCaption(name: player.name, playerID: player.id, nflTeam: player.nflTeam,
+                        jerseyNumber: player.jerseyNumber, position: player.position)
                         .accessibilityIdentifier("lineup-candidate-name-\(player.id)")
-                    HStack(spacing: 6) {
-                        Text("\(player.position) · \(player.nflTeam)")
-                        if let injury = player.injuryStatus { Text(injury.rawValue).foregroundStyle(.orange) }
-                    }
-                    .font(.caption).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 12) {
@@ -576,7 +573,8 @@ private struct LineupReplacementCandidateRow: View {
                 }
                 .fixedSize(horizontal: true, vertical: false)
             }
-            PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.nflTeam, week: model.lineup.week)
+            PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.nflTeam, week: model.lineup.week,
+                fallbackInjury: player.injuryStatus, isLocked: player.isLocked)
             if let detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
         }
         .frame(minHeight: 48)
@@ -711,6 +709,7 @@ private struct LineupSummaryLabelStyle: LabelStyle {
 
 private struct LineupPlayerRow: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let player: LineupPlayer
     var slotLabel: String? = nil
     let actionTitle: String
@@ -719,64 +718,37 @@ private struct LineupPlayerRow: View {
     let action: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 12))
+        layout {
             identityLink {
                 HStack(spacing: 12) {
                     PositionBadge(position: slotLabel ?? player.position)
 
                     VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 6) {
-                            Text(player.name)
-                                .font(.body.weight(.semibold))
-                                .lineLimit(1)
-                            if let injury = player.injuryStatus {
-                                Text(injury.rawValue)
-                                    .font(.caption2.bold())
-                                    .foregroundStyle(injury == .questionable ? Color.orange : Color.red)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background((injury == .questionable ? Color.orange : Color.red).opacity(0.12), in: Capsule())
-                                    .accessibilityLabel(injury.label)
-                            }
-                            if player.isLocked {
-                                Image(systemName: "lock.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .accessibilityLabel("Locked")
-                            }
-                        }
-                        Text(playerMetadata)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.nflTeam, week: model.lineup.week)
+                        PlayerNameCaption(name: player.name, playerID: player.id, nflTeam: player.nflTeam,
+                            jerseyNumber: player.jerseyNumber, position: slotLabel == "FLEX" ? player.position : nil)
+                        PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.nflTeam, week: model.lineup.week,
+                            fallbackInjury: player.injuryStatus, isLocked: player.isLocked)
                     }
 
-                    Spacer(minLength: 4)
-
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(player.projectedPoints.pointsText)
-                            .font(.body.bold().monospacedDigit())
-                        Text("proj")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                    if !dynamicTypeSize.isAccessibilitySize {
+                        Spacer(minLength: 4)
+                        projection
                     }
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(accessibilityLabel)
             }
 
-            Button(action: action) {
-                Image(systemName: actionIcon)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(actionColor)
-                    .frame(width: BlitzMetrics.minimumTapTarget, height: BlitzMetrics.minimumTapTarget)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!actionIsAvailable)
-            .accessibilityLabel("\(actionTitle) \(player.name)")
-            .accessibilityHint(actionHint)
-            .accessibilityIdentifier("lineup-\(actionTitle.lowercased())-\(player.id)")
+            if dynamicTypeSize.isAccessibilitySize {
+                HStack {
+                    projection.accessibilityHidden(true)
+                    Spacer()
+                    actionButton
+                }
+            } else { actionButton }
         }
         .contentShape(Rectangle())
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -786,6 +758,34 @@ private struct LineupPlayerRow: View {
             .tint(actionTitle == "Start" ? .green : .orange)
             .disabled(!actionIsAvailable)
         }
+    }
+
+    private var projection: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text(player.projectedPoints.pointsText).font(.body.bold().monospacedDigit())
+            Text("proj").font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    private var actionButton: some View {
+        Button(action: action) {
+            if dynamicTypeSize.isAccessibilitySize {
+                Label(actionTitle, systemImage: actionIcon)
+                    .foregroundStyle(actionColor)
+                    .frame(minHeight: BlitzMetrics.minimumTapTarget)
+            } else {
+                Image(systemName: actionIcon)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(actionColor)
+                    .frame(width: BlitzMetrics.minimumTapTarget, height: BlitzMetrics.minimumTapTarget)
+                    .contentShape(Rectangle())
+            }
+        }
+            .buttonStyle(.plain)
+            .disabled(!actionIsAvailable)
+            .accessibilityLabel("\(actionTitle) \(player.name)")
+            .accessibilityHint(actionHint)
+            .accessibilityIdentifier("lineup-\(actionTitle.lowercased())-\(player.id)")
     }
 
     private var actionIsAvailable: Bool {
@@ -830,24 +830,26 @@ private struct LineupPlayerRow: View {
         return "Moves this player to the \(destination). Review and submit to send the change to MFL."
     }
 
-    private var playerMetadata: String {
-        let team = slotLabel == "FLEX" ? "\(player.position) · \(player.nflTeam)" : player.nflTeam
-        return team
-    }
-
     private var accessibilityLabel: String {
         var value = "\(player.name), \(player.position), \(player.nflTeam)"
+        if let jersey = model.playerTools.jerseyNumber(playerID: player.id, nflTeam: player.nflTeam, fallback: player.jerseyNumber) {
+            value += ", number \(jersey)"
+        }
         if slotLabel == "FLEX" { value += ", starting in FLEX" }
+        var healthStatus = player.injuryStatus?.label
         if let availability = model.playerTools.availability[model.lineup.week], availability.scope == model.workspace?.storageScope {
             if availability.byeWeeks[player.nflTeam] == model.lineup.week { value += ", bye week" }
             else if let game = availability.games[player.nflTeam] {
-                value += ", \(game.opponentLabel)"
                 if let kickoff = game.kickoff { value += ", \(kickoff.formatted(date: .abbreviated, time: .shortened))" }
+                value += ", \(game.opponentLabel)"
             }
-            if let injury = availability.injuries[player.id] { value += ", injury report: \(injury.status)" }
+            if let injury = availability.injuries[player.id] { healthStatus = injury.status }
+        }
+        if let healthStatus { value += ", injury report: \(healthStatus)" }
+        if player.injuryStatus == .injuredReserve, !["IR", "INJURED RESERVE"].contains(healthStatus?.uppercased() ?? "") {
+            value += ", injured reserve"
         }
         value += ", projected \(player.projectedPoints.pointsText) points"
-        if let injury = player.injuryStatus { value += ", \(injury.label)" }
         if player.isLocked { value += ", locked" }
         return value
     }

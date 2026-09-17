@@ -15,6 +15,61 @@ final class PlayerToolsModel {
     private var availabilityTasks: [Int: Task<Void, Never>] = [:]
     private var lastAttempts: [Int: Date] = [:]
     private var generation = 0
+    private var jerseys: [String: PlayerJersey] = [:]
+    private var jerseyChecks: [String: Date] = [:]
+    private var jerseyAttempts: [String: Date] = [:]
+    private var loadingJerseyIDs: Set<String> = []
+    private var jerseyTasks: [UUID: Task<Void, Never>] = [:]
+
+    func jerseyNumber(playerID: String, nflTeam: String?, fallback: String? = nil) -> String? {
+        guard let jersey = jerseys[playerID] else { return PlayerJersey.validNumber(fallback) }
+        guard jersey.nflTeam == nflTeam else { return nil }
+        return jersey.number
+    }
+
+    func loadJerseys(playerIDs: [String], now: Date = Date(),
+                     loader: @escaping @MainActor ([String]) async throws -> [String: PlayerJersey]) async {
+        guard scope != nil else { return }
+        let ids = Set(playerIDs).filter { id in
+            let recent = jerseyChecks[id].map { (0..<86_400).contains(now.timeIntervalSince($0)) } ?? false
+            return !id.isEmpty && !loadingJerseyIDs.contains(id) && !recent
+        }.filter { id in
+            jerseyAttempts[id].map { !(0..<300).contains(now.timeIntervalSince($0)) } ?? true
+        }.sorted()
+        guard !ids.isEmpty else { return }
+        let revision = generation, taskID = UUID()
+        loadingJerseyIDs.formUnion(ids)
+        for id in ids { jerseyAttempts[id] = now }
+        // This decoration read is shared across screens and independent of
+        // the initiating view's lifetime, just like availability reads.
+        let task = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if revision == generation {
+                    loadingJerseyIDs.subtract(ids)
+                    jerseyTasks[taskID] = nil
+                }
+            }
+            do {
+                let values = try await loader(ids)
+                try Task.checkCancellation()
+                guard revision == generation else { return }
+                for id in ids {
+                    jerseys[id] = values[id]
+                    jerseyChecks[id] = now // Missing numbers are cached too.
+                }
+            } catch {
+                guard revision == generation else { return }
+                // Optional metadata never raises an app-wide error or retries
+                // automatically. Keep a five-minute backoff after failures.
+                if error is CancellationError || Task.isCancelled || (error as? URLError)?.code == .cancelled {
+                    for id in ids { jerseyAttempts[id] = nil }
+                }
+            }
+        }
+        jerseyTasks[taskID] = task
+        await task.value
+    }
 
     func irIneligibilityReason(playerID: String, week: Int, now: Date = Date()) -> String? {
         if let issue = irAvailabilityIssue(week: week, now: now) { return issue }
@@ -37,6 +92,8 @@ final class PlayerToolsModel {
     }
 
     func reset(scope: String?) {
+        jerseyTasks.values.forEach { $0.cancel() }
+        jerseyTasks = [:]; jerseys = [:]; jerseyChecks = [:]; jerseyAttempts = [:]; loadingJerseyIDs = []
         availabilityTasks.values.forEach { $0.cancel() }
         availabilityTasks = [:]
         generation += 1

@@ -415,7 +415,8 @@ actor LiveMFLRepository: LeagueRepository {
                 isStarter: assignment?.status == .starter,
                 isLocked: isLocked,
                 injuryStatus: assignment?.status == .injuredReserve ? .injuredReserve : nil,
-                gameTime: Date()
+                gameTime: Date(),
+                jerseyNumber: TeamPlayerMapper.text(player?.jerseyNumber)
             )
         }
 

@@ -48,6 +48,7 @@ protocol LeagueRepository: Sendable {
     func loadTeamRoster(franchiseID: String, lineupWeek: Int?, refresh: Bool) async throws -> TeamRosterSnapshot
     func loadPlayerDetail(playerID: String, refresh: Bool) async throws -> PlayerDetailSnapshot
     func loadPlayerBiography(playerID: String) async throws -> PlayerBio?
+    func loadPlayerJerseys(playerIDs: [String]) async throws -> [String: PlayerJersey]
     func loadSeasonSchedule() async throws -> SeasonScheduleSnapshot
     func loadScoringGames(week: Int, refresh: Bool) async throws -> NFLScoringSnapshot
     func loadPlayerAvailability(week: Int, refresh: Bool) async throws -> PlayerAvailabilitySnapshot
@@ -66,6 +67,7 @@ protocol LeagueRepository: Sendable {
 }
 
 extension LeagueRepository {
+    func loadPlayerJerseys(playerIDs: [String]) async throws -> [String: PlayerJersey] { [:] }
     func loadScoringRules() async throws -> [MFLCore.MFLScoringRule] { throw RepositoryError.server("League scoring rules are unavailable.") }
     func loadScoringGames(week: Int, refresh: Bool) async throws -> NFLScoringSnapshot {
         throw RepositoryError.server("NFL game scores are unavailable in this session.")

@@ -4,6 +4,37 @@ import Testing
 @testable import MFLBlitz
 
 struct TeamPlayerDetailTests {
+    @Test("Jersey lookups sort and deduplicate one cached batch without roster or score reads")
+    func jerseyBatchRead() async throws {
+        let transport = TeamPlayerFixtureTransport()
+        let repository = try await connected(transport)
+        let before = await transport.requests.count
+        let first = try await repository.loadPlayerJerseys(playerIDs: ["102", "101", "101"])
+        let second = try await repository.loadPlayerJerseys(playerIDs: ["101", "102"])
+        #expect(first == second)
+        #expect(first["101"] == PlayerJersey(nflTeam: "CHI", number: "0"))
+        #expect(first["102"] == nil)
+        let added = Array(await transport.requests.dropFirst(before))
+        #expect(added.count == 1)
+        #expect(added.first?["TYPE"] == "players")
+        #expect(added.first?["DETAILS"] == "1")
+        #expect(added.first?["PLAYERS"] == "101,102")
+        #expect(await transport.postCount == 0)
+    }
+
+    @Test("Large jersey batches stay bounded and ignore unsolicited player identities")
+    func boundedJerseyReads() async throws {
+        let transport = TeamPlayerFixtureTransport()
+        let repository = try await connected(transport)
+        let ids = (1...201).map(String.init)
+        let result = try await repository.loadPlayerJerseys(playerIDs: ids)
+        let requests = await transport.requests.filter { $0["DETAILS"] == "1" }
+        #expect(requests.count == 3)
+        #expect(requests.allSatisfy { ($0["PLAYERS"]?.split(separator: ",").count ?? 0) <= 100 })
+        #expect(result.keys.sorted() == ["101"])
+        #expect(try await repository.loadPlayerJerseys(playerIDs: ["102"]).isEmpty)
+    }
+
     @Test("Week cards reuse only unambiguous exact-week history in the same player/account scope")
     func historicalWeekMetrics() {
         let scope = "synthetic-history"
@@ -516,7 +547,7 @@ private actor TeamPlayerFixtureTransport: MFLHTTPTransport {
             if query["DETAILS"] == "1" {
                 if failBio { throw MFLCoreError.transport("Fixture bio offline") }
                 return try response(["players": ["player": ["id": "101", "name": "Receiver, Riley", "position": "WR", "team": "CHI",
-                    "birthdate": "2000-02-29", "draft_year": "2022", "draft_round": "2"]]])
+                    "jersey": "0", "birthdate": "2000-02-29", "draft_year": "2022", "draft_round": "2"]]])
             }
             if failCatalog { throw MFLCoreError.transport("Fixture catalog offline") }
             return try response(["players": ["player": [

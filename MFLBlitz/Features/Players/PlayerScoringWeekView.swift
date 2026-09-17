@@ -65,8 +65,8 @@ struct PlayerScoringWeekView: View {
                     saved: model.isUsingCachedSession, preview: model.isDemo)
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(player.name).font(.title2.weight(.medium))
-                        Text("\(player.position) · \(player.nflTeam)").font(.subheadline).foregroundStyle(.secondary)
+                        PlayerNameCaption(name: player.name, playerID: player.id, nflTeam: player.nflTeam,
+                            position: player.position, nameFont: .title2.weight(.medium), metadataFont: .subheadline)
                         Text(ownershipSummary ?? (ownershipLoading ? "Checking ownership…" : "Ownership unavailable"))
                             .font(.subheadline).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -151,6 +151,7 @@ struct PlayerScoringWeekView: View {
             await model.nflStats.poll(season: season, week: context.week, teams: [player.nflTeam], defenseTeams: NFLFeedGame.isDefense(player.position) ? [player.nflTeam] : [])
         }
         .task { await model.loadPlayerAvailability(week: context.week) }
+        .playerJerseyMetadata(for: [player.id])
         .task(id: "\(scenePhase)|\(scoreboardIsPolling)") {
             guard scenePhase == .active else { return }
             await model.refreshScoringGames(week: context.week)

@@ -4,6 +4,82 @@ import Testing
 @testable import MFLBlitz
 
 struct PlayerToolsSafetyTests {
+    @Test("Jersey metadata reuses daily results, including missing numbers, and rejects another NFL team") @MainActor
+    func dailyJerseyCache() async {
+        let model = PlayerToolsModel(), now = Date()
+        model.reset(scope: "s")
+        var batches: [[String]] = []
+        let load: @MainActor ([String]) async throws -> [String: PlayerJersey] = { ids in
+            batches.append(ids)
+            return ["1": PlayerJersey(nflTeam: "CHI", number: "0")]
+        }
+        await model.loadJerseys(playerIDs: ["2", "1", "1"], now: now, loader: load)
+        await model.loadJerseys(playerIDs: ["1", "2"], now: now.addingTimeInterval(3_600), loader: load)
+        #expect(batches == [["1", "2"]])
+        #expect(model.jerseyNumber(playerID: "1", nflTeam: "CHI") == "0")
+        #expect(model.jerseyNumber(playerID: "1", nflTeam: "DAL", fallback: "4") == nil)
+        #expect(model.jerseyNumber(playerID: "2", nflTeam: "CHI") == nil)
+        await model.loadJerseys(playerIDs: ["1"], now: now.addingTimeInterval(86_401), loader: load)
+        #expect(batches == [["1", "2"], ["1"]])
+    }
+
+    @Test("Overlapping jersey batches coalesce and survive the initiating view disappearing") @MainActor
+    func sharedJerseyRead() async throws {
+        let model = PlayerToolsModel()
+        model.reset(scope: "s")
+        var release: CheckedContinuation<Void, Never>?
+        var batches: [[String]] = []
+        let first = Task {
+            await model.loadJerseys(playerIDs: ["1", "2"]) { ids in
+                batches.append(ids)
+                await withCheckedContinuation { release = $0 }
+                try Task.checkCancellation()
+                return ["1": .init(nflTeam: "DAL", number: "4")]
+            }
+        }
+        for _ in 0..<1_000 where release == nil { await Task.yield() }
+        let continuation = try #require(release)
+        first.cancel()
+        await model.loadJerseys(playerIDs: ["2", "3"]) { ids in batches.append(ids); return [:] }
+        continuation.resume()
+        await first.value
+        #expect(batches == [["1", "2"], ["3"]])
+        #expect(model.jerseyNumber(playerID: "1", nflTeam: "DAL") == "4")
+    }
+
+    @Test("Late jersey replies cannot cross accounts and failures do not cause a request loop") @MainActor
+    func jerseyResetAndBackoff() async throws {
+        let model = PlayerToolsModel(), now = Date()
+        model.reset(scope: "s")
+        var release: CheckedContinuation<Void, Never>?
+        let first = Task {
+            await model.loadJerseys(playerIDs: ["1"]) { _ in
+                await withCheckedContinuation { release = $0 }
+                return ["1": .init(nflTeam: "DAL", number: "4")]
+            }
+        }
+        for _ in 0..<1_000 where release == nil { await Task.yield() }
+        let continuation = try #require(release)
+        model.reset(scope: "other")
+        continuation.resume()
+        await first.value
+        #expect(model.jerseyNumber(playerID: "1", nflTeam: "DAL") == nil)
+        var reads = 0
+        let failing: @MainActor ([String]) async throws -> [String: PlayerJersey] = { _ in reads += 1; throw URLError(.timedOut) }
+        await model.loadJerseys(playerIDs: ["1"], now: now, loader: failing)
+        await model.loadJerseys(playerIDs: ["1"], now: now.addingTimeInterval(299), loader: failing)
+        #expect(reads == 1)
+        await model.loadJerseys(playerIDs: ["1"], now: now.addingTimeInterval(301), loader: failing)
+        #expect(reads == 2)
+    }
+
+    @Test("Only usable NFL jersey values are shown")
+    func jerseyNumberValidation() {
+        #expect(PlayerJersey.validNumber(" 0 ") == "0")
+        #expect(PlayerJersey.validNumber("99") == "99")
+        for value in ["", "—", "100", "-1", "TBD", "1.5"] { #expect(PlayerJersey.validNumber(value) == nil) }
+    }
+
     @Test("Navigating away does not cancel the shared game-info read or strand another screen") @MainActor
     func sharedAvailabilitySurvivesNavigation() async throws {
         let model = PlayerToolsModel()

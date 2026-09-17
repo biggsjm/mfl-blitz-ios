@@ -74,6 +74,7 @@ struct RosterActionSheet: View {
                 Button(request.kind.title, role: request.kind == .drop ? .destructive : nil) { Task { await submit() } }
             } message: { Text(confirmationSummary) }
             .task(id: model.workspace?.storageScope) { await load() }
+            .playerJerseyMetadata(for: [player.id])
             .task(id: model.currentWeek) {
                 if request.kind == .reserve { await model.loadPlayerAvailability(week: model.currentWeek) }
             }
@@ -189,6 +190,7 @@ struct InjuredReserveView: View {
     var body: some View {
         RosterActionListView(mode: .injuredReserve, tools: tools)
             .task(id: "\(model.workspace?.storageScope ?? "")|\(model.rosterRevision)") { await load() }
+            .playerJerseyMetadata(for: tools.context?.players.map(\.id) ?? [])
             .task(id: "availability|\(model.workspace?.storageScope ?? "")|\(model.currentWeek)") {
                 await model.loadPlayerAvailability(week: model.currentWeek)
             }
@@ -297,7 +299,8 @@ struct RosterActionListView: View {
             if let scope = model.browseScope {
                 NavigationLink(value: PlayerRoute(scope: scope, playerID: player.id, inspectedWeek: model.currentWeek,
                     previewIdentity: player)) {
-                    PlayerIdentityView(player: player, subtitle: membership == "INJURED_RESERVE" ? "IR" : nil)
+                    PlayerIdentityView(player: player, subtitle: membership == "INJURED_RESERVE" ? "IR" : nil,
+                        availabilityWeek: model.currentWeek)
                 }
                 .buttonStyle(.plain).accessibilityIdentifier("roster-move-player-\(player.id)")
             }

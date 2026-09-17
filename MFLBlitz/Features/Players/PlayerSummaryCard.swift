@@ -12,9 +12,9 @@ struct PlayerSummaryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(player.name).font(.title2.bold())
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(player.metadata).font(.subheadline).foregroundStyle(.secondary)
+                PlayerNameCaption(name: player.name, playerID: player.id, nflTeam: player.nflTeam,
+                    jerseyNumber: player.jerseyNumber, position: player.position,
+                    nameFont: .title2.bold(), metadataFont: .subheadline)
                 if let health {
                     Label(health.status, systemImage: "cross.case")
                         .font(.caption.weight(.semibold))
@@ -80,11 +80,11 @@ struct PlayerWeekSection: View {
                         Label("Bye week", systemImage: "calendar").font(.headline)
                     } else if let game = data.games[team] {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(game.opponentLabel).font(.headline)
                             if let kickoff = game.kickoff {
                                 Text(kickoff.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().hour().minute()))
                                     .font(.subheadline).foregroundStyle(.secondary)
                             }
+                            Text(game.opponentLabel).font(.headline)
                         }
                     } else {
                         Text("Game information unavailable").font(.subheadline).foregroundStyle(.secondary)

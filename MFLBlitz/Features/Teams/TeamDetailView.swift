@@ -40,6 +40,7 @@ struct TeamDetailView<ScheduleContent: View>: View {
             if section == .roster {
                 rosterContent
                     .task(id: rosterKey) { await loadRoster(refresh: false) }
+                    .playerJerseyMetadata(for: detailModel.roster?.players.map(\.id) ?? [])
             } else if section == .watchlist && isOwnTeam {
                 WatchListView()
             } else {
@@ -270,9 +271,8 @@ struct TeamDetailView<ScheduleContent: View>: View {
                 playerID: player.id, inspectedWeek: assignmentWeek, previewIdentity: player.identity)) {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
-                        PlayerIdentityView(player: player.identity, subtitle: contractSummary(player))
-                        PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.identity.nflTeam ?? "",
-                            week: assignmentWeek ?? model.currentWeek)
+                        PlayerIdentityView(player: player.identity, subtitle: contractSummary(player),
+                            availabilityWeek: assignmentWeek ?? model.currentWeek)
                     }
                     if isOwnTeam {
                         Spacer(minLength: 0)

@@ -207,6 +207,7 @@ struct TradeAssetPicker: View {
             }
         }
         .navigationTitle("Choose assets").navigationBarTitleDisplayMode(.inline)
+        .playerJerseyMetadata(for: team.assets.filter { $0.kind == .player }.map(\.id))
         .searchable(text: $search, prompt: "Player, position, or draft pick")
         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         .onAppear { budgetText = selected.first(where: { $0.hasPrefix("BB_") }).map { String($0.dropFirst(3)) } ?? "" }

@@ -293,8 +293,12 @@ struct TradeAssetRow: View {
             Image(systemName: asset.kind == .player ? "person.fill" : asset.kind == .pick ? "ticket.fill" : asset.kind == .budget ? "dollarsign.circle.fill" : "questionmark.circle")
                 .foregroundStyle(Color.blitzAction).frame(width: 24)
             VStack(alignment: .leading, spacing: 3) {
-                Text(asset.name).font(.body.weight(.semibold))
-                Text(asset.detail).font(.caption).foregroundStyle(.secondary)
+                if let player = asset.playerIdentity {
+                    PlayerNameCaption(name: player.name, playerID: player.id, nflTeam: player.nflTeam, position: player.position)
+                } else {
+                    Text(asset.name).font(.body.weight(.semibold))
+                    Text(asset.detail).font(.caption).foregroundStyle(.secondary)
+                }
             }
         }.frame(minHeight: 44)
     }
@@ -305,7 +309,9 @@ struct TradeTerms: View {
     let receiving: [TradeAsset]
     var body: some View {
         Section("You receive") { ForEach(receiving) { asset in HStack { TradeAssetRow(asset: asset); Spacer(); TradePlayerResearchLink(asset: asset) } } }
+            .playerJerseyMetadata(for: receiving.filter { $0.kind == .player }.map(\.id))
         Section("You send") { ForEach(sending) { asset in HStack { TradeAssetRow(asset: asset); Spacer(); TradePlayerResearchLink(asset: asset) } } }
+            .playerJerseyMetadata(for: sending.filter { $0.kind == .player }.map(\.id))
     }
 }
 

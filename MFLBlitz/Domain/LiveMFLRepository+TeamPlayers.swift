@@ -2,6 +2,27 @@ import Foundation
 import MFLCore
 
 extension LiveMFLRepository {
+    func loadPlayerJerseys(playerIDs: [String]) async throws -> [String: PlayerJersey] {
+        let ids = Array(Set(playerIDs)).sorted()
+        guard !ids.isEmpty else { return [:] }
+        let (client, _, workspace) = try requireSession()
+        var result: [String: PlayerJersey] = [:]
+        // Public, daily-cached metadata. Bound each batch and never force a
+        // refresh during scoring, week changes or pull-to-refresh.
+        for start in stride(from: 0, to: ids.count, by: 100) {
+            let batch = Array(ids[start..<min(start + 100, ids.count)])
+            let catalog = try await client.players(ids: batch, details: true)
+            try validateTeamPlayerSession(client: client, scope: workspace.storageScope)
+            for (id, entries) in Dictionary(grouping: catalog.players, by: \.id) where batch.contains(id) {
+                guard entries.count == 1, let player = entries.first,
+                      let team = TeamPlayerMapper.text(player.nflTeam),
+                      let number = PlayerJersey.validNumber(player.jerseyNumber) else { continue }
+                result[id] = PlayerJersey(nflTeam: team, number: number)
+            }
+        }
+        return result
+    }
+
     func loadTeams(refresh: Bool) async throws -> [TeamSummary] {
         let (client, _, workspace) = try requireSession()
         let league = try await client.league(refreshPolicy: refresh ? .reloadIgnoringCache : .useCache)
@@ -188,7 +209,7 @@ enum TeamPlayerMapper {
 
     static func identity(_ player: MFLPlayer?, id: String) -> PlayerIdentity {
         PlayerIdentity(id: id, name: text(player?.displayName) ?? "Player \(id)",
-            position: text(player?.position), nflTeam: text(player?.nflTeam))
+            position: text(player?.position), nflTeam: text(player?.nflTeam), jerseyNumber: text(player?.jerseyNumber))
     }
 
     static func biography(_ player: MFLPlayer) -> PlayerBio {

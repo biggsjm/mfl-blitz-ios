@@ -198,6 +198,7 @@ private struct PlayerSearchContent: View {
           }
         }
         .background(.background)
+        .playerJerseyMetadata(for: search.query.isEmpty ? search.recentPlayers.map(\.id) : search.results.players.map(\.id))
         .scrollDismissesKeyboard(.immediately)
         .onScrollPhaseChange { _, phase in
             if phase == .interacting { dismissKeyboard() }
@@ -208,6 +209,9 @@ private struct PlayerSearchContent: View {
             await loadCatalog()
         }
         .task(id: readKey) { if scenePhase == .active { await loadOwnership() } }
+        .task(id: "\(readKey)|\(model.currentWeek)") {
+            if scenePhase == .active { await model.loadPlayerAvailability(week: model.currentWeek) }
+        }
         .task(id: "\(search.catalogVersion)|\(search.query)") {
             await search.search(franchiseID: model.workspace?.franchiseID,
                 fantasyValues: PlayerSearchRankingContext.cachedFantasyValues(week: model.currentWeek,
@@ -253,8 +257,9 @@ private struct PlayerSearchContent: View {
         } label: {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(player.name).font(.body.weight(.semibold)).foregroundStyle(.primary)
-                    Text(player.metadata).font(.subheadline).foregroundStyle(.secondary)
+                    PlayerNameCaption(name: player.name, playerID: player.id, nflTeam: player.nflTeam,
+                        jerseyNumber: player.jerseyNumber, position: player.position)
+                    PlayerAvailabilityCaption(playerID: player.id, nflTeam: player.nflTeam ?? "", week: model.currentWeek)
                     Text(ownershipText(player.id)).font(.subheadline).foregroundStyle(.primary)
                 }
                 .fixedSize(horizontal: false, vertical: true)

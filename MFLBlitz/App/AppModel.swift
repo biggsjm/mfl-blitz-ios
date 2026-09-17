@@ -1637,6 +1637,13 @@ final class AppModel {
         }
     }
 
+    func loadPlayerJerseys(playerIDs: [String]) async {
+        guard !isUsingCachedSession else { return }
+        await playerTools.loadJerseys(playerIDs: playerIDs) { ids in
+            try await self.readForBrowsing { try await $0.loadPlayerJerseys(playerIDs: ids) }
+        }
+    }
+
     func loadPlayerResearch(playerID: String, beforeWeek: Int?, contextWeek: Int) async throws -> PlayerResearchPage {
         try await readForBrowsing {
             try await $0.loadPlayerResearch(playerID: playerID, beforeWeek: beforeWeek, contextWeek: contextWeek)
