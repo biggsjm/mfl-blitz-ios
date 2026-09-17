@@ -1,6 +1,113 @@
 import XCTest
 
 final class PlayerSearchUITests: XCTestCase {
+    @MainActor func testLastNameSearchFindsMasonIncludingAfterScrollingOtherResults() {
+        let app = preview(arguments: ["--synthetic-search-names"])
+        app.buttons["global-player-search"].firstMatch.tap()
+        let field = app.textFields["player-search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let mason = app.buttons["search-player-15972"]
+        for query in ["Mason", "Jordan", "Jordan Mason"] {
+            if app.buttons["clear-player-search"].exists { app.buttons["clear-player-search"].tap() }
+            field.tap(); field.typeText(query)
+            XCTAssertTrue(mason.waitForExistence(timeout: 5), "Query: \(query)")
+            XCTAssertTrue(mason.isHittable, "Query: \(query)")
+        }
+        app.buttons["clear-player-search"].tap(); field.typeText("WR")
+        let firstResult = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-player-'")).firstMatch
+        XCTAssertTrue(firstResult.waitForExistence(timeout: 5))
+        let results = app.scrollViews.matching(NSPredicate(format: "identifier == 'player-search-results'")).firstMatch
+        XCTAssertTrue(results.exists)
+        for _ in 0..<3 { results.swipeUp() }
+        app.buttons["clear-player-search"].tap(); field.typeText("Mason")
+        XCTAssertTrue(mason.waitForExistence(timeout: 5))
+        XCTAssertTrue(mason.isHittable, "A last-name result must be visible after changing a scrolled search")
+        capture(app, "Player search — Mason after a longer scrolled query")
+    }
+
+    @MainActor func testHunterSearchPrioritizesOwnedPlayerAndRetainsBothNameMatches() {
+        let app = preview(arguments: ["--synthetic-search-names"])
+        app.buttons["global-player-search"].firstMatch.tap()
+        let field = app.textFields["player-search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5)); field.tap(); field.typeText("Jordan Mason")
+        let mason = app.buttons["search-player-15972"]
+        XCTAssertTrue(mason.waitForExistence(timeout: 5))
+        // Wait for the independent membership read before deliberately editing.
+        let owned = NSPredicate(format: "label CONTAINS 'Rostered by'")
+        expectation(for: owned, evaluatedWith: mason)
+        waitForExpectations(timeout: 5)
+        app.buttons["clear-player-search"].tap(); field.typeText("Hunter")
+        let travis = app.buttons["search-player-search-travis"]
+        let henry = app.buttons["search-player-search-henry"]
+        XCTAssertTrue(travis.waitForExistence(timeout: 5))
+        XCTAssertTrue(henry.exists)
+        XCTAssertTrue(travis.isHittable && henry.isHittable)
+        XCTAssertLessThan(travis.frame.minY, henry.frame.minY)
+        capture(app, "Hunter search — own player first, first and last names matched equally")
+        app.buttons["clear-player-search"].tap(); field.typeText("Hunter Henry")
+        XCTAssertTrue(henry.waitForExistence(timeout: 5))
+        XCTAssertFalse(travis.exists)
+    }
+
+    @MainActor func testKeyboardCanDismissWithoutClosingSearchAndFieldCanRefocus() {
+        let app = preview()
+        app.buttons["global-player-search"].firstMatch.tap()
+        let field = app.textFields["player-search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
+        let guidance = app.staticTexts["Search by name, team or position."]
+        XCTAssertTrue(guidance.waitForExistence(timeout: 3)); guidance.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(field.exists)
+
+        field.tap(); field.typeText("Dak")
+        let result = app.buttons["search-player-12620"]
+        XCTAssertTrue(result.waitForExistence(timeout: 5))
+        let done = app.keyboards.buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 3)); done.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3))
+        XCTAssertEqual(field.value as? String, "Dak")
+        XCTAssertTrue(result.exists)
+
+        field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
+        app.buttons["clear-player-search"].tap(); field.typeText("WR")
+        let firstResult = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-player-'")).firstMatch
+        XCTAssertTrue(firstResult.waitForExistence(timeout: 5))
+        firstResult.swipeUp()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3))
+        XCTAssertEqual(field.value as? String, "WR")
+        XCTAssertTrue(app.buttons["close-player-search"].exists)
+        capture(app, "Player search — keyboard dismissed with query and results retained")
+    }
+
+    @MainActor func testTappingOutsideSearchClosesItWithoutOpeningTheCoveredPage() {
+        let app = preview()
+        for isMatchup in [false, true] {
+            if isMatchup {
+                app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'matchup-'")).firstMatch.tap()
+            }
+            let title = isMatchup ? "Week 1 Matchup" : "Champion Hall"
+            app.buttons["global-player-search"].firstMatch.tap()
+            let field = app.textFields["player-search-field"]
+            XCTAssertTrue(field.waitForExistence(timeout: 5)); field.tap(); field.typeText("Dak")
+            let result = app.buttons["search-player-12620"]
+            XCTAssertTrue(result.waitForExistence(timeout: 5))
+            // Tap the visible page below the bounded panel, above the keyboard.
+            let top = result.frame.maxY + 32
+            let bottom = app.keyboards.firstMatch.frame.minY - 12
+            XCTAssertGreaterThan(bottom, top)
+            app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: app.frame.midX, dy: (top + bottom) / 2)).tap()
+            XCTAssertTrue(field.waitForNonExistence(timeout: 3))
+            XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3))
+            XCTAssertTrue(app.navigationBars[title].exists)
+            XCTAssertTrue(app.tabBars.buttons["Scores"].isSelected)
+            XCTAssertTrue(app.buttons["global-player-search"].exists)
+        }
+        capture(app, "Player search — outside tap returns to the same matchup")
+    }
+
     @MainActor func testPatriotsSearchShowsPlayersNotUnsupportedTeamUnits() {
         let app = preview(arguments: ["--synthetic-search-teams"])
         app.buttons["global-player-search"].firstMatch.tap()

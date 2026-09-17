@@ -116,15 +116,12 @@ struct ScoresView: View {
             .readablePageWidth()
         }
         .pageBackground()
-        .playerSearch()
+        .playerSearch {
+            WeekPicker(selection: weekBinding, weeks: model.availableWeeks)
+                .disabled(model.isUsingCachedSession || model.availableWeeks.isEmpty)
+        }
         .navigationTitle(model.workspace?.leagueName ?? "Scores")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                WeekPicker(selection: weekBinding, weeks: model.availableWeeks)
-                    .disabled(model.isUsingCachedSession || model.availableWeeks.isEmpty)
-            }
-        }
         .refreshable { await model.refreshScores() }
     }
 

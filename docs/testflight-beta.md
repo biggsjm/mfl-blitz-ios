@@ -1,11 +1,13 @@
-# MFL Blitz 0.7.0 (67) — closed league TestFlight
+# MFL Blitz 0.7.0 (68) — closed league TestFlight
 
-Build 67 includes automatic league services for invited owners. Build 67 is installed through the owner TestFlight group and waiting for Apple external review. Automatic phone enrollment and production lineup registration are confirmed; visible production notification delivery remains to be tested. See [current status](current-status.md). Build 66 is the earlier owner-only private-service build.
+Build 68 adds a smoother saved-login launch, relevant first/last-name search and keyboard/outside-tap dismissal. It is available to Owner Testing and **Waiting for Review** for the 12 existing Champion Hall Owners testers, with automatic notification enabled. Build 67's pending review was withdrawn in favor of build 68. See [current status](current-status.md) for verified delivery; installation of build 68 on a phone is not yet verified.
+
+Build 68 retains build 67's automatic league services for invited owners. Build 67 was installed through the owner TestFlight group; automatic phone enrollment and production lineup registration were confirmed. Visible production notification delivery remains to be tested. See [current status](current-status.md). Build 66 is the earlier owner-only private-service build.
 
 ## Tester setup
 
 1. On an iPhone running iOS 18 or later, install Apple's TestFlight app and accept the emailed invitation once Apple approves the beta.
-2. Install build 67 or newer. Connect using your own MFL account and team. Co-owners sign in independently.
+2. Install build 68 or newer. Connect using your own MFL account and team. Co-owners sign in independently.
 3. Enhanced NFL stats and background scoring connect automatically. No access code, Tailscale app or server address is needed.
 4. For optional lineup alerts, open Lineup's toolbar bell, choose alerts and allow iOS notifications. Live Activity preferences remain in My Team → Settings.
 
@@ -13,6 +15,9 @@ League changes affect the actual MFL league. The interactive preview uses synthe
 
 ## What to test
 
+- Cold launch with a saved login: open Scores without a flash of the welcome screen.
+- Search first/last names such as Mason and Hunter; exact names lead, with your roster and other rostered players prioritized within equally good matches.
+- Hide the search keyboard with Done or scrolling, tap outside to close search, and return from player details to the same query.
 - Scores, player stats, Live Activity handoff and foreground score freshness.
 - Roster browsing, search, standings and switching tabs; no cancellation alert should appear when leaving a tab.
 - Compact lineup checks and alert settings, initial notification permission and returning from iOS Settings.

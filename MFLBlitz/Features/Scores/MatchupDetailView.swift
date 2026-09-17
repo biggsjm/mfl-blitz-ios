@@ -228,19 +228,6 @@ struct MatchupDetailView: View {
         .pageBackground()
         .navigationTitle("Week \(displayScores.week) Matchup")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            if let matchup {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        MatchupTimelineView(matchup: matchup, week: displayScores.week, precision: displayScores.scorePrecision)
-                    } label: {
-                        Label("Matchup timeline", systemImage: "clock.arrow.circlepath")
-                    }
-                    .labelStyle(.iconOnly)
-                    .accessibilityIdentifier("open-matchup-timeline")
-                }
-            }
-        }
         .refreshable {
             async let nfl: Void = refreshNFL()
             async let games: Void = model.refreshScoringGames(week: displayScores.week, force: true)
@@ -276,7 +263,17 @@ struct MatchupDetailView: View {
             freshness: ScoreFreshness(snapshot: displayScores, failed: readFailed,
                 offline: snapshot == nil ? model.scoresOffline : offline, saved: model.isUsingCachedSession,
                 preview: model.isDemo, now: context.date)))
-        .playerSearch()
+        .playerSearch {
+            if let matchup {
+                NavigationLink {
+                    MatchupTimelineView(matchup: matchup, week: displayScores.week, precision: displayScores.scorePrecision)
+                } label: {
+                    Label("Matchup timeline", systemImage: "clock.arrow.circlepath")
+                }
+                .labelStyle(.iconOnly)
+                .accessibilityIdentifier("open-matchup-timeline")
+            }
+        }
       }
     }
 

@@ -3,7 +3,8 @@ import SwiftUI
 private enum PlayerSearchFocus: Hashable { case button, field }
 /// A focused field and bounded results keep the originating screen mounted.
 /// Player details use that screen's existing navigation path.
-private struct PlayerSearchModifier: ViewModifier {
+private struct PlayerSearchModifier<Actions: View>: ViewModifier {
+    let actions: Actions
     @Environment(AppModel.self) private var model
     @Environment(\.openPlayerRoute) private var openPlayerRoute
     @Environment(\.scenePhase) private var scenePhase
@@ -23,21 +24,28 @@ private struct PlayerSearchModifier: ViewModifier {
             .overlay(alignment: .top) {
                 if isPresented {
                     GeometryReader { geometry in
-                        PlayerSearchContent(contentHeight: $contentHeight) { player in
-                            guard let scope = model.browseScope else { return }
-                            isFocused = false; focusRequested = false
-                            model.playerSearch.remember(player)
-                            openPlayerRoute?(PlayerRoute(scope: scope, playerID: player.id,
-                                inspectedWeek: model.currentWeek, previewIdentity: player))
+                        ZStack(alignment: .top) {
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture(perform: close)
+                                .accessibilityHidden(true)
+
+                            PlayerSearchContent(contentHeight: $contentHeight, dismissKeyboard: dismissKeyboard) { player in
+                                guard let scope = model.browseScope else { return }
+                                dismissKeyboard()
+                                model.playerSearch.remember(player)
+                                openPlayerRoute?(PlayerRoute(scope: scope, playerID: player.id,
+                                    inspectedWeek: model.currentWeek, previewIdentity: player))
+                            }
+                            .frame(height: panelHeight(available: geometry.size.height))
+                            .clipShape(RoundedRectangle(cornerRadius: BlitzMetrics.cornerRadius))
+                            .overlay { RoundedRectangle(cornerRadius: BlitzMetrics.cornerRadius).stroke(.primary.opacity(0.08)) }
+                            .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+                            .padding(.horizontal, BlitzMetrics.pagePadding)
+                            .padding(.top, 6)
+                            .readablePageWidth()
+                            .accessibilityIdentifier("player-search-results")
                         }
-                        .frame(height: panelHeight(available: geometry.size.height))
-                        .clipShape(RoundedRectangle(cornerRadius: BlitzMetrics.cornerRadius))
-                        .overlay { RoundedRectangle(cornerRadius: BlitzMetrics.cornerRadius).stroke(.primary.opacity(0.08)) }
-                        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
-                        .padding(.horizontal, BlitzMetrics.pagePadding)
-                        .padding(.top, 6)
-                        .readablePageWidth()
-                        .accessibilityIdentifier("player-search-results")
                     }
                     .transition(.opacity)
                 }
@@ -47,7 +55,10 @@ private struct PlayerSearchModifier: ViewModifier {
             }
             .navigationBarTitleDisplayMode(isPresented ? .inline : .automatic)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    // Keep screen actions and search in one ordered group. Separate
+                    // toolbar modifiers can reverse their order across screens.
+                    actions
                     Button(isPresented ? "Close search" : "Search players", systemImage: isPresented ? "xmark" : "magnifyingglass") {
                         if isPresented { close() }
                         else {
@@ -85,8 +96,8 @@ private struct PlayerSearchModifier: ViewModifier {
                 .accessibilityFocused($accessibilityFocus, equals: .field)
                 .accessibilityIdentifier("player-search-field")
                 .autocorrectionDisabled().textInputAutocapitalization(.never)
-                .submitLabel(.search)
-                .onSubmit { isFocused = false }
+                .submitLabel(.done)
+                .onSubmit(dismissKeyboard)
             if !search.query.isEmpty {
                 Button("Clear search", systemImage: "xmark.circle.fill") { search.query = ""; isFocused = true }
                     .labelStyle(.iconOnly).foregroundStyle(.secondary)
@@ -107,8 +118,13 @@ private struct PlayerSearchModifier: ViewModifier {
         return max(0, min(desired, min(dynamicTypeSize.isAccessibilitySize ? 760 : 520, available * (dynamicTypeSize.isAccessibilitySize ? 0.98 : 0.82))))
     }
 
-    private func close() {
+    private func dismissKeyboard() {
         isFocused = false; focusRequested = false
+        accessibilityFocus = nil
+    }
+
+    private func close() {
+        dismissKeyboard()
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { isPresented = false }
         model.playerSearch.query = ""
         if isVisible { accessibilityFocus = .button }
@@ -116,13 +132,18 @@ private struct PlayerSearchModifier: ViewModifier {
 }
 
 extension View {
-    func playerSearch() -> some View { modifier(PlayerSearchModifier()) }
+    func playerSearch() -> some View { playerSearch { EmptyView() } }
+
+    func playerSearch<Actions: View>(@ViewBuilder actions: () -> Actions) -> some View {
+        modifier(PlayerSearchModifier(actions: actions()))
+    }
 }
 
 private struct PlayerSearchContent: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @Binding var contentHeight: CGFloat
+    let dismissKeyboard: () -> Void
     let openPlayer: (PlayerIdentity) -> Void
 
     private var search: PlayerSearchModel { model.playerSearch }
@@ -177,13 +198,21 @@ private struct PlayerSearchContent: View {
           }
         }
         .background(.background)
-        .scrollDismissesKeyboard(.interactively)
+        .scrollDismissesKeyboard(.immediately)
+        .onScrollPhaseChange { _, phase in
+            if phase == .interacting { dismissKeyboard() }
+        }
+        .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() })
         .task(id: readKey) {
             guard scenePhase == .active else { return }
             await loadCatalog()
         }
         .task(id: readKey) { if scenePhase == .active { await loadOwnership() } }
-        .task(id: "\(search.catalogVersion)|\(search.query)") { await search.search() }
+        .task(id: "\(search.catalogVersion)|\(search.query)") {
+            await search.search(franchiseID: model.workspace?.franchiseID,
+                fantasyValues: PlayerSearchRankingContext.cachedFantasyValues(week: model.currentWeek,
+                    scores: model.scores, lineup: model.lineup, waivers: model.waivers))
+        }
         .refreshable { await load(force: true) }
     }
 

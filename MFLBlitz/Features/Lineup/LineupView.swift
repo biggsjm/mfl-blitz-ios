@@ -159,7 +159,10 @@ struct LineupView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .playerSearch()
+        .playerSearch {
+            WeekPicker(selection: weekBinding, weeks: model.availableWeeks)
+                .disabled(model.isUsingCachedSession || model.availableWeeks.isEmpty)
+        }
         .navigationTitle("Lineup")
         .task(id: "\(model.workspace?.storageScope ?? "none")|\(model.selectedWeek)|\(model.isUsingCachedSession)") {
             await model.loadPlayerAvailability(week: model.selectedWeek)
@@ -171,10 +174,6 @@ struct LineupView: View {
                 }
                 .accessibilityIdentifier("lineup-alerts-toolbar")
                 .accessibilityValue("\(lineupReadiness.title). \(model.lineupAlerts.coverageTitle(week: model.lineup.week))")
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                WeekPicker(selection: weekBinding, weeks: model.availableWeeks)
-                    .disabled(model.isUsingCachedSession || model.availableWeeks.isEmpty)
             }
         }
         .safeAreaInset(edge: .bottom) {

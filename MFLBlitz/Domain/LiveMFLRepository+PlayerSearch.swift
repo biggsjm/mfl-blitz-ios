@@ -37,6 +37,17 @@ extension DemoLeagueRepository {
             PlayerIdentity(id: $0.id, name: $0.name, position: $0.position, nflTeam: $0.nflTeam)
         }
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--synthetic-search-names") {
+            players += [
+                .init(id: "15972", name: "Jordan Mason", position: "RB", nflTeam: "MIN"),
+                .init(id: "13595", name: "Mason Rudolph", position: "QB", nflTeam: "PIT"),
+                .init(id: "15535", name: "Mason Kinsey", position: "WR", nflTeam: "FA"),
+                .init(id: "16838", name: "Mason Pline", position: "TE", nflTeam: "FA"),
+                .init(id: "16858", name: "Mason Tipton", position: "WR", nflTeam: "NOS"),
+                .init(id: "17106", name: "Mason Taylor", position: "TE", nflTeam: "NYJ"),
+                .init(id: "search-henry", name: "Hunter Henry", position: "TE", nflTeam: "NEP"),
+                .init(id: "search-travis", name: "Travis Hunter", position: "WR", nflTeam: "JAC")]
+        }
         if ProcessInfo.processInfo.arguments.contains("--synthetic-search-teams") {
             // Reproduce the source shape in the owner's screenshot, without
             // using a real account or giving the individual's name a team hint.
@@ -73,6 +84,13 @@ extension DemoLeagueRepository {
                 assignments[player.id, default: []].append(.init(team: team, status: status))
             }
         }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--synthetic-search-names"),
+           let team = SampleTeamPlayers.teams.first(where: { $0.id == SampleData.workspace.franchiseID }) {
+            assignments["15972"] = [.init(team: team, status: .rostered)]
+            assignments["search-travis"] = [.init(team: team, status: .rostered)]
+        }
+        #endif
         return PlayerSearchOwnership(scope: SampleData.workspace.storageScope, assignments: assignments,
             freeAgentIDs: Set(SampleData.waivers.candidates.map(\.id)).subtracting(assignments.keys))
     }

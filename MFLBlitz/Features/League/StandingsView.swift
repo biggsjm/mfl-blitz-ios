@@ -80,30 +80,27 @@ struct StandingsView: View {
                 .onChange(of: scope) {
                     if let focusedFranchiseID { proxy.scrollTo(focusedFranchiseID, anchor: .center) }
                 }
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            showingOrderInfo = true
-                        } label: {
-                            Label("About standings order", systemImage: "info.circle")
-                                .labelStyle(.iconOnly)
-                        }
-                        .accessibilityIdentifier("standings-order-info")
-                        .accessibilityHint("Shows how MyFantasyLeague orders tied teams")
-                        .popover(
-                            isPresented: $showingOrderInfo,
-                            attachmentAnchor: .rect(.bounds),
-                            arrowEdge: .top
-                        ) {
-                            standingsOrderInfo
-                        }
-                    }
-                }
                 .refreshable { await model.refreshStandings() }
             }
         }
         .pageBackground()
-        .playerSearch()
+        .playerSearch {
+            Button {
+                showingOrderInfo = true
+            } label: {
+                Label("About standings order", systemImage: "info.circle")
+                    .labelStyle(.iconOnly)
+            }
+            .accessibilityIdentifier("standings-order-info")
+            .accessibilityHint("Shows how MyFantasyLeague orders tied teams")
+            .popover(
+                isPresented: $showingOrderInfo,
+                attachmentAnchor: .rect(.bounds),
+                arrowEdge: .top
+            ) {
+                standingsOrderInfo
+            }
+        }
     }
 
     private var standingsOrderInfo: some View {

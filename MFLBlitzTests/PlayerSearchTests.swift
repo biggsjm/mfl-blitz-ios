@@ -7,6 +7,153 @@ import Testing
 struct PlayerSearchTests {
     private let scope = "2026.41333.0001"
 
+    @Test("MFL last-first names remain searchable by last name alone")
+    func masonLastName() throws {
+        let catalog = try decode(MFLPlayerCatalog.self, #"{"player":[{"id":"15972","name":"Mason, Jordan","position":"RB","team":"MIN"},{"id":"13595","name":"Rudolph, Mason","position":"QB","team":"PIT"}]}"#)
+        let index = PlayerSearchIndex(players: catalog.players.map { TeamPlayerMapper.identity($0, id: $0.id) },
+                                      eligiblePositions: ["QB", "RB", "WR", "TE"])
+        for query in ["Mason", "mason", "MASON", " Mason ", "Jordan", "Jordan Mason", "Mason, Jordan"] {
+            #expect(index.search(query).players.contains { $0.id == "15972" }, "Query: \(query)")
+        }
+        #expect(index.search("Mason").players.first?.id == "15972")
+    }
+
+    @Test("First and last names share a tier, including surnames before suffixes")
+    func wholeNameRanking() {
+        let index = PlayerSearchIndex(players: [
+            .init(id: "jordan", name: "Jordan Mason", position: "RB"),
+            .init(id: "kinsey", name: "Mason Kinsey", position: "WR"),
+            .init(id: "taylor", name: "Mason Taylor", position: "TE"),
+            .init(id: "harrison", name: "Marvin Harrison Jr.", position: "WR"),
+            .init(id: "bryant", name: "Harrison Bryant", position: "TE"),
+            .init(id: "unit", name: "Jordan Mason", position: "TMRB")])
+        #expect(index.search("Mason").players.map(\.id) == ["jordan", "kinsey", "taylor", "unit"])
+        #expect(index.search("Harrison").players.map(\.id) == ["bryant", "harrison"])
+        #expect(index.search("Mason Taylor").players.map(\.id) == ["taylor"])
+        #expect(index.search("Mason RB").players.map(\.id) == ["jordan"])
+    }
+
+    @Test("Hunter searches use ownership, not first-name versus last-name bias")
+    func hunterRelevance() {
+        let index = PlayerSearchIndex(players: [
+            .init(id: "travis", name: "Travis Hunter"),
+            .init(id: "henry", name: "Hunter Henry"),
+            .init(id: "long", name: "Hunter Long"),
+            .init(id: "prefix", name: "Hunterson Example"),
+            .init(id: "substring", name: "Ahunter Example")])
+        let ownership = membership(["travis": ["own"], "henry": ["other"], "prefix": ["own"], "substring": ["own"]])
+        let ranking = PlayerSearchRankingContext(franchiseID: "own", ownership: ownership,
+            fantasyValues: ["travis": 8, "henry": 12, "long": 30, "prefix": 100, "substring": 200])
+        #expect(index.search("Hunter", ranking: ranking).players.map(\.id) == ["travis", "henry", "long", "prefix", "substring"])
+        // The same policy promotes an exact first name when Henry is yours.
+        let swapped = PlayerSearchRankingContext(franchiseID: "other", ownership: ownership)
+        #expect(index.search("Hunter", ranking: swapped).players.prefix(2).map(\.id) == ["henry", "travis"])
+        #expect(index.search("Travis Hunter", ranking: swapped).players.first?.id == "travis")
+        #expect(index.search("Hunter, Travis", ranking: swapped).players.first?.id == "travis")
+    }
+
+    @Test("Cached fantasy values break equal name and ownership ties, with deterministic unknown fallback")
+    func fantasyRelevance() {
+        let index = PlayerSearchIndex(players: [
+            .init(id: "travis", name: "Travis Hunter"), .init(id: "henry", name: "Hunter Henry"),
+            .init(id: "long", name: "Hunter Long"), .init(id: "unknown", name: "Alex Hunter"),
+            .init(id: "invalid", name: "Ben Hunter"), .init(id: "infinite", name: "Carl Hunter")])
+        let ranking = PlayerSearchRankingContext(fantasyValues: ["travis": 15, "henry": 10,
+            "long": -1, "invalid": .nan, "infinite": .infinity])
+        #expect(index.search("Hunter", ranking: ranking).players.map(\.id) == ["travis", "henry", "long", "unknown", "invalid", "infinite"])
+        #expect(index.search("Hunter", limit: 2, ranking: ranking).players.map(\.id) == ["travis", "henry"])
+        #expect(index.search("Hunter", limit: 2, ranking: ranking).total == 6)
+        #expect(index.search("Hunter").players.map(\.id) == ["unknown", "invalid", "infinite", "henry", "long", "travis"])
+        // Equal values fall back to the same stable alphabetic order.
+        #expect(index.search("Hunter", ranking: .init(fantasyValues: ["travis": 10, "henry": 10]))
+            .players.prefix(2).map(\.id) == ["henry", "travis"])
+    }
+
+    @Test("Direct names beat typos; one typo is tolerated without fuzzing short tokens or NFL filters")
+    func typoFallback() {
+        let index = PlayerSearchIndex(players: [
+            .init(id: "mason", name: "Jordan Mason", position: "RB", nflTeam: "MIN"),
+            .init(id: "jason", name: "Jason Receiver", position: "WR", nflTeam: "SEA"),
+            .init(id: "travis", name: "Travis Hunter", position: "WR", nflTeam: "JAC")])
+        let ranking = PlayerSearchRankingContext(franchiseID: "own", ownership: membership(["jason": ["own"]]))
+        #expect(index.search("Mason", ranking: ranking).players.map(\.id) == ["mason", "jason"])
+        for query in ["Ms on", "Ma", "Hunter MIN", "Hnter RB", "Msaon WR", "Msoan"] {
+            #expect(!index.search(query).players.contains { $0.id == "travis" }, "Query: \(query)")
+        }
+        for query in ["Msaon", "Mson", "Masoon", "Masom", "Msaon MIN RB"] {
+            #expect(index.search(query).players.first?.id == "mason", "Query: \(query)")
+        }
+        #expect(index.search("Mas").players.map(\.id) == ["mason"])
+        #expect(index.search("Hnter").players.map(\.id) == ["travis"])
+        #expect(index.search("Htr").players.isEmpty)
+        #expect(index.search("Msoan").players.isEmpty)
+        #expect(index.search("Msaon WR").players.isEmpty)
+    }
+
+    @Test("Only matching-week cached metrics supply relevance; projections precede actuals and conflicts stay unknown")
+    func cachedMetrics() {
+        var scores = SampleData.scores
+        var lineup = SampleData.lineup
+        var waivers = SampleData.waivers
+        scores.week = 2; scores.lastUpdated = Date()
+        scores.matchups = Array(scores.matchups.prefix(1))
+        scores.matchups[0].away.starters = [
+            .init(id: "projection", name: "A", position: "WR", nflTeam: "MIN", livePoints: 20,
+                  lineupStatus: .starter, projectedPoints: 12),
+            .init(id: "actual", name: "B", position: "WR", nflTeam: "MIN", livePoints: 8, lineupStatus: .starter),
+            .init(id: "conflict", name: "C", position: "WR", nflTeam: "MIN", livePoints: 1,
+                  lineupStatus: .starter, projectedPoints: 10),
+            .init(id: "conflict", name: "C", position: "WR", nflTeam: "MIN", livePoints: 2,
+                  lineupStatus: .starter, projectedPoints: 11)]
+        scores.matchups[0].away.bench = []; scores.matchups[0].away.unclassifiedPlayers = []
+        scores.matchups[0].home.starters = []; scores.matchups[0].home.bench = []; scores.matchups[0].home.unclassifiedPlayers = []
+        lineup.week = 1
+        waivers.projectionWeek = 1
+        let values = PlayerSearchRankingContext.cachedFantasyValues(week: 2, scores: scores, lineup: lineup, waivers: waivers)
+        #expect(values == ["projection": 12, "actual": 8])
+        #expect(PlayerSearchRankingContext.cachedFantasyValues(week: 3, scores: scores, lineup: lineup, waivers: waivers).isEmpty)
+        lineup.week = 2
+        waivers.projectionWeek = 2
+        let more = PlayerSearchRankingContext.cachedFantasyValues(week: 2, scores: scores, lineup: lineup, waivers: waivers)
+        for player in lineup.players {
+            if let value = player.projectedPoints { #expect(more[player.id] == value) }
+        }
+        for player in waivers.candidates where !lineup.players.contains(where: { $0.id == player.id }) {
+            if let value = player.projectedPoints { #expect(more[player.id] == value) }
+        }
+    }
+
+    @Test("Ownership arrival and new projections cannot move visible results until the query changes")
+    @MainActor func stableRanking() async {
+        let model = PlayerSearchModel()
+        await model.loadCatalog(scope: scope) { .init(scope: scope, index: .init(players: [
+            .init(id: "travis", name: "Travis Hunter"), .init(id: "henry", name: "Hunter Henry")])) }
+        model.query = "Hunter"
+        await model.search(franchiseID: "own")
+        #expect(model.results.players.map(\.id) == ["henry", "travis"])
+        await model.loadOwnership(scope: scope, revision: 0) { _ in membership(["travis": ["own"]]) }
+        #expect(model.ownership?.assignments["travis"]?.first?.team.id == "own")
+        // Navigation back can repeat the task for the same query.
+        await model.search(franchiseID: "own", fantasyValues: ["travis": 30])
+        #expect(model.results.players.map(\.id) == ["henry", "travis"])
+        // Even clearing/retyping the same query before a task runs is a new search.
+        model.query = ""; model.query = "Hunter"
+        await model.search(franchiseID: "own")
+        #expect(model.results.players.map(\.id) == ["travis", "henry"])
+        model.reset(scope: "new")
+        await model.loadCatalog(scope: "new") { .init(scope: "new", index: .init(players: [
+            .init(id: "travis", name: "Travis Hunter"), .init(id: "henry", name: "Hunter Henry")])) }
+        model.query = "Hunter"
+        await model.search(franchiseID: "own")
+        #expect(model.results.players.map(\.id) == ["henry", "travis"])
+    }
+
+    private func membership(_ members: [String: [String]]) -> PlayerSearchOwnership {
+        .init(scope: scope, assignments: members.mapValues { owners in owners.map {
+            .init(team: .init(id: $0, name: $0, abbreviation: $0), status: .rostered)
+        } }, freeAgentIDs: [])
+    }
+
     @Test("NFL names, nicknames and common/MFL abbreviations find individual players")
     func nflTeamNames() {
         let index = PlayerSearchIndex(players: [
