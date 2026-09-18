@@ -1,6 +1,6 @@
 # Current app status
 
-## September 18: build 73 — consistent league score cards and next kickoff in release preparation
+## September 18: build 73 — available in TestFlight
 
 Around the league now reuses the featured matchup's team rows, with owner names, records, playing/to-play counts and aligned Points / Proj. or Live est. columns. The standard cards retain their white light-mode surface and adaptive dark-mode surface; the featured card stays navy. Full-card matchup navigation and larger-text metric layouts are preserved.
 
@@ -8,11 +8,13 @@ The shared footer replaces Between games / Upcoming filler with **Next game Sun 
 
 Matchup grouping now includes the already-loaded MFL scoring schedule as a kickoff source. Scores requests that same shared, cache-eligible schedule on entry so the footer need not wait for a visit to Lineup or player details. Existing request coalescing/cache limits remain; there is no new polling loop, paid NFL-stat request or server change.
 
-Validation: 32 focused presentation/grouping tests and the native compact-card/player-navigation journey pass in `/tmp/mfl-league-cards-validation2.xcresult`; the final cached-schedule entry change also passes that native journey in `/tmp/mfl-league-cards-final.xcresult`. Native light, dark and accessibility-text renders were inspected in `/tmp/mfl-league-cards-shots`. The preview uses illustrative data, not live league results. Josh approved the native preview and requested TestFlight distribution. App and Live Activity versions are 0.7.0 (73); archive, signed-export verification, upload and tester-group assignment are pending. Build 72 remains the released beta until delivery is verified.
+Validation: 32 focused presentation/grouping tests and the native compact-card/player-navigation journey pass in `/tmp/mfl-league-cards-validation2.xcresult`; the final cached-schedule entry change also passes that native journey in `/tmp/mfl-league-cards-final.xcresult`. Native light, dark and accessibility-text renders were inspected in `/tmp/mfl-league-cards-shots`. The preview uses illustrative data, not live league results. Josh approved the native preview and requested TestFlight distribution. App and Live Activity versions are 0.7.0 (73). Archive, signed-export verification, Apple processing and delivery are complete as verified below.
 
 Build-73 archive and App Store export now pass validation using official Xcode 27 (`27A266a`, SDK `24A430`). Release source `5e6a27923f4442f472051df5457bf206e75f80ac` is committed and pushed on `release/testflight-0.7.0-73`. Evidence: `/tmp/MFLBlitz-73.xcarchive`, `/tmp/mfl73-export/MFLBlitz.ipa`, `/tmp/mfl73-verification.log`, `/tmp/mfl73-archive-evidence.json`. IPA SHA-256: `25df254adc8331c818d5bb65464fe7a72536959123d1077608a57d0560a753e6`. Signatures, App Store profiles, matching app/widget 0.7.0 (73), production push, service URLs and privacy manifest pass. Package dependencies and cryptography are unchanged from build 72; only Apple system libraries are linked and there are no embedded frameworks.
 
-The first upload attempt at **09:46 CDT** failed with Xcode's App Store Connect account unavailable. Computer Use then reported the Mac locked; Josh has been asked to unlock it before a retry. The App Store Connect browser session also expired and needs sign-in for tester assignment. Build 73 is **not uploaded or available to testers** at this checkpoint. What to Test notes are prepared in `/tmp/mfl73-what-to-test.txt`. No merge, service change or phone installation is claimed.
+The first upload attempt at **09:46 CDT** failed with Xcode's App Store Connect account unavailable, and the unlocked-Mac retry also failed. After Josh refreshed Xcode's sign-in, upload **succeeded at 10:14:19 CDT**, with Apple confirming package processing (`/tmp/mfl73-upload-ready.log`). Josh then signed into the separate App Store Connect browser session to complete delivery.
+
+**0.7.0 (73) is Testing** for **Owner Testing (one internal tester)** and **Champion Hall Owners (12 existing external testers)**, verified on both group build pages at approximately **10:45 CDT**. Apple build ID: `3ccef327-ef0b-467d-a539-3855cb430d5b`. The unchanged Apple-only encryption classification is saved, build-specific What to Test notes are saved, and **Automatically notify testers** was enabled. This supersedes the earlier upload/assignment-pending checkpoints. Source remains on `release/testflight-0.7.0-73`; this request did not include a merge. No service change or phone installation is claimed.
 
 ## September 17: build 72 — available in TestFlight and merged
 
