@@ -176,6 +176,9 @@ final class MatchupBackgroundSync {
     private(set) var message = "Background sync needs a server."
     private(set) var isRegistered = false
     private(set) var expiresAt: Date?
+    private(set) var connectionNeedsAttention = false
+    private(set) var connectedAt: Date?
+    var isTracking: Bool { currentID != nil }
     private let defaults: UserDefaults
     private let store: any PrivateStore
     private let makeClient: (String) throws -> MatchupSyncClient
@@ -227,11 +230,16 @@ final class MatchupBackgroundSync {
     func checkConnection() async {
         do {
             let status = try await makeClient(address).status()
+            connectionNeedsAttention = !status.readyForBuild || status.issue != nil
             if !Self.supportsPush { message = "Server reachable. Apple push setup required for this build." }
             else if !status.readyForBuild { message = "Server reachable. Apple push key setup required." }
             else if let issue = status.issue { message = issue }
             else { message = isRegistered ? "Background scoring connected." : "Server ready. Open your live matchup to connect." }
-        } catch { message = "Couldn’t reach background scoring. Check your connection and beta access." }
+        } catch {
+            guard !Task.isCancelled else { return }
+            connectionNeedsAttention = true
+            message = "Couldn’t reach background scoring. Check your connection and beta access."
+        }
     }
 
     func track(_ activity: Activity<MatchupActivityAttributes>, value: MatchupSyncRegistration) {
@@ -240,6 +248,7 @@ final class MatchupBackgroundSync {
             generation += 1; sendTask?.cancel(); tokenTask?.cancel()
             registration = nil
             currentID = activity.id; token = activity.pushToken; isRegistered = false
+            connectionNeedsAttention = false; connectedAt = nil; expiresAt = nil
             message = "Connecting background scoring…"
             tokenTask = Task { [weak self] in
                 for await token in activity.pushTokenUpdates {
@@ -312,11 +321,14 @@ final class MatchupBackgroundSync {
                 let receipt = try await self.makeClient(address).register(id: id, secret: secret, value: value)
                 guard !Task.isCancelled, self.generation == generation, self.currentID == id else { return }
                 self.isRegistered = receipt.pushReady
+                self.connectionNeedsAttention = !receipt.pushReady
+                self.connectedAt = receipt.pushReady ? Date() : nil
                 self.expiresAt = Date(timeIntervalSince1970:receipt.expiresAt)
                 self.message = receipt.pushReady ? "Background scoring connected." : "Server reachable. Apple push key setup required."
             } catch {
                 guard !Task.isCancelled, self.generation == generation else { return }
                 self.isRegistered = false
+                self.connectionNeedsAttention = true
                 self.message = "Background sync couldn’t connect. Scores still update while Blitz is open."
             }
         }
@@ -342,6 +354,7 @@ final class MatchupBackgroundSync {
     func stop(id: String? = nil) async {
         if let id, let currentID, id != currentID { return }
         expiresAt = nil
+        connectedAt = nil; connectionNeedsAttention = false
         generation += 1
         let pendingSend = sendTask
         sendTask?.cancel(); sendTask = nil; tokenTask?.cancel(); tokenTask = nil

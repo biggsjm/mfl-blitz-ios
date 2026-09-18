@@ -36,7 +36,7 @@ final class PlayerSearchUITests: XCTestCase {
         let owned = NSPredicate(format: "label CONTAINS 'Rostered by'")
         expectation(for: owned, evaluatedWith: mason)
         waitForExpectations(timeout: 5)
-        app.buttons["clear-player-search"].tap(); field.typeText("Hunter")
+        replaceQuery("Hunter", field: field, in: app)
         let travis = app.buttons["search-player-search-travis"]
         let henry = app.buttons["search-player-search-henry"]
         XCTAssertTrue(travis.waitForExistence(timeout: 5))
@@ -44,9 +44,18 @@ final class PlayerSearchUITests: XCTestCase {
         XCTAssertTrue(travis.isHittable && henry.isHittable)
         XCTAssertLessThan(travis.frame.minY, henry.frame.minY)
         capture(app, "Hunter search — own player first, first and last names matched equally")
-        app.buttons["clear-player-search"].tap(); field.typeText("Hunter Henry")
+        replaceQuery("Hunter Henry", field: field, in: app)
         XCTAssertTrue(henry.waitForExistence(timeout: 5))
         XCTAssertFalse(travis.exists)
+    }
+
+    @MainActor private func replaceQuery(_ query: String, field: XCUIElement, in app: XCUIApplication) {
+        let clear = app.buttons["clear-player-search"]
+        clear.tap()
+        XCTAssertTrue(clear.waitForNonExistence(timeout: 3))
+        field.tap()
+        field.typeText(query)
+        XCTAssertEqual(field.value as? String, query, "Verify the query was entered before checking its results")
     }
 
     @MainActor func testKeyboardCanDismissWithoutClosingSearchAndFieldCanRefocus() {

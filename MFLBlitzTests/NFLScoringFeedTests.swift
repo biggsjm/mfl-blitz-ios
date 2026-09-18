@@ -110,7 +110,7 @@ struct NFLScoringFeedTests {
         #expect(info.isLive && info.kickoff == nil)
         #expect(info.opponent == "vs DET")
         #expect(info.scoreLabel == (seconds == 3249 ? "BUF 7 · DET 0" : nil))
-        #expect(info.status == (seconds == 3249 ? "~Q1 9:09" : "Live"))
+        #expect(info.status == "Live")
         #expect(active.livePoints == 3)
         #expect(nfl.player(matching: active) == nil)
     }

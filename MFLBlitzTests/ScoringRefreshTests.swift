@@ -54,8 +54,41 @@ import Testing
         await repository.configureScoringGames(gate: gate)
         let pending = Task { await model.refreshScoringGames(week: 1) }
         while await repository.scoringGameLoads == 0 { await Task.yield() }
+        let manual = Task { await model.refreshScoringGames(week: 1, force: true) }
+        await Task.yield()
         model.workspace = nil
-        await gate.open(); await pending.value
+        await gate.open(); await pending.value; await manual.value
         #expect(model.scoringGames.isEmpty)
+        #expect(await repository.scoringGameRefreshes == [false])
+    }
+
+    @Test func manualRefreshUpgradesAnInFlightCachedReadOnce() async {
+        let repository = ReliabilityRepository(), model = model(repository), gate = TestGate()
+        await repository.configureScoringGames(gate: gate)
+        let automatic = Task { await model.refreshScoringGames(week: 1) }
+        while await repository.scoringGameLoads == 0 { await Task.yield() }
+        let manual = Task { await model.refreshScoringGames(week: 1, force: true) }
+        let secondManual = Task { await model.refreshScoringGames(week: 1, force: true) }
+        // Let both requests join the suspended read before releasing it.
+        await Task.yield()
+        #expect(await repository.scoringGameLoads == 1)
+        await gate.open()
+        await automatic.value; await manual.value; await secondManual.value
+        #expect(await repository.scoringGameRefreshes == [false, true])
+        #expect(model.scoringGames[1] != nil)
+    }
+
+    @Test func manualRefreshWaitsForAnExistingForcedRead() async {
+        let repository = ReliabilityRepository(), model = model(repository), gate = TestGate()
+        await repository.configureScoringGames(gate: gate)
+        let first = Task { await model.refreshScoringGames(week: 1, force: true) }
+        while await repository.scoringGameLoads == 0 { await Task.yield() }
+        var returned = false
+        let second = Task { await model.refreshScoringGames(week: 1, force: true); returned = true }
+        await Task.yield()
+        #expect(!returned && model.scoringGames[1] == nil)
+        await gate.open(); await first.value; await second.value
+        #expect(returned && model.scoringGames[1] != nil)
+        #expect(await repository.scoringGameRefreshes == [true])
     }
 }

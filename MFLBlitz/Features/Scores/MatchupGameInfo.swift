@@ -50,7 +50,16 @@ struct MatchupGameInfo {
             symbol = nflGame.isLive ? "dot.radiowaves.left.and.right" : nflGame.isFinal ? "checkmark.circle" : "clock"
             return
         }
-        gameIsStale = liveData?.isStale(now: now) ?? false
+        // A fresh receipt does not make the NFL scoreboard current. The
+        // separate league feed can already have advanced well beyond it.
+        // Allow ordinary clock corrections / short feed skew, but label a
+        // scoreboard more than two game minutes behind as last known data.
+        let behindPlayerClock: Bool
+        if let seconds, let playerSeconds = player.gameSecondsRemaining,
+           (1..<3600).contains(seconds), (1..<3600).contains(playerSeconds) {
+            behindPlayerClock = seconds - playerSeconds > 120
+        } else { behindPlayerClock = false }
+        gameIsStale = (liveData?.isStale(now: now) ?? false) || behindPlayerClock
         gameCheckedAt = liveGame == nil ? nil : liveData?.checkedAt
         isLive = mflIsLive
         if let liveGame, let own = liveGame.score, let other = liveGame.opponentScore,
@@ -64,7 +73,10 @@ struct MatchupGameInfo {
 
         if let seconds, (1..<3600).contains(seconds) {
             opponent = game?.opponentLabel; kickoff = nil
-            status = Self.regulationClock(seconds: seconds)
+            // MFL's remaining-time estimate can lag or move backward between
+            // servers. It proves play, not the current quarter or game clock.
+            // Only the NFL provider branch above supplies a real clock/break.
+            status = "Live"
             symbol = "dot.radiowaves.left.and.right"
             return
         }
@@ -108,15 +120,6 @@ struct MatchupGameInfo {
             let time = date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, timeZone: timeZone))
             return "\(day) \(time)"
         } ?? status
-    }
-
-    static func regulationClock(seconds: Int) -> String? {
-        guard (1..<3600).contains(seconds) else { return nil }
-        // Boundaries can be a quarter break or halftime, not proof of play.
-        if seconds % 900 == 0 { return "\(seconds / 60):00 game time left" }
-        let quarter = 4 - seconds / 900
-        let clock = seconds % 900
-        return String(format: "~Q%d %d:%02d", quarter, clock / 60, clock % 60)
     }
 
     static func timeZoneLabel(locale: Locale, timeZone: TimeZone) -> String {

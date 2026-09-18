@@ -62,7 +62,8 @@ struct PlayerScoringWeekView: View {
             VStack(alignment: .leading, spacing: 18) {
                 ScoreFreshnessLabel(snapshot: scores, refreshing: refreshing || model.isLoadingScores,
                     failed: readFailed, offline: model.scores.week == context.week && model.scoresOffline,
-                    saved: model.isUsingCachedSession, preview: model.isDemo)
+                    saved: model.isUsingCachedSession, preview: model.isDemo,
+                    statusPlayers: [player], statusScope: "\(player.name) · Week \(context.week)")
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 5) {
                         PlayerNameCaption(name: player.name, playerID: player.id, nflTeam: player.nflTeam,
@@ -107,10 +108,11 @@ struct PlayerScoringWeekView: View {
                         Divider()
                     }
                     ScoringBreakdownView(position: player.position, player: nflGame?.player(matching: player),
-                        official: ScoringGamePresentation.actualPoints(player), precision: context.precision, expanded:$breakdownExpanded)
+                        official: ScoringGamePresentation.actualPoints(player), precision: context.precision, expanded:$breakdownExpanded,
+                        missingStatsMessage: statsUnavailableText)
                     Divider()
                     Text("Game stats").font(.headline.weight(.medium))
-                    if let game = nflGame, let stats = game.player(matching: player) {
+                    if let game = nflGame, let stats = game.player(matching: player), stats.hasUsableStats {
                         NFLPlayerBoxScoreView(player: stats, checkedAt: game.statsReceipt(for: player),
                             stale: game.statsAreStale(for: player, now: timeline.date), now: timeline.date)
                     } else if let stats = player.statLine?.trimmingCharacters(in: .whitespacesAndNewlines), !stats.isEmpty {
@@ -185,6 +187,8 @@ struct PlayerScoringWeekView: View {
         await model.nflStats.refresh(season: season, week: context.week, force: true, teams: [player.nflTeam], defenseTeams: NFLFeedGame.isDefense(player.position) ? [player.nflTeam] : [])
     }
     private var statsUnavailableText: String {
+        let status = model.nflDataStatus(players: [player], snapshot: scores, now: Date())
+        if status.state == .delayed || status.state == .unavailable { return status.detail }
         guard model.usesNFLStats, model.nflStats.isConfigured, let season = model.workspace?.season else {
             return "A stat breakdown isn’t available for this game."
         }

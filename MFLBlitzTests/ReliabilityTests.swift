@@ -29,6 +29,7 @@ actor ReliabilityRepository: LeagueRepository {
     var week = 1
     var expired = false
     var scoringGameLoads = 0
+    var scoringGameRefreshes: [Bool] = []
     var scoringGameGate: TestGate?
     var scoringGameFailure = false
     var scoreLoads = 0
@@ -60,6 +61,7 @@ actor ReliabilityRepository: LeagueRepository {
     func configureScoringGames(gate: TestGate? = nil, failed: Bool = false) { scoringGameGate = gate; scoringGameFailure = failed }
     func loadScoringGames(week: Int, refresh: Bool) async throws -> NFLScoringSnapshot {
         scoringGameLoads += 1
+        scoringGameRefreshes.append(refresh)
         let scope = testWorkspace.storageScope
         if let scoringGameGate { await scoringGameGate.wait() }
         if scoringGameFailure { throw MFLCoreError.offline }

@@ -97,7 +97,7 @@ final class AppModel {
     let matchupActivity = MatchupActivityController()
     var playerTools = PlayerToolsModel()
     private(set) var scoringGames: [Int: NFLScoringSnapshot] = [:]
-    private var scoringGameRequests: [Int: UUID] = [:]
+    private var scoringGameRequests: [Int: (id: UUID, forceRequested: Bool, task: Task<Void, Never>)] = [:]
     var playerSearch = PlayerSearchModel()
     var pendingRosterChange: PendingRosterAction?
     var rosterChangeError: String?
@@ -1395,6 +1395,7 @@ final class AppModel {
         cachedScoresDate = nil; cachedRosterDate = nil
         cachedOwnerRoster = nil
         pendingRosterChange = nil; rosterChangeError = nil; rosterRevision += 1
+        scoringGameRequests.values.forEach { $0.task.cancel() }
         scoringGames = [:]; scoringGameRequests = [:]
         playerTools.reset(scope: workspace?.storageScope)
         playerSearch.reset(scope: workspace?.storageScope)
@@ -1610,23 +1611,41 @@ final class AppModel {
     }
 
     func refreshScoringGames(week: Int, force: Bool = false) async {
-        guard !isUsingCachedSession, scoringGameRequests[week] == nil else { return }
+        guard !isUsingCachedSession, !Task.isCancelled else { return }
+        if let pending = scoringGameRequests[week] {
+            // Background reads coalesce without holding up fantasy scores.
+            // A manual refresh must wait for an existing forced read, or
+            // follow a cache-eligible read with one shared cache-bypassing read.
+            guard force else { return }
+            scoringGameRequests[week]?.forceRequested = true
+            await pending.task.value
+            return
+        }
         if !force, let saved = scoringGames[week], !saved.failed,
            (0..<90).contains(Date().timeIntervalSince(saved.checkedAt)) { return }
         let request = UUID()
-        scoringGameRequests[week] = request
-        defer { if scoringGameRequests[week] == request { scoringGameRequests[week] = nil } }
+        let task = Task { await performScoringGameRefresh(week: week, force: force, request: request) }
+        scoringGameRequests[week] = (request, force, task)
+        await task.value
+    }
+
+    private func performScoringGameRefresh(week: Int, force: Bool, request: UUID) async {
+        defer { if scoringGameRequests[week]?.id == request { scoringGameRequests[week] = nil } }
         do {
-            let result = try await readForBrowsing { try await $0.loadScoringGames(week: week, refresh: force) }
+            var result = try await readForBrowsing { try await $0.loadScoringGames(week: week, refresh: force) }
+            guard scoringGameRequests[week]?.id == request else { return }
+            if !force, scoringGameRequests[week]?.forceRequested == true {
+                result = try await readForBrowsing { try await $0.loadScoringGames(week: week, refresh: true) }
+            }
             guard result.scope == workspace?.storageScope, result.week == week,
-                  scoringGameRequests[week] == request else { return }
+                  scoringGameRequests[week]?.id == request else { return }
             scoringGames[week] = result
             if scoringGames.count > 3,
                let oldest = scoringGames.filter({ $0.key != week }).min(by: { $0.value.checkedAt < $1.value.checkedAt })?.key {
                 scoringGames[oldest] = nil
             }
         } catch {
-            guard !Task.isCancelled, !MFLCoreError.isCancellation(error), scoringGameRequests[week] == request else { return }
+            guard !Task.isCancelled, !MFLCoreError.isCancellation(error), scoringGameRequests[week]?.id == request else { return }
             scoringGames[week]?.failed = true
         }
     }

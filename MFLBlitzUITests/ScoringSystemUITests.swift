@@ -1,6 +1,51 @@
 import XCTest
 
 final class ScoringSystemUITests: XCTestCase {
+    @MainActor func testCompactDataStatusAndProjectionHelp() {
+        dataStatus()
+    }
+    @MainActor func testDataStatusAtLargestTextSize() {
+        dataStatus(arguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+    }
+    @MainActor func testMissingStatsDoNotShowAnInventedZeroTotal() {
+        let app = start()
+        app.buttons["matchup-0001-0008"].tap()
+        let player = app.buttons["matchup-player-0001-starter-0-away"]
+        for _ in 0..<8 where !player.isHittable { app.swipeUp() }
+        player.tap()
+        let breakdown = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Points breakdown")).firstMatch
+        for _ in 0..<6 where !breakdown.isHittable { app.swipeUp() }
+        breakdown.tap()
+        let official = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "MFL points")).firstMatch
+        XCTAssertTrue(official.waitForExistence(timeout: 3))
+        XCTAssertTrue(official.label.contains("22.5"))
+        XCTAssertFalse(app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Shown stats total")).firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Not yet explained")).firstMatch.exists)
+        capture(app, "Data status — missing stats preserve official points")
+    }
+    @MainActor private func dataStatus(arguments: [String] = []) {
+        let app = start(arguments: arguments)
+        app.buttons["score-freshness"].tap()
+        XCTAssertTrue(app.navigationBars["Data status"].waitForExistence(timeout: 5))
+        capture(app, "Data status — compact service summary")
+        for title in ["MFL scores", "NFL player stats", "Background updates"] {
+            for _ in 0..<5 where !app.staticTexts[title].isHittable { app.swipeUp() }
+            XCTAssertTrue(app.staticTexts[title].exists)
+        }
+        let nfl = app.buttons["data-status-nfl"]
+        for _ in 0..<5 where !nfl.isHittable { app.swipeDown() }
+        nfl.tap()
+        XCTAssertTrue(app.staticTexts["Sample NFL stats; no live connection."].waitForExistence(timeout: 3))
+        capture(app, "Data status — brief source detail")
+        let about = app.buttons["about-projections"]
+        for _ in 0..<6 where !about.isHittable { app.swipeUp() }
+        XCTAssertTrue(about.isHittable); about.tap()
+        XCTAssertTrue(app.navigationBars["About projections"].waitForExistence(timeout: 3))
+        capture(app, "Data status — separate projection explanation")
+        app.navigationBars.buttons.firstMatch.tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["score-freshness"].waitForExistence(timeout: 3))
+    }
     @MainActor func testPointsBreakdownAndPersistentTimeline() {
         gameDayFeatures()
     }
@@ -26,8 +71,7 @@ final class ScoringSystemUITests: XCTestCase {
         capture(app,"Game day — optional recording details")
         app.navigationBars.buttons.firstMatch.tap()
         let receiver=app.buttons["matchup-player-0001-starter-6-away"]
-        for _ in 0..<12 where !receiver.isHittable { app.swipeUp() }
-        if receiver.frame.maxY > app.tabBars.firstMatch.frame.minY { app.swipeUp() }
+        revealControl(receiver, in: app)
         XCTAssertTrue(receiver.isHittable);receiver.tap()
         let breakdown=app.buttons.matching(NSPredicate(format:"label CONTAINS %@","Points breakdown")).firstMatch
         for _ in 0..<8 where !breakdown.isHittable { app.swipeUp() }
@@ -185,7 +229,7 @@ final class ScoringSystemUITests: XCTestCase {
         let app = start(arguments: ["--synthetic-scoring-change"])
         capture(app, "Scoring — aligned score blocks with change badges")
         let recent = app.descendants(matching: .any)["recent-scoring-changes"].firstMatch
-        for _ in 0..<8 where !recent.isHittable { app.swipeUp() }
+        revealControl(recent, in: app)
         XCTAssertTrue(recent.waitForExistence(timeout: 5))
         recent.tap()
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "→")).firstMatch.waitForExistence(timeout: 3))
