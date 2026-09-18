@@ -43,7 +43,9 @@ struct MatchupModeTeam {
             let game = feed.flatMap { $0.week == week ? $0.game(team: player.nflTeam) : nil }
             let info = MatchupGameInfo(player: player, availability: data, scope: scope, week: week,
                 scoringGames: scoringGames, nflGame: game, now: now)
-            let kickoff = game.map { Date(timeIntervalSince1970: $0.kickoff) } ?? data?.games[player.nflTeam]?.kickoff
+            // MatchupGameInfo also resolves the already-loaded MFL scoring
+            // schedule, even before another screen loads player availability.
+            let kickoff = info.kickoff ?? game.map { Date(timeIntervalSince1970: $0.kickoff) } ?? data?.games[player.nflTeam]?.kickoff
             let section: MatchupModeSection
             let state: String
             if let game, game.status != "NS" || !info.isLive {

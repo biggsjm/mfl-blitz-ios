@@ -23,8 +23,15 @@ final class CompactScoresUITests: XCTestCase {
             for _ in 0..<5 where !game.exists { app.swipeUp() }
             XCTAssertTrue(game.exists)
             guard game.exists else { continue }
-            XCTAssertLessThan(game.frame.height, hero.frame.height,
-                "League rows remain more compact than the featured matchup while allowing complete names and projections")
+            let teams = id.split(separator: "-").map(String.init)
+            let away = game.descendants(matching: .any)["hero-metrics-\(teams[0])"].firstMatch
+            let home = game.descendants(matching: .any)["hero-metrics-\(teams[1])"].firstMatch
+            XCTAssertTrue(away.exists && home.exists)
+            XCTAssertEqual(away.frame.maxX, home.frame.maxX, accuracy: 1,
+                "League cards share the hero's aligned points column")
+            XCTAssertTrue(game.descendants(matching: .any)["matchup-owner-\(teams[0])"].firstMatch.exists)
+            XCTAssertTrue(game.descendants(matching: .any)["matchup-record-\(teams[1])"].firstMatch.exists)
+            XCTAssertFalse(game.staticTexts["Between games"].exists)
         }
         for _ in 0..<6 where !hero.isHittable { app.swipeDown() }
         capture(app, "Compact scores — featured matchup and the league")

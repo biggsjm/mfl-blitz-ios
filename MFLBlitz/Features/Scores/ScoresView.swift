@@ -3,6 +3,7 @@ import SwiftUI
 struct ScoresView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.scenePhase) private var scenePhase
 
     private let columns = [GridItem(.adaptive(minimum: 330), spacing: 12)]
 
@@ -97,10 +98,10 @@ struct ScoresView: View {
                                 NavigationLink(value: model.browseScope.map {
                                     LiveMatchupRoute(scope: $0, week: model.scores.week, matchupID: matchup.id)
                                 }) {
-                                    MatchupCard(
-                                        matchup: matchup,
-                                        snapshot: model.scores
-                                    )
+                                    ScoringMatchupHero(matchup: matchup, snapshot: model.scores,
+                                        failed: model.scoreRefreshError != nil,
+                                        saved: model.isUsingCachedSession || model.cachedScoresDate != nil,
+                                        appearance: .standard)
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier("matchup-\(matchup.id)")
@@ -123,6 +124,12 @@ struct ScoresView: View {
         .navigationTitle(model.workspace?.leagueName ?? "Scores")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await model.refreshScores() }
+        .task(id: "\(scenePhase)|\(model.workspace?.storageScope ?? "none")|\(model.scores.week)") {
+            guard scenePhase == .active, !model.scores.matchups.isEmpty else { return }
+            // Reuse the shared cached schedule on first entry, even when the
+            // freshly loaded fantasy scores do not need another refresh.
+            await model.refreshScoringGames(week: model.scores.week)
+        }
     }
 
     private var weekBinding: Binding<Int> {
@@ -142,50 +149,5 @@ struct ScoresView: View {
             }
             .accessibilityIdentifier("scores-season-schedule")
         }
-    }
-}
-
-private struct MatchupCard: View {
-    @Environment(AppModel.self) private var model
-    let matchup: Matchup
-    let snapshot: ScoresSnapshot
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { context in
-            let freshness = ScoreFreshness(snapshot: snapshot, failed: model.scoreRefreshError != nil,
-                saved: model.isUsingCachedSession || model.cachedScoresDate != nil, preview: model.isDemo, now: context.date)
-            HStack(spacing: 8) {
-                VStack(spacing: 0) {
-                    team(matchup.away, freshness: freshness, now: context.date)
-                    Divider()
-                    team(matchup.home, freshness: freshness, now: context.date)
-                }
-                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
-            }
-            .padding(12)
-            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
-            .accessibilityElement(children: .combine)
-        }
-    }
-
-    private func team(_ team: MatchupTeam, freshness: ScoreFreshness, now: Date) -> some View {
-        let projection = ScoringGamePresentation.projection(for: team, in: matchup, stale: freshness.qualifiesGameState)
-        return HStack(alignment: .center, spacing: 8) {
-            TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 28, artworkURLs: team.artworkURLs)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(team.name).font(.subheadline.weight(.medium)).fixedSize(horizontal: false, vertical: true)
-                GameStateLabel(text: ScoringGamePresentation.label(for: matchup, stale: freshness.qualifiesGameState),
-                    live: matchup.status.isLive && !freshness.qualifiesGameState)
-            }
-            .accessibilityIdentifier("league-identity-\(team.id)")
-            Spacer(minLength: 4)
-            ScoreValue(points: team.reportedScore, projection: projection.points, precision: snapshot.scorePrecision,
-                font: .title3.weight(.medium),
-                liveEstimate: projection.isLiveEstimate, showProjection: projection.isVisible,
-                change: freshness.qualifiesGameState ? nil : model.scoringChanges.change(for: .init(matchupID: matchup.id, teamID: team.id), now: now), compact: true)
-                .accessibilityIdentifier("league-score-\(team.id)")
-        }
-        .padding(.vertical, 16)
     }
 }

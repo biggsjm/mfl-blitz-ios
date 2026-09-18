@@ -120,6 +120,35 @@ final class ScoringChangeTracker {
 }
 
 enum ScoringGamePresentation {
+    enum CardFooter: Equatable {
+        case nextGame(Date)
+        case status(String, live: Bool)
+    }
+
+    /// Next scheduled starter across either team, using existing weekly data.
+    /// Past kickoffs from a lagging schedule cannot hide a future game.
+    static func cardFooter(for matchup: Matchup, stale: Bool, away: MatchupModeTeam?, home: MatchupModeTeam?,
+                           activity: MatchupActivityAttributes.ContentState? = nil, now: Date) -> CardFooter? {
+        if matchup.status == .saved || matchup.status == .final {
+            return .status(label(for: matchup, stale: stale), live: false)
+        }
+        guard !stale else { return nil }
+        if let activity {
+            if activity.activePlayers > 0 { return .status("Live", live: true) }
+            return activity.nextKickoff.flatMap { $0 > now ? .nextGame($0) : nil }
+        }
+        let entries = (away?.entries ?? []) + (home?.entries ?? [])
+        if matchup.status.isLive || entries.contains(where: { $0.section == .inProgress }) {
+            return .status("Live", live: true)
+        }
+        if let next = entries.filter({ $0.section == .upcoming }).compactMap(\.kickoff).filter({ $0 > now }).min() {
+            return .nextGame(next)
+        }
+        if case .pregame(let next?) = matchup.status, next > now { return .nextGame(next) }
+        // No redundant "Between games" / "Upcoming" or invented kickoff.
+        return nil
+    }
+
     struct Projection: Equatable {
         var points: Double?
         var isLiveEstimate: Bool

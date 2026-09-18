@@ -167,6 +167,7 @@ struct RecentScoringChanges: View {
 /// Compact rows on Scores; mirrored columns above the matchup's players.
 struct ScoringMatchupHero: View {
     enum Layout { case teamRows, playerColumns }
+    enum Appearance { case hero, standard }
     @Environment(AppModel.self) private var model
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let matchup: Matchup
@@ -176,6 +177,14 @@ struct ScoringMatchupHero: View {
     var featured = false
     var teamLinks = false
     var layout: Layout = .teamRows
+    var appearance: Appearance = .hero
+
+    private var onDark: Bool { appearance == .hero }
+    private var secondaryColor: Color { onDark ? ScoringStyle.heroSecondary : .secondary }
+    private var projectionColor: Color { onDark ? ScoringStyle.heroProjection : ScoringStyle.projection }
+    private var backgroundColor: Color {
+        onDark ? Color(red: 0.035, green: 0.094, blue: 0.17) : Color(uiColor: .secondarySystemGroupedBackground)
+    }
 
     private var liveReceipt: ScoringLiveReceipt? {
         ScoringLiveReceipt(matchup: matchup, snapshot: snapshot,
@@ -211,7 +220,7 @@ struct ScoringMatchupHero: View {
                             Text("Points").gridColumnAlignment(.trailing)
                             if showsProjection { Text(projectionHeading).gridColumnAlignment(.trailing) }
                         }
-                        .font(.caption2).foregroundStyle(ScoringStyle.heroSecondary)
+                        .font(.caption2).foregroundStyle(secondaryColor)
                         .padding(.bottom, 2)
                         compactRow(displayed.away, projection: awayProjection, showsProjection: showsProjection,
                             progress: awayProgress, freshness: freshness, now: context.date)
@@ -220,18 +229,20 @@ struct ScoringMatchupHero: View {
                             progress: homeProgress, freshness: freshness, now: context.date)
                     }
                 }
-                rule
-                footer(displayed, freshness: freshness, away: awayProgress, home: homeProgress, now: context.date)
-                    .frame(maxWidth: .infinity).padding(.top, 10)
+                if let footer = ScoringGamePresentation.cardFooter(for: displayed, stale: freshness.qualifiesGameState,
+                    away: awayProgress, home: homeProgress, activity: receipt?.state, now: context.date) {
+                    rule
+                    footerView(footer).frame(maxWidth: .infinity).padding(.top, 10)
+                }
             }
             .padding(16)
-            .foregroundStyle(.white)
-            .background(Color(red: 0.035, green: 0.094, blue: 0.17), in: RoundedRectangle(cornerRadius: 20))
+            .foregroundStyle(onDark ? Color.white : Color.primary)
+            .background(backgroundColor, in: RoundedRectangle(cornerRadius: 20))
         }
     }
 
     private var rule: some View {
-        Rectangle().fill(.white.opacity(0.13)).frame(height: 0.5).accessibilityHidden(true)
+        Rectangle().fill(onDark ? Color.white.opacity(0.13) : Color(uiColor: .separator).opacity(0.35)).frame(height: 0.5).accessibilityHidden(true)
     }
 
     private func playerColumns(_ displayed: Matchup,
@@ -260,7 +271,7 @@ struct ScoringMatchupHero: View {
                     Text(remainingText(awayProgress) ?? "").frame(maxWidth: .infinity, alignment: .leading)
                     Text(remainingText(homeProgress) ?? "").frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                .font(.caption).foregroundStyle(ScoringStyle.heroSecondary).padding(.top, 6)
+                .font(.caption).foregroundStyle(secondaryColor).padding(.top, 6)
             }
         }
         .padding(.bottom, 12)
@@ -289,7 +300,7 @@ struct ScoringMatchupHero: View {
             HStack(spacing: 4) {
                 Text(projection.isLiveEstimate ? "Live est." : "Proj.")
                 projectionValue(projection)
-            }.font(.caption).foregroundStyle(ScoringStyle.heroProjection)
+            }.font(.caption).foregroundStyle(projectionColor)
         } else { Color.clear.frame(height: 1).gridCellUnsizedAxes(.horizontal) }
     }
 
@@ -329,7 +340,7 @@ struct ScoringMatchupHero: View {
     private func points(_ team: MatchupTeam, freshness: ScoreFreshness, now: Date) -> some View {
         ScoreValue(points: team.reportedScore, projection: nil, precision: snapshot.scorePrecision,
             font: layout == .playerColumns && dynamicTypeSize < .xxLarge ? .largeTitle.weight(.semibold) : .title2.weight(.semibold),
-            onDark: true, showProjection: false,
+            onDark: onDark, showProjection: false,
             change: freshness.qualifiesGameState ? nil : model.scoringChanges.change(for: .init(matchupID: matchup.id, teamID: team.id), now: now),
             compact: layout == .teamRows && dynamicTypeSize < .xxLarge)
         .accessibilityIdentifier("hero-metrics-\(team.id)")
@@ -337,14 +348,14 @@ struct ScoringMatchupHero: View {
 
     private func labeledPoints(_ team: MatchupTeam, freshness: ScoreFreshness, now: Date) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text("Points").font(.caption).foregroundStyle(ScoringStyle.heroSecondary)
+            Text("Points").font(.caption).foregroundStyle(secondaryColor)
             points(team, freshness: freshness, now: now)
         }
     }
 
     private func labeledProjection(_ projection: ScoringGamePresentation.Projection) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(projection.isLiveEstimate ? "Live est." : "Proj.").font(.caption).foregroundStyle(ScoringStyle.heroSecondary)
+            Text(projection.isLiveEstimate ? "Live est." : "Proj.").font(.caption).foregroundStyle(secondaryColor)
             projectionValue(projection).font(.title3)
         }
     }
@@ -352,7 +363,7 @@ struct ScoringMatchupHero: View {
     private func projectionValue(_ projection: ScoringGamePresentation.Projection) -> some View {
         let text = projection.points.flatMap { $0.isFinite ? $0.pointsText : nil } ?? "—"
         return Text(text).monospacedDigit().fixedSize()
-            .foregroundStyle(ScoringStyle.heroProjection)
+            .foregroundStyle(projectionColor)
             .accessibilityLabel("\(projection.isLiveEstimate ? "Estimated final score" : "Pregame projection"), \(text == "—" ? "unavailable" : text + " points")")
     }
 
@@ -373,18 +384,14 @@ struct ScoringMatchupHero: View {
         return upcoming > 0 ? "\(upcoming) to play" : nil
     }
 
-    @ViewBuilder private func footer(_ displayed: Matchup, freshness: ScoreFreshness,
-                                     away: MatchupModeTeam?, home: MatchupModeTeam?, now: Date) -> some View {
-        if let away, let home,
-           away.entries(in: .inProgress).isEmpty, home.entries(in: .inProgress).isEmpty,
-           let next = [away.nextKickoff, home.nextKickoff].compactMap({ $0 }).min(), next > now {
-            let started = away.entries.contains { $0.section == .completed } || home.entries.contains { $0.section == .completed }
-            Text("\(started ? "Next" : "Starts") \(next, format: .dateTime.weekday(.abbreviated).hour().minute())")
-                .font(.caption).foregroundStyle(ScoringStyle.heroSecondary)
+    @ViewBuilder private func footerView(_ footer: ScoringGamePresentation.CardFooter) -> some View {
+        switch footer {
+        case .nextGame(let next):
+            Text("Next game \(next, format: .dateTime.weekday(.abbreviated)) at \(next, format: .dateTime.hour().minute())")
+                .font(.caption).foregroundStyle(secondaryColor)
                 .accessibilityIdentifier("matchup-next-kickoff")
-        } else {
-            GameStateLabel(text: ScoringGamePresentation.label(for: displayed, stale: freshness.qualifiesGameState),
-                live: displayed.status.isLive && !freshness.qualifiesGameState, onDark: true)
+        case .status(let text, let live):
+            GameStateLabel(text: text, live: live, onDark: onDark)
         }
     }
 
@@ -398,12 +405,12 @@ struct ScoringMatchupHero: View {
     }
 
     private func owner(_ team: MatchupTeam) -> some View {
-        Text(ownerName(team) ?? "").font(.caption).foregroundStyle(ScoringStyle.heroSecondary)
+        Text(ownerName(team) ?? "").font(.caption).foregroundStyle(secondaryColor)
             .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("matchup-owner-\(team.id)")
     }
 
     private func record(_ team: MatchupTeam) -> some View {
-        Text(recordText(team) ?? "").font(.caption).monospacedDigit().foregroundStyle(ScoringStyle.heroSecondary)
+        Text(recordText(team) ?? "").font(.caption).monospacedDigit().foregroundStyle(secondaryColor)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityLabel(recordText(team).map { "Current record, \($0)" } ?? "")
             .accessibilityIdentifier("matchup-record-\(team.id)")
@@ -429,7 +436,7 @@ struct ScoringMatchupHero: View {
                         Text(remaining).fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .font(.caption).foregroundStyle(ScoringStyle.heroSecondary)
+                .font(.caption).foregroundStyle(secondaryColor)
             }
             .multilineTextAlignment(.leading)
         }

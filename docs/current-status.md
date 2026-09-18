@@ -1,5 +1,15 @@
 # Current app status
 
+## September 18: build 73 — consistent league score cards and next kickoff in release preparation
+
+Around the league now reuses the featured matchup's team rows, with owner names, records, playing/to-play counts and aligned Points / Proj. or Live est. columns. The standard cards retain their white light-mode surface and adaptive dark-mode surface; the featured card stays navy. Full-card matchup navigation and larger-text metric layouts are preserved.
+
+The shared footer replaces Between games / Upcoming filler with **Next game Sun at 12:15 PM** using the earliest known future kickoff for either team's starters in the viewed week. The day and time are localized and come from schedule data, including Saturday games. Bench kickoffs are excluded. Past kickoffs cannot mask a future game; missing or stale progress does not invent a date. Current Live/Final status remains when applicable, and a newer Live Activity receipt uses its own active count and next kickoff.
+
+Matchup grouping now includes the already-loaded MFL scoring schedule as a kickoff source. Scores requests that same shared, cache-eligible schedule on entry so the footer need not wait for a visit to Lineup or player details. Existing request coalescing/cache limits remain; there is no new polling loop, paid NFL-stat request or server change.
+
+Validation: 32 focused presentation/grouping tests and the native compact-card/player-navigation journey pass in `/tmp/mfl-league-cards-validation2.xcresult`; the final cached-schedule entry change also passes that native journey in `/tmp/mfl-league-cards-final.xcresult`. Native light, dark and accessibility-text renders were inspected in `/tmp/mfl-league-cards-shots`. The preview uses illustrative data, not live league results. Josh approved the native preview and requested TestFlight distribution. App and Live Activity versions are 0.7.0 (73); archive, signed-export verification, upload and tester-group assignment are pending. Build 72 remains the released beta until delivery is verified.
+
 ## September 17: build 72 — available in TestFlight and merged
 
 Tonight's BUF–DET diagnosis found inconsistent successful MFL NFL schedule responses: at 22:13 CDT one public response contained 170 seconds remaining (late Q4), at 22:20 the app-format request returned 967 seconds (Q3), and another public API response returned 1801 seconds (Q2). Responses identified different MFL target hosts. The league live-scoring export at 22:22 reported 119 seconds for active BUF/DET players. This demonstrates upstream schedule inconsistency, not a confirmed phone-cache cause or provider-wide outage. At 22:32, the separate NFL cache still contained provider status NS and no player box despite a recent receipt and no recorded failures/pause. Two subsequent budget-counted provider reads independently confirmed game 21529 still reported NS and its player-statistics endpoint returned zero rows. No service configuration changed; the existing request budget accounted for both reads.

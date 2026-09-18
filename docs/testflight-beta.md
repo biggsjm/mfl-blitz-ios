@@ -1,5 +1,7 @@
 # MFL Blitz — closed league TestFlight
 
+Build 73 is in release preparation. It gives league matchup cards the featured card’s aligned team/owner/record/score layout on a standard surface and replaces quiet-period filler with the next scheduled starter kickoff. Build 72 remains the latest verified Testing build until the delivery record is updated.
+
 Build 72 is **Testing** for Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It includes the Data status sheet and missing-stats presentation from build 71. MFL remaining time now shows Live instead of an inferred NFL quarter/clock; clearly lagging NFL scoreboards are labeled Last known; manual game-data refresh waits for the shared refresh to finish. Provider delays can still affect when NFL stats arrive. All six CI jobs passed and PR #17 is merged; see [current status](current-status.md) for delivery evidence. Phone installation remains unverified.
 
 Build 71 is **Testing** for Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It adds a compact Data status sheet with scoped feed/connection evidence and removes invented zero totals when player stats are missing. No new provider requests or backend changes are required. The combined build-71/72 source is merged in PR #17; see [current status](current-status.md) for delivery evidence. Build 71 phone installation remains unverified.
