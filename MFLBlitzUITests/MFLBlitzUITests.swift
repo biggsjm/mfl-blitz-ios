@@ -1170,7 +1170,7 @@ final class MFLBlitzUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Starting lineups"].exists)
         XCTAssertTrue(app.staticTexts["matchup-owner-0001"].label.contains("Demo Owner"))
         let liveQuarterback = app.buttons["matchup-player-0001-starter-0-away"]
-        wait(for: [expectation(for: NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "DAL 24 · CHI 17", "~Q3 7:45"),
+        wait(for: [expectation(for: NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "DAL 24 · CHI 17", "Live"),
             evaluatedWith: liveQuarterback)], timeout: 5)
         let quarterbackComparison = app.staticTexts["position-QB"]
         XCTAssertTrue(quarterbackComparison.exists)

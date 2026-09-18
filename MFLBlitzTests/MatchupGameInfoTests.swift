@@ -89,7 +89,7 @@ struct MatchupGameInfoTests {
                 score: 24, opponentScore: 17, gameSecondsRemaining: 1404, hasPossession: true)], checkedAt: now)
         let info = MatchupGameInfo(player: player(seconds: 2700), availability: nil,
             scope: "league", week: 1, scoringGames: data, now: now)
-        #expect(info.scoreLabel == "DAL 24 · NYG 17" && info.status == "~Q3 8:24")
+        #expect(info.scoreLabel == "DAL 24 · NYG 17" && info.status == "Live")
         #expect(info.isLive && !info.gameIsStale && info.possessionLabel == "Has ball")
         data.failed = true
         let stale = MatchupGameInfo(player: player(seconds: 2700), availability: nil,
@@ -108,19 +108,49 @@ struct MatchupGameInfoTests {
     }
 
     @Test func clockBoundariesDoNotInventHalftimeOrOvertime() {
-        #expect(MatchupGameInfo.regulationClock(seconds: 3599) == "~Q1 14:59")
-        #expect(MatchupGameInfo.regulationClock(seconds: 1801) == "~Q2 0:01")
-        #expect(MatchupGameInfo.regulationClock(seconds: 1800) == "30:00 game time left")
-        #expect(MatchupGameInfo.regulationClock(seconds: 1799) == "~Q3 14:59")
-        #expect(MatchupGameInfo.regulationClock(seconds: 1) == "~Q4 0:01")
-        for seconds in [-1, 0, 3600, 3601] { #expect(MatchupGameInfo.regulationClock(seconds: seconds) == nil) }
         let now = kickoff.addingTimeInterval(7200)
+        for seconds in [3599, 1801, 1800, 1799, 967, 1] {
+            let schedule = NFLScoringSnapshot(scope: "league", week: 1,
+                games: ["DAL": NFLGameContext(opponent: "NYG", isHome: false, kickoff: kickoff,
+                    score: 24, opponentScore: 17, gameSecondsRemaining: seconds)], checkedAt: now)
+            let info = MatchupGameInfo(player: player(seconds: 119), availability: nil,
+                scope: "league", week: 1, scoringGames: schedule, now: now)
+            #expect(info.isLive && info.status == "Live")
+        }
         let tie = NFLScoringSnapshot(scope: "league", week: 1,
             games: ["DAL": NFLGameContext(opponent: "NYG", isHome: false, kickoff: kickoff,
                 score: 24, opponentScore: 24, gameSecondsRemaining: 0)], checkedAt: now)
         let info = MatchupGameInfo(player: player(seconds: 0), availability: nil,
             scope: "league", week: 1, scoringGames: tie, now: now)
         #expect(info.status == "Regulation complete")
+    }
+
+    @Test(arguments: [("Q4", "2:00", "Q4 2:00"), ("HT", nil, "Halftime"), ("OT", "5:00", "Overtime 5:00")])
+    func verifiedNFLGameStateWinsOverMFLFallback(status: String, timer: String?, expected: String) {
+        let now = kickoff.addingTimeInterval(7200)
+        let schedule = NFLScoringSnapshot(scope: "league", week: 1,
+            games: ["DAL": NFLGameContext(opponent: "NYG", isHome: false, kickoff: kickoff,
+                score: 24, opponentScore: 17, gameSecondsRemaining: 1469)], checkedAt: now)
+        let game = NFLFeedGame(id: 1, season: 2026, week: 1, kickoff: kickoff.timeIntervalSince1970,
+            status: status, timer: timer, home: "NYG", away: "DAL", homeScore: 24, awayScore: 40,
+            checkedAt: now.timeIntervalSince1970, stale: false, players: [], statsCheckedAt: nil, statsStale: true)
+        let info = MatchupGameInfo(player: player(seconds: 119), availability: nil,
+            scope: "league", week: 1, scoringGames: schedule, nflGame: game, now: now)
+        #expect(info.status == expected && info.scoreLabel == "DAL 40 · NYG 24")
+    }
+
+    @Test func freshHTTPReceiptCannotHideAnNFLScoreboardBehindPlayerScoring() {
+        let now = kickoff.addingTimeInterval(10800)
+        for seconds in [1469, 967, 150] {
+            let schedule = NFLScoringSnapshot(scope: "league", week: 1,
+                games: ["DAL": NFLGameContext(opponent: "NYG", isHome: false, kickoff: kickoff,
+                    score: 27, opponentScore: 17, gameSecondsRemaining: seconds, hasPossession: true)], checkedAt: now)
+            let info = MatchupGameInfo(player: player(seconds: 119), availability: nil,
+                scope: "league", week: 1, scoringGames: schedule, now: now)
+            #expect(info.status == "Live" && info.scoreLabel == "DAL 27 · NYG 17")
+            #expect(info.gameIsStale == (seconds > 239))
+            #expect(info.possessionLabel == (seconds > 239 ? nil : "Has ball"))
+        }
     }
 
     @Test("Repeated matchup and player visits reuse the cached weekly read") @MainActor

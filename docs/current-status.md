@@ -1,5 +1,15 @@
 # Current app status
 
+## September 17: build 72 — clock fallback and manual refresh follow-up in validation
+
+Tonight's BUF–DET diagnosis found inconsistent successful MFL NFL schedule responses: at 22:13 CDT one public response contained 170 seconds remaining (late Q4), at 22:20 the app-format request returned 967 seconds (Q3), and another public API response returned 1801 seconds (Q2). Responses identified different MFL target hosts. The league live-scoring export at 22:22 reported 119 seconds for active BUF/DET players. This demonstrates upstream schedule inconsistency, not a confirmed phone-cache cause or provider-wide outage. At 22:32, the separate NFL cache still contained provider status NS and no player box despite a recent receipt and no recorded failures/pause. Diagnostics were bounded, read-only; no service configuration changed.
+
+The follow-up removes inferred ~Q quarter/clocks from MFL remaining time. MFL-confirmed play shows Live; actual NFL quarter, halftime and overtime remain available when supplied by the NFL feed. An MFL scoreboard more than two game minutes behind its player clock is marked last known and does not advertise possession. A successful network receipt alone does not override that evidence. No stat values or new clock values are invented.
+
+Manual NFL-game refresh now joins an in-flight forced read, or upgrades a cache-eligible read once before returning. Automatic requests still coalesce and do not hold up fantasy scoring; normal cadence and provider budgets are unchanged. Session resets cancel these shared reads, and replaced-session responses cannot publish or trigger the upgrade.
+
+Build 71 is already Testing as recorded below. Local build-72 validation passes 416 Swift Testing cases, four native layout checks, and three native UI journeys (matchup fallback, cold Live Activity link, and largest-text points/timeline). The final delayed-scoreboard and refresh refinements pass 35 targeted cases in `/tmp/mfl72-final-model-validation.xcresult`; the broad run is `/tmp/mfl72-refresh-validation.xcresult`. Build 72 delivery and the combined source merge remain pending. The remaining CI scoring failure was an existing largest-text test that scrolled only downward past its player target; it now uses the measured visible-control helper. The cold Safari handoff has a 30-second process-attachment wait; navigation/data assertions are unchanged.
+
 ## September 17: build 71 — available in TestFlight; merge validation in progress
 
 The scoring freshness control now opens a compact Data status sheet for MFL scores, NFL player stats, background Live Activity updates and enabled lineup alerts. Each row uses an icon plus a short status, with an expandable reason and the actual source receipt where available. Projection help is separate. Largest accessibility text opens a full-height sheet. Status is scoped to the viewed week, matchup or player; it is not a provider-wide uptime claim.

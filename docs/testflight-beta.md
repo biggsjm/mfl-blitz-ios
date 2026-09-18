@@ -1,5 +1,7 @@
 # MFL Blitz — closed league TestFlight
 
+Build 72 follow-up is in validation: MFL remaining time no longer appears as an inferred NFL quarter/clock; delayed NFL scoreboards are labeled last known; manual game-data refresh waits for the shared refresh to finish. Build 71 remains the latest verified Testing build until the delivery record below is updated.
+
 Build 71 is **Testing** for Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It adds a compact Data status sheet with scoped feed/connection evidence and removes invented zero totals when player stats are missing. No new provider requests or backend changes are required. Source merge validation is in progress; see [current status](current-status.md) for delivery evidence. Build 71 phone installation remains unverified.
 
 Build 70 is **Testing** for Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It adds compact team rows on Scores and a side-by-side header above the full matchup's player columns, with current live estimates and a shared kickoff. Larger text moves metrics below the team identity. A delayed NFL upcoming status no longer hides MFL-confirmed active players. All six CI checks passed and PR #16 is merged. See [current status](current-status.md) for delivery evidence; build 70 phone installation remains unverified.

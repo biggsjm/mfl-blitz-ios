@@ -29,7 +29,7 @@ final class ActivityDeepLinkUITests: XCTestCase {
         // Preview is deliberately not persisted as a signed-in account;
         // verify the visible screen and resume it to consume the queued URL.
         // Querying UI also reconnects XCTest to the externally launched process.
-        enterPreview(in: app)
+        enterPreview(in: app, timeout: 30)
         let opened = app.navigationBars["Week 1 Matchup"].waitForExistence(timeout: 8)
         XCTAssertTrue(opened)
         guard opened else { return }
@@ -54,13 +54,13 @@ final class ActivityDeepLinkUITests: XCTestCase {
         XCTAssertTrue(app.buttons["matchup-0001-0008"].waitForExistence(timeout: 5))
         return app
     }
-    @MainActor private func enterPreview(in app: XCUIApplication) {
+    @MainActor private func enterPreview(in app: XCUIApplication, timeout: TimeInterval = 8) {
         let preview = app.buttons["Preview Champion Hall"]
         // Unsigned simulator builds can report unavailable secure storage.
         let alert = app.alerts["Something went wrong"]
         let ready = app.descendants(matching: .any).matching(NSPredicate(
             format: "label == %@ OR label == %@", "Preview Champion Hall", "Something went wrong")).firstMatch
-        XCTAssertTrue(ready.waitForExistence(timeout: 8))
+        XCTAssertTrue(ready.waitForExistence(timeout: timeout))
         if alert.exists {
             XCTAssertTrue(alert.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Couldn’t restore your MFL session")).firstMatch.exists)
             alert.buttons["OK"].tap()

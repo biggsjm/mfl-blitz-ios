@@ -71,8 +71,7 @@ final class ScoringSystemUITests: XCTestCase {
         capture(app,"Game day — optional recording details")
         app.navigationBars.buttons.firstMatch.tap()
         let receiver=app.buttons["matchup-player-0001-starter-6-away"]
-        for _ in 0..<12 where !receiver.isHittable { app.swipeUp() }
-        if receiver.frame.maxY > app.tabBars.firstMatch.frame.minY { app.swipeUp() }
+        revealControl(receiver, in: app)
         XCTAssertTrue(receiver.isHittable);receiver.tap()
         let breakdown=app.buttons.matching(NSPredicate(format:"label CONTAINS %@","Points breakdown")).firstMatch
         for _ in 0..<8 where !breakdown.isHittable { app.swipeUp() }
