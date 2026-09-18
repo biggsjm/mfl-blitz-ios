@@ -1,6 +1,6 @@
 # MFL Blitz
 
-Build 66 is the first TestFlight candidate: fewer browsing requests, shared server rate-limit handling, retained trade History and production build/privacy preparation. Its signed App Store export is verified; production push activation, App Store Connect setup and actual TestFlight delivery remain pending. See [beta setup](docs/testflight-beta.md) and [delivery status](docs/current-status.md).
+Build 69 is available in TestFlight for the owner and league testers. Build 70 is being prepared with compact team rows on Scores, an aligned side-by-side matchup header and a fallback for delayed NFL kickoff status. See [scoring presentation](docs/scoring-visual-system.md), [beta setup](docs/testflight-beta.md) and [delivery status](docs/current-status.md).
 
 > Deep enough for MFL. Calm enough for Sunday.
 

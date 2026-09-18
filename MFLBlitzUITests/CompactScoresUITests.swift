@@ -13,10 +13,10 @@ final class CompactScoresUITests: XCTestCase {
         let homeMetrics = app.descendants(matching: .any)["hero-metrics-0008"].firstMatch
         XCTAssertTrue(awayMetrics.exists)
         XCTAssertTrue(homeMetrics.exists)
-        XCTAssertEqual(awayMetrics.frame.minY, homeMetrics.frame.minY, accuracy: 1,
-            "Team names with different line counts must not misalign the score rows")
-        XCTAssertEqual(awayMetrics.frame.width, homeMetrics.frame.width, accuracy: 1,
-            "The two mirrored matchup halves should have equal widths")
+        XCTAssertEqual(awayMetrics.frame.maxX, homeMetrics.frame.maxX, accuracy: 1,
+            "Team scores must share one right-aligned column")
+        XCTAssertLessThan(awayMetrics.frame.maxY, homeMetrics.frame.minY,
+            "Each team's score belongs in its own compact row")
         let leagueGames = ["0002-0011", "0003-0007", "0004-0009", "0005-0010", "0006-0012"]
         for id in leagueGames {
             let game = app.buttons["matchup-\(id)"]

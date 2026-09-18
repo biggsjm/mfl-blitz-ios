@@ -1231,11 +1231,11 @@ final class MFLBlitzUITests: XCTestCase {
         // NFL scoring now supplies kickoff independently of the delayed
         // availability request, so the caption may already be complete.
         XCTAssertFalse(app.progressIndicators.firstMatch.exists)
-        let updated = expectation(for: NSPredicate(format: "label CONTAINS %@", "vs CHI ·"), evaluatedWith: player)
+        let updated = expectation(for: NSPredicate(format: "label CONTAINS %@", "vs CHI"), evaluatedWith: player)
         wait(for: [updated], timeout: 25)
         XCTAssertFalse(player.label.contains("Yet to play"))
-        let kickoff = player.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "^vs CHI · (Mon|Tue|Wed|Thu|Fri|Sat|Sun) [0-9].*")).firstMatch
-        XCTAssertTrue(kickoff.exists, "Opponent, day, and time remain together in the compact game caption")
+        let kickoff = player.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) [0-9].* · vs CHI.*")).firstMatch
+        XCTAssertTrue(kickoff.exists, "Day, time, and opponent remain together in the compact game caption")
         XCTAssertLessThanOrEqual(kickoff.frame.maxY, player.frame.maxY + 1, "The complete caption fits inside its player area")
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Times in ")).firstMatch.exists)
         let screenshot = XCTAttachment(screenshot: app.screenshot())

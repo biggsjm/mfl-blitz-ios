@@ -19,9 +19,21 @@ struct MatchupGameInfo {
         let data = availability.flatMap { $0.scope == scope && $0.week == week ? $0 : nil }
         let liveData = scoringGames.flatMap { $0.scope == scope && $0.week == week ? $0 : nil }
         let liveGame = liveData?.games[player.nflTeam]
-        let game = liveGame ?? data?.games[player.nflTeam]
-        if let nflGame, nflGame.week == week,
-           [nflGame.home, nflGame.away].contains(NFLFeedGame.team(player.nflTeam)) {
+        let providerGame = nflGame.flatMap {
+            $0.week == week && [$0.home, $0.away].contains(NFLFeedGame.team(player.nflTeam)) ? $0 : nil
+        }
+        let seconds = liveGame?.gameSecondsRemaining
+        // NFL providers can still report NS after MFL starts scoring. A real
+        // running clock proves play; scheduled kickoff or points alone do not.
+        let mflIsLive = seconds.map { (1..<3600).contains($0) } == true ||
+            (player.gameState == .live && (seconds == nil || seconds == 3600))
+        let schedule = providerGame.map {
+            let home = NFLFeedGame.team(player.nflTeam) == $0.home
+            return NFLGameContext(opponent: home ? $0.away : $0.home, isHome: home,
+                kickoff: Date(timeIntervalSince1970: $0.kickoff))
+        }
+        let game = liveGame ?? data?.games[player.nflTeam] ?? schedule
+        if let nflGame = providerGame, nflGame.status != "NS" || !mflIsLive {
             let ownHome = NFLFeedGame.team(player.nflTeam) == nflGame.home
             let other = ownHome ? nflGame.away : nflGame.home
             opponent = "\(ownHome ? "vs" : "@") \(other)"
@@ -38,10 +50,9 @@ struct MatchupGameInfo {
             symbol = nflGame.isLive ? "dot.radiowaves.left.and.right" : nflGame.isFinal ? "checkmark.circle" : "clock"
             return
         }
-        let seconds = liveGame?.gameSecondsRemaining
         gameIsStale = liveData?.isStale(now: now) ?? false
         gameCheckedAt = liveGame == nil ? nil : liveData?.checkedAt
-        isLive = seconds.map { (1..<3600).contains($0) } ?? (player.gameState == .live)
+        isLive = mflIsLive
         if let liveGame, let own = liveGame.score, let other = liveGame.opponentScore,
            seconds != 3600, liveGame.kickoff.map({ $0 <= now }) ?? true {
             scoreLabel = "\(player.nflTeam) \(own) · \(liveGame.opponent) \(other)"

@@ -65,6 +65,14 @@ struct MatchupModeTests {
         let result = MatchupModeTeam(team: team([player("one", "DAL", 3600, 0)]), week: 1, scope: nil, feed: feed, availability: nil)
         #expect(result.entries[0].section == .upcoming)
     }
+    @Test func activePlayersRemainVisibleWhileNFLProviderWaitsForKickoff() {
+        let value = team([player("active", "DAL", 3249, 3), player("later", "BUF", 3600, 0)], score: 3)
+        let result = MatchupModeTeam(team: value, week: 1, scope: "one", feed: feed(status: "NS"), availability: nil)
+        #expect(result.entries(in: .inProgress).map(\.id) == ["active"])
+        #expect(result.entries(in: .upcoming).map(\.id) == ["later"])
+        #expect(result.entries(in: .inProgress).first?.state == "Live")
+        #expect(result.points(in: .inProgress) == 3 && result.difference == 0)
+    }
     @Test func tiedRegulationWithoutVerifiedFinalStaysUnclassified() {
         let now = Date()
         let games = NFLScoringSnapshot(scope: "one", week: 1,
