@@ -2,7 +2,7 @@
 
 ## September 17 — compact matchup summary
 
-Approved for build 70: option B on Scores, side-by-side matchup columns aligned with the players, and the delayed-NFL-kickoff fallback. See [scoring presentation](scoring-visual-system.md) and [verification status](current-status.md). Josh authorized TestFlight distribution followed by merge; delivery is tracked separately from implementation.
+Released in TestFlight build 70 and merged in PR #16 after all six CI checks passed: option B on Scores, side-by-side matchup columns aligned with the players, and the delayed-NFL-kickoff fallback. See [scoring presentation](scoring-visual-system.md) and [verification status](current-status.md). Both existing tester groups show Testing; phone installation of this version remains unverified.
 
 ## September 14 review priorities
 

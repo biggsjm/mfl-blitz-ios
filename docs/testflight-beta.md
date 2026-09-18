@@ -1,6 +1,6 @@
 # MFL Blitz — closed league TestFlight
 
-Build 70 is being prepared for the same groups. It adds compact team rows on Scores and a side-by-side header above the full matchup's player columns, with current live estimates and a shared kickoff. Larger text moves metrics below the team identity. A delayed NFL upcoming status no longer hides MFL-confirmed active players. Distribution is pending until the [current status](current-status.md) records delivery.
+Build 70 is **Testing** for Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It adds compact team rows on Scores and a side-by-side header above the full matchup's player columns, with current live estimates and a shared kickoff. Larger text moves metrics below the team identity. A delayed NFL upcoming status no longer hides MFL-confirmed active players. All six CI checks passed and PR #16 is merged. See [current status](current-status.md) for delivery evidence; build 70 phone installation remains unverified.
 
 Build 69 is **Testing** for both Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It includes shared player name/team/jersey headings, day-first game captions and trailing status, a position-sorted lineup bench, and consistent far-right Search controls. Post-merge CI exposed three outdated UI assertions/scroll helpers; the build-70 work includes their verified fixes. See [current status](current-status.md) for evidence. Installation of build 69 on a phone remains unverified.
 
@@ -9,7 +9,7 @@ Build 68 retains build 67's automatic league services for invited owners. Build 
 ## Tester setup
 
 1. On an iPhone running iOS 18 or later, install Apple's TestFlight app and accept the emailed invitation once Apple approves the beta.
-2. Install build 69 or newer. Connect using your own MFL account and team. Co-owners sign in independently.
+2. Install build 70 or newer. Connect using your own MFL account and team. Co-owners sign in independently.
 3. Enhanced NFL stats and background scoring connect automatically. No access code, Tailscale app or server address is needed.
 4. For optional lineup alerts, open Lineup's toolbar bell, choose alerts and allow iOS notifications. Live Activity preferences remain in My Team → Settings.
 
@@ -38,7 +38,7 @@ A missing pending trade is labeled Closed unless its outcome is confirmed. Histo
 
 Use the existing app and testing groups. The closed external group contains 12 invited addresses; initial instructions were emailed. No public TestFlight link or developer staff roles are needed. The [automatic-access runbook](league-beta-access.md) describes private team configuration, independent device credentials, request budgets, revocation and migration. Do not email manual codes or share an owner's MFL credentials.
 
-Archive a clean reviewed revision with `scripts/archive_testflight.sh`, setting both `MFL_BACKGROUND_SYNC_URL` and `NFL_SCORING_URL` to the deployed authenticated gateway. On this Mac use `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`; stable Xcode 27 (27A266a) is accepted by Apple, while the older beta toolchain was rejected. The script archives only tracked files to exclude unrelated synchronized duplicates. Export using `scripts/TestFlightExportOptions.plist` and validate the IPA with `scripts/verify_testflight_export.py`. Export and upload are separate steps. Xcode requires its own Apple Account login, independent of the App Store Connect browser session.
+Archive a clean reviewed revision with `scripts/archive_testflight.sh`, setting both `MFL_BACKGROUND_SYNC_URL` and `NFL_SCORING_URL` to the deployed authenticated gateway. On this Mac use `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`; stable Xcode 27 (27A266a) is accepted by Apple, while the older beta toolchain was rejected. The script archives only tracked files to exclude unrelated synchronized duplicates. Export using `scripts/TestFlightExportOptions.plist` and validate the IPA with `scripts/verify_testflight_export.py`. Export and upload are separate steps. Build 70 was archived with stable Xcode and uploaded successfully using the already-installed beta after account sign-in; this does not change the stable archive requirement. Xcode requires its own Apple Account login, independent of the App Store Connect browser session.
 
 Production APNs signing is configured on the server. Never include signing keys or provider credentials in source, chat, settings or command arguments. Signed distribution profiles and signer readiness do not prove phone delivery. Verify upgrade, automatic team enrollment and actual Live Activity/lineup behavior on a TestFlight phone. Keep the canonical Hephaestus inventory current when service access or responsibilities change.
 

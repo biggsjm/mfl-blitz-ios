@@ -1,6 +1,6 @@
 # MFL Blitz
 
-Build 69 is available in TestFlight for the owner and league testers. Build 70 is being prepared with compact team rows on Scores, an aligned side-by-side matchup header and a fallback for delayed NFL kickoff status. See [scoring presentation](docs/scoring-visual-system.md), [beta setup](docs/testflight-beta.md) and [delivery status](docs/current-status.md).
+Build 70 is available in TestFlight for the owner and league testers, with compact team rows on Scores, an aligned side-by-side matchup header and a fallback for delayed NFL kickoff status. See [scoring presentation](docs/scoring-visual-system.md), [beta setup](docs/testflight-beta.md) and [delivery status](docs/current-status.md).
 
 > Deep enough for MFL. Calm enough for Sunday.
 
@@ -10,7 +10,7 @@ MFL Blitz is an independent, native SwiftUI companion for [MyFantasyLeague](http
 
 ## Product status
 
-**0.7.0 (66) — signed candidate, not uploaded:** Foreground refresh targets the visible tab; My Team checks offers without loading all trade assets. Closed offers retain their terms and unread state, with unknown outcomes labeled Closed. Backend request controls and production signer support are deployed; production credentials and Apple beta setup are pending. Build 65 remains installed on the owner's phone. See [verification and remaining gates](docs/testflight-beta.md).
+**0.7.0 (70) — available in TestFlight:** The owner and existing league groups show Testing. PR #16 is merged after all six CI checks passed. Enhanced NFL stats and background scoring connect automatically for invited owners; optional lineup alerts use the toolbar bell. See [beta setup and device checks](docs/testflight-beta.md).
 
 **0.6.4 (65) — installed and launched on the owner's iPhone:** Standings reconcile MFL's preliminary records with the completed matchup schedule and honor the configured tiebreakers. Confirmed against the owner's Week 1 division reports; included in build 66.
 
