@@ -119,13 +119,17 @@ final class ScoringSystemUITests: XCTestCase {
         let homeRecord = app.staticTexts["matchup-record-0008"]
         XCTAssertTrue(awayOwner.waitForExistence(timeout: 5))
         XCTAssertTrue(homeOwner.exists && awayRecord.exists && homeRecord.exists)
-        XCTAssertEqual(awayOwner.frame.minX, homeOwner.frame.minX, accuracy: 1)
-        XCTAssertEqual(awayRecord.frame.minX, homeRecord.frame.minX, accuracy: 1)
+        XCTAssertEqual(awayOwner.frame.minY, homeOwner.frame.minY, accuracy: 1)
+        XCTAssertEqual(awayRecord.frame.minY, homeRecord.frame.minY, accuracy: 1)
         XCTAssertEqual(awayOwner.frame.minX, awayRecord.frame.minX, accuracy: 1)
-        XCTAssertLessThan(awayRecord.frame.maxY, homeOwner.frame.minY)
+        XCTAssertEqual(homeOwner.frame.maxX, homeRecord.frame.maxX, accuracy: 1)
+        let awayPoints = app.descendants(matching: .any)["hero-metrics-0001"].firstMatch
+        let homePoints = app.descendants(matching: .any)["hero-metrics-0008"].firstMatch
+        XCTAssertEqual(awayPoints.frame.minY, homePoints.frame.minY, accuracy: 1)
+        XCTAssertLessThan(awayPoints.frame.maxX, homePoints.frame.minX)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Estimated final score")).firstMatch.exists)
         XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Leading by")).firstMatch.exists)
-        capture(app, "Matchup — compact team rows and live estimates")
+        capture(app, "Matchup — aligned team columns and live estimates")
     }
 
     @MainActor func testLivePlayerDefaultsToWeekAndCanSwitchToCard() {

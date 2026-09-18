@@ -2,6 +2,8 @@
 
 Build 55 adds API-NFL enrichment to MFL scoring. Fantasy points, lineup state and live estimates remain from MFL. Player rows show a short NFL stat line; the player's Week screen shows grouped box-score fields and their own source receipt. NFL game context uses the provider's actual quarter, clock, halftime, overtime and final status. No synthetic ticking clock or fantasy-point calculation is added.
 
+The pending build-70 kickoff fallback handles a delayed provider `NS` response: a running MFL game/player clock keeps the player live and visible in Live players. The provider's scheduled opponent remains available, while missing NFL scores and player stats stay unavailable until supplied. Kickoff time or fantasy points alone never prove live play. This reconciliation changes presentation only and adds no requests.
+
 Build 56 fixes missing receiving/rushing touchdowns in matchup summaries. Passing and rushing TDs, interceptions thrown, two-point conversions, fumbles lost/recovered, kicking conversions and available distance buckets, individual defensive events and return scores remain visible across all stat groups. Rows wrap to fit; neither a two-group cap nor a three-line cap can hide scoring events. The cached Brenton Strange Week 1 example now reads **2 rec · 23 rec yd · 1 rec TD**. The full player box retains its existing presentation.
 
 ## Request budget

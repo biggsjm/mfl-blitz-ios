@@ -2,7 +2,8 @@
 
 ## 0.7.0 (70) — compact matchup summary
 
-- Use compact team rows in the Scores featured matchup and matchup detail header, with shared Points/Projection columns, owner names and records beneath each team, and one shared next kickoff. Live estimates, score-change indicators and stale-data handling remain intact; accessibility text uses stacked metrics.
+- Use compact team rows on Scores, and side-by-side team columns above the full matchup's players. Align owners, records and points across the matchup; retain live estimates, score-change indicators, shared kickoff and accessible larger-text layouts.
+- Keep MFL-confirmed live players visible when the NFL provider still reports an upcoming game. Preserve known opponents without inventing missing NFL scores or stats; request budgets and refresh timing are unchanged.
 
 ## 0.7.0 (69) — scannable player rows
 

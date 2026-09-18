@@ -162,8 +162,9 @@ struct RecentScoringChanges: View {
     }
 }
 
-/// Same hierarchy on the league page and inside the two-team comparison.
+/// Compact rows on Scores; mirrored columns above the matchup's players.
 struct ScoringMatchupHero: View {
+    enum Layout { case teamRows, playerColumns }
     @Environment(AppModel.self) private var model
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let matchup: Matchup
@@ -172,6 +173,7 @@ struct ScoringMatchupHero: View {
     var saved = false
     var featured = false
     var teamLinks = false
+    var layout: Layout = .teamRows
 
     private var liveReceipt: ScoringLiveReceipt? {
         ScoringLiveReceipt(matchup: matchup, snapshot: snapshot,
@@ -194,6 +196,9 @@ struct ScoringMatchupHero: View {
                     accessibleRow(displayed.away, projection: awayProjection, progress: awayProgress, freshness: freshness, now: context.date)
                     rule
                     accessibleRow(displayed.home, projection: homeProjection, progress: homeProgress, freshness: freshness, now: context.date)
+                } else if layout == .playerColumns {
+                    playerColumns(displayed, awayProjection: awayProjection, homeProjection: homeProjection,
+                        awayProgress: awayProgress, homeProgress: homeProgress, freshness: freshness, now: context.date)
                 } else {
                     // One grid keeps both numeric columns aligned, including
                     // long team names and scores with different digit counts.
@@ -225,6 +230,65 @@ struct ScoringMatchupHero: View {
 
     private var rule: some View {
         Rectangle().fill(.white.opacity(0.13)).frame(height: 0.5).accessibilityHidden(true)
+    }
+
+    private func playerColumns(_ displayed: Matchup,
+                               awayProjection: ScoringGamePresentation.Projection, homeProjection: ScoringGamePresentation.Projection,
+                               awayProgress: MatchupModeTeam?, homeProgress: MatchupModeTeam?,
+                               freshness: ScoreFreshness, now: Date) -> some View {
+        Grid(horizontalSpacing: 20, verticalSpacing: 5) {
+            GridRow(alignment: .top) {
+                columnIdentity(displayed.away, trailing: false).gridColumnAlignment(.leading)
+                columnIdentity(displayed.home, trailing: true).gridColumnAlignment(.trailing)
+            }
+            GridRow { owner(displayed.away); owner(displayed.home).multilineTextAlignment(.trailing) }
+            GridRow { record(displayed.away); record(displayed.home) }
+            GridRow {
+                points(displayed.away, freshness: freshness, now: now).padding(.top, 7)
+                points(displayed.home, freshness: freshness, now: now).padding(.top, 7)
+            }
+            if awayProjection.isVisible || homeProjection.isVisible {
+                GridRow {
+                    columnProjection(awayProjection)
+                    columnProjection(homeProjection)
+                }
+            }
+            if remainingText(awayProgress) != nil || remainingText(homeProgress) != nil {
+                GridRow {
+                    Text(remainingText(awayProgress) ?? "").frame(maxWidth: .infinity, alignment: .leading)
+                    Text(remainingText(homeProgress) ?? "").frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .font(.caption).foregroundStyle(ScoringStyle.heroSecondary).padding(.top, 6)
+            }
+        }
+        .padding(.bottom, 12)
+    }
+
+    @ViewBuilder private func columnIdentity(_ team: MatchupTeam, trailing: Bool) -> some View {
+        if teamLinks, let scope = model.browseScope {
+            NavigationLink(value: TeamRoute(scope: scope, franchiseID: team.id)) {
+                columnIdentityContent(team, trailing: trailing)
+            }.buttonStyle(.plain).accessibilityIdentifier("matchup-team-\(team.id)")
+        } else { columnIdentityContent(team, trailing: trailing) }
+    }
+
+    private func columnIdentityContent(_ team: MatchupTeam, trailing: Bool) -> some View {
+        VStack(alignment: trailing ? .trailing : .leading, spacing: 7) {
+            TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 32, artworkURLs: team.artworkURLs)
+            Text(team.name).font(.subheadline.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(trailing ? .trailing : .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: trailing ? .trailing : .leading)
+    }
+
+    @ViewBuilder private func columnProjection(_ projection: ScoringGamePresentation.Projection) -> some View {
+        if projection.isVisible {
+            HStack(spacing: 4) {
+                Text(projection.isLiveEstimate ? "Live est." : "Proj.")
+                projectionValue(projection)
+            }.font(.caption).foregroundStyle(ScoringStyle.heroProjection)
+        } else { Color.clear.frame(height: 1).gridCellUnsizedAxes(.horizontal) }
     }
 
     private func projection(_ team: MatchupTeam, receipt: ScoringLiveReceipt?, freshness: ScoreFreshness) -> ScoringGamePresentation.Projection {
@@ -262,8 +326,10 @@ struct ScoringMatchupHero: View {
 
     private func points(_ team: MatchupTeam, freshness: ScoreFreshness, now: Date) -> some View {
         ScoreValue(points: team.reportedScore, projection: nil, precision: snapshot.scorePrecision,
-            font: .title2.weight(.semibold), onDark: true, showProjection: false,
-            change: freshness.qualifiesGameState ? nil : model.scoringChanges.change(for: .init(matchupID: matchup.id, teamID: team.id), now: now), compact: dynamicTypeSize < .xxLarge)
+            font: layout == .playerColumns && dynamicTypeSize < .xxLarge ? .largeTitle.weight(.semibold) : .title2.weight(.semibold),
+            onDark: true, showProjection: false,
+            change: freshness.qualifiesGameState ? nil : model.scoringChanges.change(for: .init(matchupID: matchup.id, teamID: team.id), now: now),
+            compact: layout == .teamRows && dynamicTypeSize < .xxLarge)
         .accessibilityIdentifier("hero-metrics-\(team.id)")
     }
 

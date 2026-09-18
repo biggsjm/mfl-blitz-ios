@@ -37,7 +37,7 @@ struct MatchupDetailView: View {
                         saved: model.isUsingCachedSession, preview: model.isDemo)
                     if viewMode != "matchup" {
                     ScoringMatchupHero(matchup: matchup, snapshot: displayScores,
-                        failed: readFailed, saved: model.isUsingCachedSession, teamLinks: true)
+                        failed: readFailed, saved: model.isUsingCachedSession, teamLinks: true, layout: .playerColumns)
                         .onGeometryChange(for: CGFloat.self) { geometry in
                             geometry.frame(in: .named("matchup-content")).maxY
                         } action: { bottom in
@@ -650,8 +650,9 @@ struct MatchupPlayerCell: View {
     }
 
     private func showsPregameProjection(_ player: MatchupPlayer) -> Bool {
-        if let game = nflGame(player) { return game.status == "NS" }
         let info = gameInfo(for: player)
+        guard !info.isLive else { return false }
+        if let game = nflGame(player) { return game.status == "NS" }
         return player.gameState == .pregame && !info.isLive && info.status != "Final"
     }
 

@@ -92,6 +92,46 @@ struct NFLScoringFeedTests {
         #expect(PlayerScoringContext.isEligible(missingClock, game: info))
         #expect(game.player(matching: player)?.summary == "24/31 pass · 311 pass yd · 2 pass TD · 3 carries · 18 rush yd")
     }
+    private func kickoffGame(now: Date) -> NFLFeedGame {
+        NFLFeedGame(id: 21529, season: 2026, week: 2, kickoff: now.timeIntervalSince1970 - 300,
+            status: "NS", timer: nil, home: "BUF", away: "DET", homeScore: nil, awayScore: nil,
+            checkedAt: now.timeIntervalSince1970, stale: false, players: [], statsCheckedAt: nil, statsStale: true)
+    }
+    @Test(arguments: [nil, 3600, 3249] as [Int?])
+    func delayedNFLKickoffCannotHideMFLPlay(seconds: Int?) {
+        let now = Date(), nfl = kickoffGame(now: now)
+        var active = player(team: "BUF"); active.gameSecondsRemaining = 3249; active.livePoints = 3
+        let mfl = NFLScoringSnapshot(scope: "league", week: 2, games: ["BUF":
+            NFLGameContext(opponent: "DET", isHome: true, kickoff: now.addingTimeInterval(-300),
+                score: seconds == 3249 ? 7 : nil, opponentScore: seconds == 3249 ? 0 : nil,
+                gameSecondsRemaining: seconds)], checkedAt: now)
+        let info = MatchupGameInfo(player: active, availability: nil, scope: "league", week: 2,
+            scoringGames: mfl, nflGame: nfl, now: now)
+        #expect(info.isLive && info.kickoff == nil)
+        #expect(info.opponent == "vs DET")
+        #expect(info.scoreLabel == (seconds == 3249 ? "BUF 7 · DET 0" : nil))
+        #expect(info.status == (seconds == 3249 ? "~Q1 9:09" : "Live"))
+        #expect(active.livePoints == 3)
+        #expect(nfl.player(matching: active) == nil)
+    }
+    @Test func pendingProviderRetainsOpponentWithoutInventingAScoreOrClock() {
+        let now = Date()
+        let info = MatchupGameInfo(player: player(team: "DET"), availability: nil, scope: "league", week: 2,
+            nflGame: kickoffGame(now: now), now: now)
+        #expect(info.isLive && info.status == "Live")
+        #expect(info.opponent == "@ BUF")
+        #expect(info.scoreLabel == nil && info.gameCheckedAt == nil && info.kickoff == nil)
+    }
+    @Test func kickoffTimeAndFantasyPointsAloneDoNotProveLivePlay() {
+        let now = Date()
+        var upcoming = player(team: "BUF"); upcoming.gameSecondsRemaining = 3600
+        let unrelated = NFLScoringSnapshot(scope: "other", week: 2, games: ["BUF":
+            NFLGameContext(opponent: "DET", isHome: true, kickoff: now.addingTimeInterval(-300),
+                gameSecondsRemaining: 3000)], checkedAt: now)
+        let info = MatchupGameInfo(player: upcoming, availability: nil, scope: "league", week: 2,
+            scoringGames: unrelated, nflGame: kickoffGame(now: now), now: now)
+        #expect(!info.isLive && info.kickoff != nil && info.scoreLabel == nil)
+    }
     func summary(_ groups: [(String, [(String, String?)])]) -> String? {
         NFLFeedPlayer(providerID: 1, name: "Test Player", team: "JAC", position: "TE", groups: groups.map { name, stats in
             NFLFeedGroup(name: name, stats: stats.map { NFLFeedStat(name: $0.0, value: $0.1) })

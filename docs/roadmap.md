@@ -2,7 +2,7 @@
 
 ## September 17 — compact matchup summary
 
-Option B is implemented locally: stacked team rows, shared score/projection columns, aligned identity metadata and one kickoff footer. See [scoring presentation](scoring-visual-system.md) and [verification status](current-status.md). Collect for a later release; TestFlight build 69 is unchanged.
+Approved for build 70: option B on Scores, side-by-side matchup columns aligned with the players, and the delayed-NFL-kickoff fallback. See [scoring presentation](scoring-visual-system.md) and [verification status](current-status.md). Josh authorized TestFlight distribution followed by merge; delivery is tracked separately from implementation.
 
 ## September 14 review priorities
 

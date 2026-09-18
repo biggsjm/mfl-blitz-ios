@@ -332,7 +332,7 @@ final class PlayerToolsUITests: XCTestCase {
 
     @MainActor private func revealAction(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         let container = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        for _ in 0..<12 {
+        for _ in 0..<30 {
             // iOS 18 exposes a labeled accessibility wrapper around the actual
             // UIKit menu button. The wrapper itself has no hittable point.
             let nativeButton = container.buttons.firstMatch
@@ -340,14 +340,20 @@ final class PlayerToolsUITests: XCTestCase {
             // Existence alone can include an offscreen row at large text.
             // Use measured visibility, not the wrapper's unreliable hit point.
             if target.exists && actionIsVisible(target, in: app) { return target }
-            let aboveContent = target.exists && target.frame.minY < app.navigationBars.firstMatch.frame.maxY
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: aboveContent ? 0.45 : 0.7))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: aboveContent ? 0.7 : 0.45))
-            start.press(forDuration: 0.01, thenDragTo: end)
+            let top = app.navigationBars.firstMatch.frame.maxY
+            let bottom = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : app.frame.maxY
+            let height = bottom - top
+            let aboveContent = target.exists && target.frame.minY < top
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(
+                CGVector(dx: app.frame.midX, dy: top + height * (aboveContent ? 0.3 : 0.75)))
+            let end = app.coordinate(withNormalizedOffset: .zero).withOffset(
+                CGVector(dx: app.frame.midX, dy: top + height * (aboveContent ? 0.75 : 0.3)))
+            start.press(forDuration: 0.05, thenDragTo: end)
         }
         let nativeButton = container.buttons.firstMatch
         let target = nativeButton.exists ? nativeButton : container
         XCTAssertTrue(target.exists, "Roster action must exist: \(identifier)")
+        XCTAssertTrue(actionIsVisible(target, in: app), "Roster action must be inside the visible content after scrolling")
         return target
     }
 

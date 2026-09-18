@@ -2,7 +2,7 @@
 
 ## Compact matchup summary — September 17, unreleased
 
-Josh selected option B from the matchup-card comparison. The shared summary on Scores and matchup detail now uses two stacked team rows with aligned Points and Proj. columns. Each team keeps its logo, full name, owner, record and known playing/to-play counts. Omit zero playing counts. A shared footer shows the earliest known future starter kickoff when neither team has an active player, or the matchup state otherwise. Unknown, incomplete or stale progress must not produce a kickoff claim.
+Josh approved compact option B on Scores and a side-by-side header for the full matchup. Scores uses stacked team rows with shared Points and Proj. columns. Matchup detail places each team above its player column, with aligned owner, record and score rows. Live players retains its pinned side-by-side totals and explicit team headings. Each team keeps its league-provided identity. Omit zero playing counts. A shared footer shows the earliest known future starter kickoff when neither team has an active player, or the matchup state otherwise. Unknown, incomplete or stale progress must not produce a kickoff claim.
 
 During play, the projection column is labeled Live est.; final matchups omit it. Official points and live-activity receipt reconciliation retain their existing source/precision rules. Recent change indicators remain attached to actual points. Larger accessibility text moves labeled metrics below each team identity; full names and score digits remain readable. Team links remain available in matchup detail. This is a presentation change with no additional requests or refresh subscriptions.
 

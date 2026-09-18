@@ -41,16 +41,17 @@ struct MatchupModeTeam {
                 return Entry(player: player, section: .unavailable, state: "Conflicting player data", kickoff: nil)
             }
             let game = feed.flatMap { $0.week == week ? $0.game(team: player.nflTeam) : nil }
+            let info = MatchupGameInfo(player: player, availability: data, scope: scope, week: week,
+                scoringGames: scoringGames, nflGame: game, now: now)
             let kickoff = game.map { Date(timeIntervalSince1970: $0.kickoff) } ?? data?.games[player.nflTeam]?.kickoff
             let section: MatchupModeSection
             let state: String
-            if let game {
+            if let game, game.status != "NS" || !info.isLive {
                 section = game.isLive ? .inProgress : game.isFinal ? .completed : game.status == "NS" ? .upcoming : .unavailable
                 state = (game.gameIsStale(now: now) ? "Last known: " : "") + game.statusLabel
             } else if data?.byeWeeks[player.nflTeam] == week {
                 section = .unavailable; state = "Bye week"
             } else {
-                let info = MatchupGameInfo(player: player, availability: data, scope: scope, week: week, scoringGames: scoringGames, now: now)
                 if info.isLive {
                     section = .inProgress; state = info.status ?? "In progress"
                 } else if info.status == "Regulation complete" {

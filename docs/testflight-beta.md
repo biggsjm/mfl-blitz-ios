@@ -1,8 +1,8 @@
 # MFL Blitz — closed league TestFlight
 
-Build 70 is being prepared for the same groups. It adds the approved compact matchup summary on Scores and matchup detail: stacked team rows, aligned Points/Proj. columns, current live estimates and a single shared kickoff. Larger text moves metrics below the team identity. Distribution is pending until the [current status](current-status.md) records delivery.
+Build 70 is being prepared for the same groups. It adds compact team rows on Scores and a side-by-side header above the full matchup's player columns, with current live estimates and a shared kickoff. Larger text moves metrics below the team identity. A delayed NFL upcoming status no longer hides MFL-confirmed active players. Distribution is pending until the [current status](current-status.md) records delivery.
 
-Build 69 is **Testing** for both Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It includes shared player name/team/jersey headings, day-first game captions and trailing status, a position-sorted lineup bench, and consistent far-right Search controls. The signed export, initial full model checks and affected native UI journeys pass; post-merge full CI is still running. See [current status](current-status.md) for evidence. Installation of build 69 on a phone remains unverified.
+Build 69 is **Testing** for both Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It includes shared player name/team/jersey headings, day-first game captions and trailing status, a position-sorted lineup bench, and consistent far-right Search controls. Post-merge CI exposed three outdated UI assertions/scroll helpers; the build-70 work includes their verified fixes. See [current status](current-status.md) for evidence. Installation of build 69 on a phone remains unverified.
 
 Build 68 retains build 67's automatic league services for invited owners. Build 67 was installed through the owner TestFlight group; automatic phone enrollment and production lineup registration were confirmed. Visible production notification delivery remains to be tested. See [current status](current-status.md). Build 66 is the earlier owner-only private-service build.
 
@@ -17,7 +17,7 @@ League changes affect the actual MFL league. The interactive preview uses synthe
 
 ## What to test
 
-- In build 70, compare the compact matchup summary on Scores and matchup detail before kickoff, during live games and after final scores. Check team links, full names, aligned points/projections and larger text.
+- In build 70, compare the compact Scores card with the side-by-side full matchup header. Check that each team lines up with its players, owner names/records align, team links work, and live estimates/larger text remain readable. At kickoff, confirm MFL-confirmed active players stay in Live players even if NFL game scores or stats are still pending.
 
 - Scan lineup, roster, search, waiver, trade and matchup rows: name/team/jersey together, then day/time, opponent and optional status. Missing jersey numbers should be omitted.
 - Check the bench follows position order, then projected points, and Start/Replace controls still work.
