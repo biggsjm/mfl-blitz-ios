@@ -230,7 +230,7 @@ final class ScoringSystemUITests: XCTestCase {
         let app = start(arguments: ["--synthetic-scoring-change"])
         capture(app, "Scoring — aligned score blocks with change badges")
         let recent = app.descendants(matching: .any)["recent-scoring-changes"].firstMatch
-        for _ in 0..<8 where !recent.isHittable { app.swipeUp() }
+        revealControl(recent, in: app)
         XCTAssertTrue(recent.waitForExistence(timeout: 5))
         recent.tap()
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "→")).firstMatch.waitForExistence(timeout: 3))

@@ -117,26 +117,6 @@ final class LineupBenchFlowUITests: XCTestCase {
     }
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<40 {
-            if element.exists && element.isHittable { return }
-            let top = app.navigationBars.allElementsBoundByIndex.filter(\.isHittable)
-                .map { $0.frame.maxY }.max() ?? app.navigationBars.firstMatch.frame.maxY
-            var bottom = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : app.frame.maxY - 20
-            let review = app.buttons["Review & submit lineup"]
-            if review.exists && review.isHittable { bottom = min(bottom, review.frame.minY) }
-            let height = bottom - top
-            XCTAssertGreaterThan(height, 44, "Scroll within the unobscured lineup content")
-            guard height > 44 else { return }
-            let downward = element.exists && element.frame.maxY <= top
-            // A fast whole-screen swipe can skip the small Start control in a
-            // tall accessibility row, then keep scrolling away from it. Keep
-            // gestures inside the list, above the pinned review button.
-            let from = app.coordinate(withNormalizedOffset: .zero).withOffset(
-                CGVector(dx: app.frame.midX, dy: top + height * (downward ? 0.3 : 0.75)))
-            let to = app.coordinate(withNormalizedOffset: .zero).withOffset(
-                CGVector(dx: app.frame.midX, dy: top + height * (downward ? 0.75 : 0.3)))
-            from.press(forDuration: 0.05, thenDragTo: to)
-        }
-        XCTAssertTrue(element.isHittable)
+        revealControl(element, in: app, above: app.buttons["Review & submit lineup"])
     }
 }
