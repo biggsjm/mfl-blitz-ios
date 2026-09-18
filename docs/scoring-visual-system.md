@@ -1,5 +1,12 @@
 # Scoring visual system
 
+## Compact matchup summary — September 17, unreleased
+
+Josh selected option B from the matchup-card comparison. The shared summary on Scores and matchup detail now uses two stacked team rows with aligned Points and Proj. columns. Each team keeps its logo, full name, owner, record and known playing/to-play counts. Omit zero playing counts. A shared footer shows the earliest known future starter kickoff when neither team has an active player, or the matchup state otherwise. Unknown, incomplete or stale progress must not produce a kickoff claim.
+
+During play, the projection column is labeled Live est.; final matchups omit it. Official points and live-activity receipt reconciliation retain their existing source/precision rules. Recent change indicators remain attached to actual points. Larger accessibility text moves labeled metrics below each team identity; full names and score digits remain readable. Team links remain available in matchup detail. This is a presentation change with no additional requests or refresh subscriptions.
+
+
 September 9, 2026. **Approved, implemented and installed as private build 40; delivery evidence is in [current status](current-status.md).** The owner approved the visual reference and its native San Francisco typography, then requested a Week / Player segmented destination for active and finished players. This replaces density alone as the scoring milestone.
 
 ## One meaning per treatment

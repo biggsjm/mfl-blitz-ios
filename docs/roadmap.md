@@ -1,5 +1,9 @@
 # Execution plan and remaining work
 
+## September 17 — compact matchup summary
+
+Option B is implemented locally: stacked team rows, shared score/projection columns, aligned identity metadata and one kickoff footer. See [scoring presentation](scoring-visual-system.md) and [verification status](current-status.md). Collect for a later release; TestFlight build 69 is unchanged.
+
 ## September 14 review priorities
 
 Three independent AI reviews and peer discussion produced the [agreed seven-package plan](reviews/2026-09-14-priorities.md): accessibility baseline; consistent weekly player scoring; lineup/alert readiness; persistent matchup context; grouped timeline observations; clearer Live Activity; and search/My Team polish. The owner approved implementation plus [Matchup mode](matchup-mode-plan.md); build 62 contains these changes. [Current status](current-status.md) records delivery, verification and remaining manual checks.

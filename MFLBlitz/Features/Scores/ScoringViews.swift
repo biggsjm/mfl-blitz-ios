@@ -180,34 +180,42 @@ struct ScoringMatchupHero: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
-            let freshness = ScoreFreshness(snapshot: liveReceipt?.snapshot ?? snapshot, failed: failed, saved: saved, preview: model.isDemo, now: context.date)
-            VStack(alignment: .leading, spacing: 12) {
-                ViewThatFits(in: .horizontal) {
-                    HStack {
-                        heading
-                        Spacer(minLength: 8)
-                        state(freshness)
-                    }
-                    VStack(alignment: .leading, spacing: 4) { heading; state(freshness) }
-                }
-                if dynamicTypeSize.isAccessibilitySize {
-                    VStack(alignment: .leading, spacing: 14) {
-                        identity(matchup.away, trailing: false)
-                        metrics(matchup.away, trailing: false, freshness: freshness, now: context.date)
-                        identity(matchup.home, trailing: false)
-                        metrics(matchup.home, trailing: false, freshness: freshness, now: context.date)
-                    }
+            let receipt = liveReceipt
+            let displayed = receipt?.matchup ?? matchup
+            let freshness = ScoreFreshness(snapshot: receipt?.snapshot ?? snapshot, failed: failed, saved: saved, preview: model.isDemo, now: context.date)
+            let awayProjection = projection(matchup.away, receipt: receipt, freshness: freshness)
+            let homeProjection = projection(matchup.home, receipt: receipt, freshness: freshness)
+            let showsProjection = awayProjection.isVisible || homeProjection.isVisible
+            let projectionHeading = awayProjection.isLiveEstimate || homeProjection.isLiveEstimate ? "Live est." : "Proj."
+            let awayProgress = progress(matchup.away, receipt: receipt, freshness: freshness, now: context.date)
+            let homeProgress = progress(matchup.home, receipt: receipt, freshness: freshness, now: context.date)
+            VStack(alignment: .leading, spacing: 0) {
+                if dynamicTypeSize >= .xxLarge {
+                    accessibleRow(displayed.away, projection: awayProjection, progress: awayProgress, freshness: freshness, now: context.date)
+                    rule
+                    accessibleRow(displayed.home, projection: homeProjection, progress: homeProgress, freshness: freshness, now: context.date)
                 } else {
-                    // Shared rows keep score baselines equal even when only
-                    // one team name or owner needs a second line.
-                    VStack(spacing: 10) {
-                        alignedIdentities
-                        HStack(alignment: .top, spacing: 20) {
-                            metrics(matchup.away, trailing: false, freshness: freshness, now: context.date)
-                            metrics(matchup.home, trailing: true, freshness: freshness, now: context.date)
+                    // One grid keeps both numeric columns aligned, including
+                    // long team names and scores with different digit counts.
+                    Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 0) {
+                        GridRow {
+                            Text(featured ? "Your matchup" : "Team")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("Points").gridColumnAlignment(.trailing)
+                            if showsProjection { Text(projectionHeading).gridColumnAlignment(.trailing) }
                         }
+                        .font(.caption2).foregroundStyle(ScoringStyle.heroSecondary)
+                        .padding(.bottom, 2)
+                        compactRow(displayed.away, projection: awayProjection, showsProjection: showsProjection,
+                            progress: awayProgress, freshness: freshness, now: context.date)
+                        rule.gridCellUnsizedAxes(.horizontal)
+                        compactRow(displayed.home, projection: homeProjection, showsProjection: showsProjection,
+                            progress: homeProgress, freshness: freshness, now: context.date)
                     }
                 }
+                rule
+                footer(displayed, freshness: freshness, away: awayProgress, home: homeProgress, now: context.date)
+                    .frame(maxWidth: .infinity).padding(.top, 10)
             }
             .padding(16)
             .foregroundStyle(.white)
@@ -215,68 +223,100 @@ struct ScoringMatchupHero: View {
         }
     }
 
-    private var heading: some View {
-        Text(featured ? "YOUR MATCHUP" : (model.isDemo ? "PREVIEW MATCHUP" : "MATCHUP"))
-            .font(.caption.weight(.medium)).foregroundStyle(Color.blitzGreen)
-    }
-    private func state(_ freshness: ScoreFreshness) -> some View {
-        GameStateLabel(text: ScoringGamePresentation.label(for: liveReceipt?.matchup ?? matchup, stale: freshness.qualifiesGameState),
-            live: (liveReceipt?.matchup ?? matchup).status.isLive && !freshness.qualifiesGameState, onDark: true)
+    private var rule: some View {
+        Rectangle().fill(.white.opacity(0.13)).frame(height: 0.5).accessibilityHidden(true)
     }
 
-    private func metrics(_ team: MatchupTeam, trailing: Bool, freshness: ScoreFreshness, now: Date) -> some View {
-        let receipt = liveReceipt
-        let displayedTeam = receipt.map { team.id == matchup.home.id ? $0.matchup.home : $0.matchup.away } ?? team
-        let projection = receipt?.projection(home: team.id == matchup.home.id, stale: freshness.qualifiesGameState)
+    private func projection(_ team: MatchupTeam, receipt: ScoringLiveReceipt?, freshness: ScoreFreshness) -> ScoringGamePresentation.Projection {
+        receipt?.projection(home: team.id == matchup.home.id, stale: freshness.qualifiesGameState)
             ?? ScoringGamePresentation.projection(for: team, in: matchup, stale: freshness.qualifiesGameState)
-        return VStack(alignment: trailing ? .trailing : .leading, spacing: 4) {
-            Text("Points").font(.caption2).foregroundStyle(ScoringStyle.heroSecondary)
-            ScoreValue(points: displayedTeam.reportedScore, projection: projection.points, precision: snapshot.scorePrecision,
-                font: .largeTitle.weight(.medium), alignment: trailing ? .trailing : .leading, onDark: true, pregame: true,
-                liveEstimate: projection.isLiveEstimate, showProjection: projection.isVisible,
-                change: freshness.qualifiesGameState ? nil : model.scoringChanges.change(for: .init(matchupID: matchup.id, teamID: team.id), now: now), compact: true)
-                .padding(.bottom, dynamicTypeSize.isAccessibilitySize ? 0 : 16)
-            if !freshness.qualifiesGameState, receipt == nil {
-                remaining(team, now: now)
+    }
+
+    private func compactRow(_ team: MatchupTeam, projection: ScoringGamePresentation.Projection, showsProjection: Bool,
+                            progress: MatchupModeTeam?, freshness: ScoreFreshness, now: Date) -> some View {
+        GridRow {
+            identity(team, progress: progress)
+            points(team, freshness: freshness, now: now)
+            if showsProjection { projectionValue(projection).font(.subheadline) }
+        }
+        .padding(.vertical, 12)
+    }
+
+    private func accessibleRow(_ team: MatchupTeam, projection: ScoringGamePresentation.Projection,
+                               progress: MatchupModeTeam?, freshness: ScoreFreshness, now: Date) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            identity(team, progress: progress)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 24) {
+                    labeledPoints(team, freshness: freshness, now: now)
+                    if projection.isVisible { labeledProjection(projection) }
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    labeledPoints(team, freshness: freshness, now: now)
+                    if projection.isVisible { labeledProjection(projection) }
+                }
             }
         }
-        .frame(maxWidth: .infinity, alignment: trailing ? .trailing : .leading)
+        .padding(.vertical, 12)
+    }
+
+    private func points(_ team: MatchupTeam, freshness: ScoreFreshness, now: Date) -> some View {
+        ScoreValue(points: team.reportedScore, projection: nil, precision: snapshot.scorePrecision,
+            font: .title2.weight(.semibold), onDark: true, showProjection: false,
+            change: freshness.qualifiesGameState ? nil : model.scoringChanges.change(for: .init(matchupID: matchup.id, teamID: team.id), now: now), compact: dynamicTypeSize < .xxLarge)
         .accessibilityIdentifier("hero-metrics-\(team.id)")
     }
 
-    @ViewBuilder private func remaining(_ team: MatchupTeam, now: Date) -> some View {
-        let grouped = MatchupModeTeam(team: team, week: snapshot.week, scope: model.workspace?.storageScope,
-            feed: model.workspace.flatMap { model.usesNFLStats ? model.nflStats.feed(season: $0.season, week: snapshot.week) : nil },
-            availability: model.playerTools.availability[snapshot.week], scoringGames: model.scoringGames[snapshot.week], now: now)
-        if !grouped.entries.isEmpty, !grouped.hasUnclassifiedPlayers, grouped.entries(in: .unavailable).isEmpty,
-           grouped.entries.contains(where: { $0.section != .completed }) {
-            Text("\(grouped.entries(in: .inProgress).count) playing · \(grouped.entries(in: .upcoming).count) to play")
-                .font(.caption).foregroundStyle(ScoringStyle.heroSecondary)
-            if grouped.entries(in: .inProgress).isEmpty, let next = grouped.nextKickoff {
-                Text(next, format: .dateTime.weekday(.abbreviated).hour().minute()).font(.caption).foregroundStyle(ScoringStyle.heroSecondary)
-            }
+    private func labeledPoints(_ team: MatchupTeam, freshness: ScoreFreshness, now: Date) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Points").font(.caption).foregroundStyle(ScoringStyle.heroSecondary)
+            points(team, freshness: freshness, now: now)
         }
     }
 
-    private var alignedIdentities: some View {
-        VStack(spacing: 3) {
-            HStack(alignment: .top, spacing: 20) {
-                identity(matchup.away, trailing: false, nameOnly: true)
-                identity(matchup.home, trailing: true, nameOnly: true)
-            }
-            if ownerName(matchup.away) != nil || ownerName(matchup.home) != nil {
-                HStack(alignment: .top, spacing: 20) {
-                    owner(matchup.away).padding(.leading, 35).frame(maxWidth: .infinity, alignment: .leading)
-                    owner(matchup.home).padding(.trailing, 35).frame(maxWidth: .infinity, alignment: .trailing)
-                        .multilineTextAlignment(.trailing)
-                }
-            }
-            if recordText(matchup.away) != nil || recordText(matchup.home) != nil {
-                HStack(alignment: .top, spacing: 20) {
-                    record(matchup.away).padding(.leading, 35).frame(maxWidth: .infinity, alignment: .leading)
-                    record(matchup.home).padding(.trailing, 35).frame(maxWidth: .infinity, alignment: .trailing)
-                }
-            }
+    private func labeledProjection(_ projection: ScoringGamePresentation.Projection) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(projection.isLiveEstimate ? "Live est." : "Proj.").font(.caption).foregroundStyle(ScoringStyle.heroSecondary)
+            projectionValue(projection).font(.title3)
+        }
+    }
+
+    private func projectionValue(_ projection: ScoringGamePresentation.Projection) -> some View {
+        let text = projection.points.flatMap { $0.isFinite ? $0.pointsText : nil } ?? "—"
+        return Text(text).monospacedDigit().fixedSize()
+            .foregroundStyle(ScoringStyle.heroProjection)
+            .accessibilityLabel("\(projection.isLiveEstimate ? "Estimated final score" : "Pregame projection"), \(text == "—" ? "unavailable" : text + " points")")
+    }
+
+    private func progress(_ team: MatchupTeam, receipt: ScoringLiveReceipt?, freshness: ScoreFreshness, now: Date) -> MatchupModeTeam? {
+        guard !freshness.qualifiesGameState, receipt == nil, matchup.status != .final else { return nil }
+        let grouped = MatchupModeTeam(team: team, week: snapshot.week, scope: model.workspace?.storageScope,
+            feed: model.workspace.flatMap { model.usesNFLStats ? model.nflStats.feed(season: $0.season, week: snapshot.week) : nil },
+            availability: model.playerTools.availability[snapshot.week], scoringGames: model.scoringGames[snapshot.week], now: now)
+        guard !grouped.entries.isEmpty, !grouped.hasUnclassifiedPlayers, grouped.entries(in: .unavailable).isEmpty else { return nil }
+        return grouped
+    }
+
+    private func remainingText(_ progress: MatchupModeTeam?) -> String? {
+        guard let progress else { return nil }
+        let playing = progress.entries(in: .inProgress).count
+        let upcoming = progress.entries(in: .upcoming).count
+        if playing > 0 { return upcoming > 0 ? "\(playing) playing · \(upcoming) to play" : "\(playing) playing" }
+        return upcoming > 0 ? "\(upcoming) to play" : nil
+    }
+
+    @ViewBuilder private func footer(_ displayed: Matchup, freshness: ScoreFreshness,
+                                     away: MatchupModeTeam?, home: MatchupModeTeam?, now: Date) -> some View {
+        if let away, let home,
+           away.entries(in: .inProgress).isEmpty, home.entries(in: .inProgress).isEmpty,
+           let next = [away.nextKickoff, home.nextKickoff].compactMap({ $0 }).min(), next > now {
+            let started = away.entries.contains { $0.section == .completed } || home.entries.contains { $0.section == .completed }
+            Text("\(started ? "Next" : "Starts") \(next, format: .dateTime.weekday(.abbreviated).hour().minute())")
+                .font(.caption).foregroundStyle(ScoringStyle.heroSecondary)
+                .accessibilityIdentifier("matchup-next-kickoff")
+        } else {
+            GameStateLabel(text: ScoringGamePresentation.label(for: displayed, stale: freshness.qualifiesGameState),
+                live: displayed.status.isLive && !freshness.qualifiesGameState, onDark: true)
         }
     }
 
@@ -301,28 +341,30 @@ struct ScoringMatchupHero: View {
             .accessibilityIdentifier("matchup-record-\(team.id)")
     }
 
-    @ViewBuilder private func identity(_ team: MatchupTeam, trailing: Bool, nameOnly: Bool = false) -> some View {
+    @ViewBuilder private func identity(_ team: MatchupTeam, progress: MatchupModeTeam?) -> some View {
         if teamLinks, let scope = model.browseScope {
-            NavigationLink(value: TeamRoute(scope: scope, franchiseID: team.id)) { identityContent(team, trailing: trailing, nameOnly: nameOnly) }
+            NavigationLink(value: TeamRoute(scope: scope, franchiseID: team.id)) { identityContent(team, progress: progress) }
                 .buttonStyle(.plain).accessibilityIdentifier("matchup-team-\(team.id)")
-        } else { identityContent(team, trailing: trailing, nameOnly: nameOnly) }
+        } else { identityContent(team, progress: progress) }
     }
-    private func identityContent(_ team: MatchupTeam, trailing: Bool, nameOnly: Bool) -> some View {
-        HStack(alignment: .top, spacing: 7) {
-            if !trailing { mark(team) }
-            VStack(alignment: trailing ? .trailing : .leading, spacing: 3) {
+    private func identityContent(_ team: MatchupTeam, progress: MatchupModeTeam?) -> some View {
+        HStack(spacing: 9) {
+            TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 32, artworkURLs: team.artworkURLs)
+            VStack(alignment: .leading, spacing: 3) {
                 Text(team.name).font(.subheadline.weight(.medium)).fixedSize(horizontal: false, vertical: true)
-                if !nameOnly {
-                    if ownerName(team) != nil { owner(team) }
-                    if recordText(team) != nil { record(team) }
+                if ownerName(team) != nil { owner(team) }
+                // Keep the record readable when playing/to-play counts wrap.
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    if recordText(team) != nil { record(team).fixedSize() }
+                    if let remaining = remainingText(progress) {
+                        if recordText(team) != nil { Text("·").accessibilityHidden(true) }
+                        Text(remaining).fixedSize(horizontal: false, vertical: true)
+                    }
                 }
+                .font(.caption).foregroundStyle(ScoringStyle.heroSecondary)
             }
-            .multilineTextAlignment(trailing ? .trailing : .leading)
-            if trailing { mark(team) }
+            .multilineTextAlignment(.leading)
         }
-        .frame(maxWidth: .infinity, minHeight: nameOnly ? 28 : 44, alignment: trailing ? .topTrailing : .topLeading)
-    }
-    private func mark(_ team: MatchupTeam) -> some View {
-        TeamMark(abbreviation: team.abbreviation, seed: team.accentSeed, size: 28, artworkURLs: team.artworkURLs)
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
     }
 }

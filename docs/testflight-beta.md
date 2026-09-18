@@ -1,4 +1,6 @@
-# MFL Blitz 0.7.0 (69) — closed league TestFlight
+# MFL Blitz — closed league TestFlight
+
+Build 70 is being prepared for the same groups. It adds the approved compact matchup summary on Scores and matchup detail: stacked team rows, aligned Points/Proj. columns, current live estimates and a single shared kickoff. Larger text moves metrics below the team identity. Distribution is pending until the [current status](current-status.md) records delivery.
 
 Build 69 is **Testing** for both Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It includes shared player name/team/jersey headings, day-first game captions and trailing status, a position-sorted lineup bench, and consistent far-right Search controls. The signed export, initial full model checks and affected native UI journeys pass; post-merge full CI is still running. See [current status](current-status.md) for evidence. Installation of build 69 on a phone remains unverified.
 
@@ -14,6 +16,8 @@ Build 68 retains build 67's automatic league services for invited owners. Build 
 League changes affect the actual MFL league. The interactive preview uses synthetic data and sends no real transactions or pushes.
 
 ## What to test
+
+- In build 70, compare the compact matchup summary on Scores and matchup detail before kickoff, during live games and after final scores. Check team links, full names, aligned points/projections and larger text.
 
 - Scan lineup, roster, search, waiver, trade and matchup rows: name/team/jersey together, then day/time, opponent and optional status. Missing jersey numbers should be omitted.
 - Check the bench follows position order, then projected points, and Start/Replace controls still work.

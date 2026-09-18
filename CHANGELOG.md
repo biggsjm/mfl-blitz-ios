@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0 (70) — compact matchup summary
+
+- Use compact team rows in the Scores featured matchup and matchup detail header, with shared Points/Projection columns, owner names and records beneath each team, and one shared next kickoff. Live estimates, score-change indicators and stale-data handling remain intact; accessibility text uses stacked metrics.
+
 ## 0.7.0 (69) — scannable player rows
 
 - Use name/team/jersey headings and day/time → opponent → status captions across player browsing, lineup editing, waivers and matchup rows. Keep ownership and league stats visible, and adapt lineup actions to large text.

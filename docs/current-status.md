@@ -1,5 +1,19 @@
 # Current app status
 
+## September 17: build 70 — release preparation
+
+Josh authorized TestFlight distribution followed by push/merge. Build 70 packages the approved compact matchup summary described below; app and Live Activity versions are both 0.7.0 (70). The distribution archive, export verification, Apple processing and tester assignment are pending at this checkpoint. Build 69 remains the installed/available beta baseline (phone installation is unverified).
+
+The previous build-69 post-merge CI run has completed: core, app and backend tests passed; three native UI journeys failed. The delayed-game-caption assertion still expected opponent-first text despite the approved day-first format, and the largest-text lineup/roster helpers did not reach their target controls. The caption assertion is updated; older-iOS verification of all three journeys is in progress. Do not treat the earlier pending CI entry below as a passing result.
+
+## September 17: unreleased — compact matchup card (option B)
+
+Josh selected the compact team-row design. Scores' featured matchup and the matchup detail summary now share aligned Points and Proj./Live est. columns, with owner, record and known playing/to-play counts beneath each team. A shared footer shows the next known kickoff or current matchup state. Final matchups hide projections, stale progress is suppressed, and Live Activity receipt reconciliation and point-change indicators are preserved. At XX Large and larger text sizes, metrics move beneath the team identity to avoid squeezing long names and precise scores.
+
+Validation: 17 existing scoring/receipt model tests and both affected native UI journeys pass in `/tmp/mfl-matchup-b-clean.xcresult`. After the large-text adjustment, both UI journeys pass again in `/tmp/mfl-matchup-b-final.xcresult`, along with a temporary native render harness producing 12 light/dark captures for upcoming, live, final, stale, long-name/three-decimal and largest-accessibility states. Captures were inspected in `/tmp/mfl-matchup-b-final-shots`. The harness exists only in the temporary verification copy; it is not app source. Checks used a copy of tracked source with current edits because pre-existing untracked duplicate Swift files break direct workspace package compilation; those files are untouched. Manual VoiceOver/device validation remains pending.
+
+Source changes are local and unreleased. TestFlight remains **0.7.0 (69)**. No additional data requests, refresh subscriptions, service changes, commit/push or distribution action occurred.
+
 ## September 17: build 69 — merged and available in TestFlight
 
 Josh authorized committing, pushing/merging and uploading the collected changes. **0.7.0 (69)** includes the approved shared player-row layout, cached jersey metadata, sorted bench and consistent trailing Search control. [PR #15](https://github.com/biggsjm/mfl-blitz-ios/pull/15) merged to `main` as `2d788e48c7731f6913f3c2467ac6f31c72a61416` at **18:20:45 CDT**. The archive's application source is `5b5a6bf780675948950d1b47fbdcd55c59ee7fbd`; subsequent changes are tests/documentation only.
