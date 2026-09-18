@@ -9,13 +9,19 @@ struct ScoringBreakdownView: View {
     let official: Double?
     let precision: Int
     @Binding var expanded: Bool
+    var missingStatsMessage = "Waiting for player stats. MFL points are tracked separately."
     @State private var rules: [MFLScoringRule] = []
     @State private var failed = false
     @State private var loadedScope: String?
 
     var body: some View {
         DisclosureGroup("Points breakdown", isExpanded:$expanded) {
-            if loadedScope != model.workspace?.storageScope || rules.isEmpty {
+            if player?.hasUsableStats != true {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(missingStatsMessage).font(.subheadline).foregroundStyle(.secondary)
+                    total("MFL points", value: official.map { Decimal($0) })
+                }.padding(.top, 8)
+            } else if loadedScope != model.workspace?.storageScope || rules.isEmpty {
                 Text(failed ? "Scoring rules couldn’t load. Reopen this player to retry." : "Loading league scoring rules…")
                     .font(.subheadline).foregroundStyle(.secondary)
             } else {

@@ -1,5 +1,13 @@
 # Current app status
 
+## September 17: build 71 — data status release in progress
+
+The scoring freshness control now opens a compact Data status sheet for MFL scores, NFL player stats, background Live Activity updates and enabled lineup alerts. Each row uses an icon plus a short status, with an expandable reason and the actual source receipt where available. Projection help is separate. Largest accessibility text opens a full-height sheet. Status is scoped to the viewed week, matchup or player; it is not a provider-wide uptime claim.
+
+NFL status checks expected data against MFL-confirmed play. Successful responses with an unstarted game, empty stats, stale boxes or missing scored players report Delayed. Completed boxes keep their source receipt without expiring just with age, and inactive games report Idle. Missing or unknown game information remains Checking. Background and alert rows describe saved registration/permission/expiry evidence, not guaranteed notification delivery. No provider requests, health polling, credentials, service roles or backend configuration are added or changed.
+
+Player details retain official MFL points while stats are missing and omit the misleading computed zero total and unexplained-points arithmetic until usable stats exist. Local app regression tests pass (412 Swift Testing cases and four XCTest layout checks in `/tmp/mfl71-status-validation.xcresult`). Final status rules pass all 14 cases; normal/largest-text status navigation and existing points/timeline UI journeys pass in `/tmp/mfl71-final-validation.xcresult`. The missing-stats journey passes in `/tmp/mfl71-missing-stats.xcresult` after correcting its assertion to match iOS’s combined points label. Native screenshots in `/tmp/mfl71-final-shots` verify the compact and accessible layouts. Build-71 distribution is in progress. Build 70 remains the released build until delivery is verified below. Unrelated synchronized duplicate files remain untouched.
+
 ## September 17: build 70 — available in TestFlight and merged
 
 **0.7.0 (70) is Testing** for Owner Testing (one internal tester) and Champion Hall Owners (12 existing external testers), with **Automatically notify testers** enabled. Apple finished processing, the unchanged Apple-only encryption answer is saved, and build-specific What to Test notes are saved. App Store Connect build ID: `ab270b76-dcbc-4841-8cc5-135e96258928`. Upload succeeded at **19:54:12 CDT**; both groups were verified before merge. Build 70 phone installation remains unverified.

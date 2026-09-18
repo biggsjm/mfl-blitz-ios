@@ -22,6 +22,8 @@ struct ScoreFreshnessLabel: View {
     var offline = false
     var saved = false
     var preview = false
+    var statusPlayers: [MatchupPlayer]? = nil
+    var statusScope: String? = nil
     @State private var showInfo = false
 
     var body: some View {
@@ -41,10 +43,10 @@ struct ScoreFreshnessLabel: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("score-freshness")
-            .popover(isPresented: $showInfo) {
-                Text("Checked means the app received a scoring response from MFL. MFL may lag behind the game. Live est. adds points already scored to each starter’s pregame projection for their remaining game time. It assumes an even scoring rate and does not account for injuries or game situation. Missing or stale data leaves the estimate unavailable. NFL game scores have a separate check time. ~Q is an approximate regulation quarter and clock calculated from MFL’s remaining game time; quarter breaks, halftime, and overtime are not identified. Player projections remain pregame estimates; changes compare points with the previous check.")
-                    .font(.subheadline).padding().frame(idealWidth: 280)
-                    .presentationCompactAdaptation(.popover)
+            .accessibilityHint("View data status")
+            .sheet(isPresented: $showInfo) {
+                ScoringDataStatusView(snapshot: snapshot, players: statusPlayers, scopeTitle: statusScope,
+                    refreshing: refreshing, failed: failed, offline: offline, saved: saved, preview: preview)
             }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)

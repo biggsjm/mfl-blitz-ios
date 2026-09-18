@@ -34,7 +34,8 @@ struct MatchupDetailView: View {
                     ScoreFreshnessLabel(snapshot: displayScores,
                         refreshing: snapshot == nil ? model.isLoadingScores : isRefreshingSnapshot,
                         failed: readFailed, offline: snapshot == nil ? model.scoresOffline : offline,
-                        saved: model.isUsingCachedSession, preview: model.isDemo)
+                        saved: model.isUsingCachedSession, preview: model.isDemo,
+                        statusPlayers: matchup.away.players + matchup.home.players, statusScope: "Matchup · Week \(displayScores.week)")
                     if viewMode != "matchup" {
                     ScoringMatchupHero(matchup: matchup, snapshot: displayScores,
                         failed: readFailed, saved: model.isUsingCachedSession, teamLinks: true, layout: .playerColumns)

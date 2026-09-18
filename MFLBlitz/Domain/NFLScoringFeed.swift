@@ -306,6 +306,7 @@ final class NFLScoringStore {
     }
     func feed(season: Int, week: Int) -> NFLWeekFeed? { feeds["\(season).\(week)"] }
     func failed(season: Int, week: Int) -> Bool { failures["\(season).\(week)", default: 0] > 0 }
+    func failureCount(season: Int, week: Int) -> Int { failures["\(season).\(week)", default: 0] }
     func loading(season: Int, week: Int) -> Bool { requests["\(season).\(week)"] != nil }
     func refresh(season: Int, week: Int, force: Bool = false, teams: [String] = [], defenseTeams: [String] = []) async {
         let key = "\(season).\(week)"

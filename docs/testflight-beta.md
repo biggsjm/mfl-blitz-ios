@@ -17,6 +17,9 @@ League changes affect the actual MFL league. The interactive preview uses synthe
 
 ## What to test
 
+- In build 71, tap the scoring “Checked…” or info control to open Data status. Check MFL scores, NFL player stats and background updates; enabled lineup alerts appear below. Expand a row for its brief reason/last receipt. NFL stats should show Delayed if MFL is scoring but player stats are missing, and Idle between games. Verify largest text and the separate projection help.
+- Open a player with missing stats: official MFL points remain visible without an invented zero stats total. Recheck a player with stats to confirm the league points breakdown still works.
+
 - In build 70, compare the compact Scores card with the side-by-side full matchup header. Check that each team lines up with its players, owner names/records align, team links work, and live estimates/larger text remain readable. At kickoff, confirm MFL-confirmed active players stay in Live players even if NFL game scores or stats are still pending.
 
 - Scan lineup, roster, search, waiver, trade and matchup rows: name/team/jersey together, then day/time, opponent and optional status. Missing jersey numbers should be omitted.
