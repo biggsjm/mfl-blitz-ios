@@ -1,8 +1,8 @@
 # MFL Blitz — closed league TestFlight
 
-Build 72 follow-up is in validation: MFL remaining time no longer appears as an inferred NFL quarter/clock; delayed NFL scoreboards are labeled last known; manual game-data refresh waits for the shared refresh to finish. Build 71 remains the latest verified Testing build until the delivery record below is updated.
+Build 72 is **Testing** for Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It includes the Data status sheet and missing-stats presentation from build 71. MFL remaining time now shows Live instead of an inferred NFL quarter/clock; clearly lagging NFL scoreboards are labeled Last known; manual game-data refresh waits for the shared refresh to finish. Provider delays can still affect when NFL stats arrive. All six CI jobs passed and PR #17 is merged; see [current status](current-status.md) for delivery evidence. Phone installation remains unverified.
 
-Build 71 is **Testing** for Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It adds a compact Data status sheet with scoped feed/connection evidence and removes invented zero totals when player stats are missing. No new provider requests or backend changes are required. Source merge validation is in progress; see [current status](current-status.md) for delivery evidence. Build 71 phone installation remains unverified.
+Build 71 is **Testing** for Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It adds a compact Data status sheet with scoped feed/connection evidence and removes invented zero totals when player stats are missing. No new provider requests or backend changes are required. The combined build-71/72 source is merged in PR #17; see [current status](current-status.md) for delivery evidence. Build 71 phone installation remains unverified.
 
 Build 70 is **Testing** for Owner Testing and the 12 existing Champion Hall Owners testers, with automatic notification enabled. It adds compact team rows on Scores and a side-by-side header above the full matchup's player columns, with current live estimates and a shared kickoff. Larger text moves metrics below the team identity. A delayed NFL upcoming status no longer hides MFL-confirmed active players. All six CI checks passed and PR #16 is merged. See [current status](current-status.md) for delivery evidence; build 70 phone installation remains unverified.
 
@@ -13,13 +13,15 @@ Build 68 retains build 67's automatic league services for invited owners. Build 
 ## Tester setup
 
 1. On an iPhone running iOS 18 or later, install Apple's TestFlight app and accept the emailed invitation once Apple approves the beta.
-2. Install build 71 or newer. Connect using your own MFL account and team. Co-owners sign in independently.
+2. Install build 72 or newer. Connect using your own MFL account and team. Co-owners sign in independently.
 3. Enhanced NFL stats and background scoring connect automatically. No access code, Tailscale app or server address is needed.
 4. For optional lineup alerts, open Lineup's toolbar bell, choose alerts and allow iOS notifications. Live Activity preferences remain in My Team → Settings.
 
 League changes affect the actual MFL league. The interactive preview uses synthetic data and sends no real transactions or pushes.
 
 ## What to test
+
+- In build 72, pull to refresh while another scoring check is running and confirm game-data refresh finishes before the gesture completes. When NFL context is delayed, MFL-confirmed play should show Live; verified NFL quarter, halftime and overtime still appear when available. A clearly lagging scoreboard should show Last known.
 
 - In build 71, tap the scoring “Checked…” or info control to open Data status. Check MFL scores, NFL player stats and background updates; enabled lineup alerts appear below. Expand a row for its brief reason/last receipt. NFL stats should show Delayed if MFL is scoring but player stats are missing, and Idle between games. Verify largest text and the separate projection help.
 - Open a player with missing stats: official MFL points remain visible without an invented zero stats total. Recheck a player with stats to confirm the league points breakdown still works.
@@ -45,7 +47,7 @@ A missing pending trade is labeled Closed unless its outcome is confirmed. Histo
 
 Use the existing app and testing groups. The closed external group contains 12 invited addresses; initial instructions were emailed. No public TestFlight link or developer staff roles are needed. The [automatic-access runbook](league-beta-access.md) describes private team configuration, independent device credentials, request budgets, revocation and migration. Do not email manual codes or share an owner's MFL credentials.
 
-Archive a clean reviewed revision with `scripts/archive_testflight.sh`, setting both `MFL_BACKGROUND_SYNC_URL` and `NFL_SCORING_URL` to the deployed authenticated gateway. On this Mac use `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`; stable Xcode 27 (27A266a) is accepted by Apple, while the older beta toolchain was rejected. The script archives only tracked files to exclude unrelated synchronized duplicates. Export using `scripts/TestFlightExportOptions.plist` and validate the IPA with `scripts/verify_testflight_export.py`. Export and upload are separate steps. Build 71 was archived and uploaded successfully with official Xcode 27. The older beta installation has been moved to Trash. Xcode requires its own Apple Account login, independent of the App Store Connect browser session.
+Archive a clean reviewed revision with `scripts/archive_testflight.sh`, setting both `MFL_BACKGROUND_SYNC_URL` and `NFL_SCORING_URL` to the deployed authenticated gateway. On this Mac use `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`; stable Xcode 27 (27A266a) is accepted by Apple, while the older beta toolchain was rejected. The script archives only tracked files to exclude unrelated synchronized duplicates. Export using `scripts/TestFlightExportOptions.plist` and validate the IPA with `scripts/verify_testflight_export.py`. Export and upload are separate steps. Builds 71 and 72 were archived and uploaded successfully with official Xcode 27. The older beta installation has been moved to Trash. Xcode requires its own Apple Account login, independent of the App Store Connect browser session.
 
 Production APNs signing is configured on the server. Never include signing keys or provider credentials in source, chat, settings or command arguments. Signed distribution profiles and signer readiness do not prove phone delivery. Verify upgrade, automatic team enrollment and actual Live Activity/lineup behavior on a TestFlight phone. Keep the canonical Hephaestus inventory current when service access or responsibilities change.
 
